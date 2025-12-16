@@ -1,0 +1,47 @@
+{#
+Barra de navegación simple con Bootstrap.
+- Marca activo según el path actual
+- Mantiene enlaces básicos a páginas protegidas
+- Sin lógica de roles para conservar simplicidad
+#}
+<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/usuarios">TEAMSA</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/usuarios') else '' }}"
+            href="/usuarios">Usuarios</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/clientes') else '' }}"
+            href="/clientes">Clientes</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/servicios') else '' }}"
+            href="/servicios">Servicios</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/proveedores') else '' }}"
+            href="/proveedores">Proveedores</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/cotizaciones') else '' }}"
+            href="/cotizaciones">Cotizaciones</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path.startswith('/viaticos') else '' }}"
+            href="/viaticos">Viáticos</a>
+        </li>
+      </ul>
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a class="nav-link" href="/auth/salir">Salir</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

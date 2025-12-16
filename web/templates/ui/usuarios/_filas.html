@@ -1,0 +1,8 @@
+{% from 'partials/actions.html' import acciones %}
+{% from 'partials/rows.html' import celdas %}
+{% for u in items %}
+  <tr>
+    {{ celdas(u, columnas) }}
+    {{ acciones(ui_base, u.id, True, None, 'Eliminar', '¿Eliminar usuario?') }}
+  </tr>
+{% endfor %}

@@ -1,0 +1,14 @@
+{% from 'partials/actions.html' import acciones %}
+{% from 'partials/rows.html' import celdas %}
+{% if items %}
+{% for item in items %}
+<tr>
+    {{ celdas(item, columnas) }}
+    {{ acciones(ui_base, item.id, True, None, 'Eliminar', '¿Eliminar servicio?') }}
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="100" class="text-center text-muted py-3">No hay servicios registrados</td>
+</tr>
+{% endif %}

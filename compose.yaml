@@ -1,0 +1,57 @@
+services:
+  aplicacion:
+    build:
+      context: .
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    volumes:
+      - uploads-data:/teamsa-app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    secrets:
+      - db-password
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8001/salud', timeout=20).getcode()==200 else sys.exit(1)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - teamsa-network
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    user: postgres
+    secrets:
+      - db-password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    env_file:
+      - .env
+    expose:
+      - 5432
+    networks:
+      - teamsa-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  teamsa-network:
+    driver: bridge
+
+volumes:
+  db-data:
+  uploads-data:
+
+
+secrets:
+  db-password:
+    file: db/password.txt

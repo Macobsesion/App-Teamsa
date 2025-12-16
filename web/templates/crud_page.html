@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ crud_config.label or 'CRUD' }}{% endblock %}
+
+{% block customCSS %}{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">{{ crud_config.label }}</h2>
+<div class="row mb-3">
+  <div class="col-sm-6">
+    <input class="form-control" type="search" name="q" placeholder="Buscar..." hx-get="{{ ui_base }}/filas"
+      hx-trigger="keyup changed delay:300ms" hx-target="#tbody-lista">
+  </div>
+</div>
+{% if puede_editar %}
+<div class="d-flex justify-content-end mb-3">
+  {% if 'cotizaciones' in ui_base %}
+  <a href="/ui/cotizaciones/wizard" class="btn btn-primary">✨ Nueva Cotización</a>
+  {% else %}
+  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal"
+    hx-get="{{ ui_base }}/form?modo=crear" hx-target="#modal-content" hx-swap="innerHTML">Agregar</button>
+  {% endif %}
+</div>
+{% endif %}
+<div class="table-responsive">
+  <table class="table table-striped table-sm">
+    <thead>
+      <tr>
+        {% for col in crud_config.columnas %}
+        <th>{{ col.label }}</th>
+        {% endfor %}
+        <th style="width:150px;">Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-lista" hx-get="{{ ui_base }}/filas" hx-trigger="load" hx-swap="innerHTML">
+      <tr>
+        <td colspan="100" class="text-center">Cargando...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+{# Modal HTMX #}
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content" id="modal-content">
+      <!-- Contenido cargado por HTMX -->
+    </div>
+  </div>
+</div>
+{% endblock %}

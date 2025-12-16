@@ -1,0 +1,25 @@
+fastapi==0.115.12
+uvicorn==0.34.3
+
+# ORM y base de datos
+sqlmodel==0.0.24
+SQLAlchemy==2.0.41
+psycopg==3.2.9
+psycopg-binary==3.2.9
+
+# Configuración y validación
+pydantic==2.11.5
+pydantic-settings==2.9.1
+pydantic[email]==2.11.5
+
+# Plantillas
+jinja2==3.1.6
+
+# Autenticación y formularios
+passlib==1.7.4
+bcrypt==3.2.2
+python-jose==3.5.0
+python-multipart==0.0.20
+
+# Generación de PDF
+weasyprint>=67.0

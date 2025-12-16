@@ -1,0 +1,39 @@
+{# Filas de la tabla de cotizaciones #}
+{% if items %}
+{% for item in items %}
+<tr>
+    <td>{{ item.numero }}</td>
+    <td>{{ item.cliente_id }}</td>
+    <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
+    <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
+    <td>
+        <span
+            class="badge bg-{{ 'secondary' if item.estado == 'borrador' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
+            {{ item.estado|title }}
+        </span>
+    </td>
+    <td>
+        <div class="btn-group btn-group-sm">
+            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-primary" title="Ver Detalle">
+                👁️ Ver
+            </a>
+            <button class="btn btn-outline-secondary" hx-get="/ui/cotizaciones/form?modo=editar&id={{ item.id }}"
+                hx-target="#modal-content"
+                hx-on::after-request="new bootstrap.Modal(document.getElementById('modal')).show()" title="Editar">
+                ✏️
+            </button>
+            <button class="btn btn-outline-danger" hx-delete="/api/cotizaciones/{{ item.id }}" hx-target="closest tr"
+                hx-swap="delete" hx-confirm="¿Eliminar cotización {{ item.numero }}?" title="Eliminar">
+                🗑️
+            </button>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% else %}
+<tr>
+    <td colspan="100" class="text-center text-muted py-3">
+        No hay cotizaciones. <a href="/ui/cotizaciones/wizard" class="text-decoration-none">✨ Crear la primera</a>
+    </td>
+</tr>
+{% endif %}

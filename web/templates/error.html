@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Error {{ status }}{% endblock %}
+
+{% block content %}
+  <div class="py-5 text-center">
+    <h1 class="display-6 text-danger">{{ detail or 'Error' }}</h1>
+    {% if status %}
+      <p class="text-muted">Código: {{ status }}</p>
+    {% endif %}
+  </div>
+{% endblock %}
+

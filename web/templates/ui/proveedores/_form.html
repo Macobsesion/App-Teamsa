@@ -1,0 +1,37 @@
+{% import 'partials/forms.html' as f %}
+{% set es_crear = (modo == 'crear') %}
+<div class="modal-header">
+    <h5 class="modal-title">{{ 'Crear proveedor' if es_crear else 'Editar proveedor' }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<div class="modal-body">
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+    <form id="frmProveedor" hx-target="#modal-content" hx-swap="innerHTML" {% if es_crear %}
+        hx-post="/ui/proveedores/crear" {% else %} hx-post="/ui/proveedores/{{ item.id }}/actualizar" {% endif %}>
+        {% if not es_crear %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
+
+        {{ f.field_input('nombre','Nombre', item=item, required=True) }}
+        {{ f.field_input('rfc','RFC', item=item) }}
+        {{ f.field_input('razon_social','Razón Social', item=item) }}
+        {{ f.field_input('contacto','Contacto', item=item) }}
+        {{ f.field_input('email','Email', item=item, type='email') }}
+        {{ f.field_input('telefono','Teléfono', item=item) }}
+        {{ f.field_input('direccion','Dirección', item=item) }}
+        {{ f.field_input('ciudad','Ciudad', item=item) }}
+        {{ f.field_input('estado','Estado', item=item) }}
+        {{ f.field_input('cp','Código Postal', item=item) }}
+        {{ f.field_input('categoria','Categoría', item=item) }}
+        {{ f.field_textarea('notas','Notas', item=item) }}
+
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="activo" id="activo" {% if es_crear or (item and
+                item.activo) %}checked{% endif %}>
+            <label class="form-check-label" for="activo">Activo</label>
+        </div>
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+    </form>
+</div>

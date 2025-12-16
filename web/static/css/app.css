@@ -1,0 +1,28 @@
+/* Ajustes globales de UI de TEAMSA */
+
+/* Tamaño razonable del logotipo en encabezado */
+.login-logo {
+  max-width: 180px;
+  height: auto;
+}
+
+/* Fallback simple para modales si no carga JS de Bootstrap */
+.modal {
+  display: none;
+}
+.modal.show {
+  display: block;
+}
+
+/* Mejoras de tabla responsive y legibilidad */
+.table-responsive {
+  overflow-x: auto;
+}
+.table td, .table th {
+  vertical-align: middle;
+}
+.table td.text-break {
+  word-break: break-word;
+}
+
+/* (sencillo) comportamiento responsive por defecto: scroll horizontal si es necesario */

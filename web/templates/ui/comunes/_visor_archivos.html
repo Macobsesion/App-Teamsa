@@ -1,0 +1,30 @@
+<div class="modal-header">
+  <h5 class="modal-title">{{ titulo }}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<div class="modal-body">
+  {% if not elementos or elementos|length == 0 %}
+    <div class="alert alert-info">No hay archivos para mostrar.</div>
+  {% else %}
+    <div class="row g-2">
+      {% for el in elementos %}
+        {% set u = el.url %}
+        {% set t = (el.tipo or 'image') %}
+        <div class="col-12">
+          {% if t in ['image','imagen'] %}
+            <img src="{{ u }}" alt="archivo {{ loop.index }}" class="img-fluid rounded border">
+          {% elif t == 'pdf' %}
+            <div class="ratio ratio-16x9">
+              <iframe src="{{ u }}" title="PDF {{ loop.index }}" style="border:1px solid #ddd;"></iframe>
+            </div>
+          {% else %}
+            <a href="{{ u }}" target="_blank" class="btn btn-outline-secondary w-100">Descargar archivo {{ loop.index }}</a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+  <div class="mt-3 text-end">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+  </div>
+</div>

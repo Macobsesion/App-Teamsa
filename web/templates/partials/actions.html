@@ -1,0 +1,22 @@
+{% macro acciones(ui_base, id, puede_editar=True, extras=None, delete_label='Eliminar', delete_confirm='¿Eliminar?') %}
+  {% if puede_editar %}
+    <td class="d-flex gap-2">
+      {% if extras %}
+        {% for ex in extras %}
+          <button class="btn btn-sm btn-secondary"
+                  data-bs-toggle="modal" data-bs-target="#editModal"
+                  hx-get="{{ ex.hx_get }}"
+                  hx-target="#modal-content" hx-swap="innerHTML">{{ ex.label }}</button>
+        {% endfor %}
+      {% endif %}
+      <button class="btn btn-sm btn-primary"
+              data-bs-toggle="modal" data-bs-target="#editModal"
+              hx-get="{{ ui_base }}/form?id={{ id }}&modo=editar"
+              hx-target="#modal-content" hx-swap="innerHTML">Editar</button>
+      <button class="btn btn-sm btn-danger"
+              hx-delete="{{ ui_base }}/{{ id }}"
+              hx-confirm="{{ delete_confirm }}">{{ delete_label }}</button>
+    </td>
+  {% endif %}
+{% endmacro %}
+

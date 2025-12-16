@@ -1,0 +1,110 @@
+{% import 'partials/forms.html' as f %}
+<div class="modal-header">
+    <h5 class="modal-title">Agregar Servicio a Cotización</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<div class="modal-body">
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+    <form id="frmAgregarConcepto" hx-post="/ui/cotizaciones/{{ cotizacion_id }}/conceptos" hx-target="#conceptos-list"
+        hx-swap="innerHTML">
+
+        {# Select de servicios con detalles #}
+        <div class="mb-3">
+            <label class="form-label">Servicio *</label>
+            <select class="form-select" name="servicio_id" id="select-servicio" required
+                onchange="llenarDatosServicio()">
+                <option value="">-- Seleccionar servicio --</option>
+            </select>
+            <small class="text-muted">Cargando servicios...</small>
+        </div>
+
+        {# Datos del servicio seleccionado (pre-llenados) #}
+        <div id="datos-servicio" style="display: none;">
+            <div class="alert alert-info">
+                <strong id="servicio-nombre"></strong><br>
+                <small>
+                    SAT: <span id="servicio-sat"></span> |
+                    Unidad: <span id="servicio-unidad"></span> |
+                    Precio base: $<span id="servicio-precio"></span>
+                </small>
+            </div>
+        </div>
+
+        {# Cantidad #}
+        {{ f.field_input('cantidad','Cantidad', type='number', attrs='step="0.01" min="0.01" value="1"', required=True)
+        }}
+
+        {# Descuento individual #}
+        {{ f.field_input('descuento_porcentaje','Descuento (%)', type='number', attrs='step="0.01" min="0" max="100"
+        value="0"') }}
+
+        {# Campos ocultos con datos del servicio (enviados al servidor) #}
+        <input type="hidden" name="codigo_sat" id="hidden-codigo-sat">
+        <input type="hidden" name="descripcion" id="hidden-descripcion">
+        <input type="hidden" name="unidad" id="hidden-unidad">
+        <input type="hidden" name="precio_unitario" id="hidden-precio-unitario">
+
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Agregar</button>
+        </div>
+    </form>
+
+    {# JavaScript para cargar servicios y llenar datos #}
+    <script>
+        let serviciosData = [];
+        const selectServicio = document.getElementById('select-servicio');
+
+        // Cargar servicios desde la API
+        fetch('/api/servicios/select')
+            .then(response => response.json())
+            .then(servicios => {
+                serviciosData = servicios;
+                selectServicio.nextElementSibling.textContent = '';
+
+                servicios.forEach(servicio => {
+                    const option = document.createElement('option');
+                    option.value = servicio.id;
+                    option.textContent = `[${servicio.clave}] ${servicio.descripcion} - $${servicio.precio_base}`;
+                    selectServicio.appendChild(option);
+                });
+
+                if (servicios.length === 0) {
+                    selectServicio.disabled = true;
+                    selectServicio.nextElementSibling.textContent = 'No hay servicios activos.';
+                    selectServicio.nextElementSibling.classList.add('text-danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                selectServicio.nextElementSibling.textContent = 'Error cargando servicios';
+                selectServicio.nextElementSibling.classList.add('text-danger');
+            });
+
+        // Llenar datos del servicio seleccionado
+        function llenarDatosServicio() {
+            const servicioId = parseInt(selectServicio.value);
+            if (!servicioId) {
+                document.getElementById('datos-servicio').style.display = 'none';
+                return;
+            }
+
+            const servicio = serviciosData.find(s => s.id === servicioId);
+            if (servicio) {
+                document.getElementById('servicio-nombre').textContent = servicio.descripcion;
+                document.getElementById('servicio-sat').textContent = servicio.codigo_sat || 'N/A';
+                document.getElementById('servicio-unidad').textContent = servicio.unidad || 'N/A';
+                document.getElementById('servicio-precio').textContent = servicio.precio_base.toFixed(2);
+
+                // Llenar campos ocultos
+                document.getElementById('hidden-codigo-sat').value = servicio.codigo_sat || '';
+                document.getElementById('hidden-descripcion').value = servicio.descripcion;
+                document.getElementById('hidden-unidad').value = servicio.unidad || '';
+                document.getElementById('hidden-precio-unitario').value = servicio.precio_base;
+
+                document.getElementById('datos-servicio').style.display = 'block';
+            }
+        }
+    </script>
+</div>

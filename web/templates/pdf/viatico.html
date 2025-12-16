@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Viático {{ viatico.numero }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: Letter;
+            margin: 1.5cm;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 9.5pt;
+            color: #333;
+            line-height: 1.3;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid #059669;
+        }
+
+        .logo {
+            max-width: 160px;
+            height: auto;
+        }
+
+        .titulo-container {
+            text-align: right;
+        }
+
+        .titulo-principal {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #047857;
+        }
+
+        .numero {
+            font-size: 13pt;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .info-general {
+            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+            border-left: 4px solid #059669;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .info-col {
+            flex: 1;
+        }
+
+        .info-label {
+            font-size: 7.5pt;
+            color: #047857;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .info-value {
+            font-size: 9.5pt;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .categoria-titulo {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            padding: 8px 10px;
+            font-size: 10pt;
+            font-weight: 600;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+        }
+
+        .gastos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 8px;
+        }
+
+        .gastos-table thead {
+            background-color: #d1fae5;
+        }
+
+        .gastos-table th {
+            padding: 6px 8px;
+            text-align: left;
+            font-size: 8pt;
+            font-weight: 600;
+            color: #047857;
+            border-bottom: 2px solid #059669;
+        }
+
+        .gastos-table th.text-right {
+            text-align: right;
+        }
+
+        .gastos-table tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .gastos-table tbody tr:hover {
+            background-color: #f0fdf4;
+        }
+
+        .gastos-table td {
+            padding: 6px 8px;
+            font-size: 8.5pt;
+        }
+
+        .subtotal-row {
+            background-color: #f0fdf4;
+            font-weight: 600;
+            color: #047857;
+        }
+
+        .totales-finales {
+            margin-top: 15px;
+            padding: 10px;
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border-radius: 4px;
+        }
+
+        .total-categoria {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 10px;
+            font-size: 9pt;
+            color: #047857;
+        }
+
+        .total-general-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            margin-top: 8px;
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            color: white;
+            font-size: 12pt;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+
+        .observaciones {
+            background-color: #fef3c7;
+            padding: 10px;
+            margin-top: 15px;
+            border-left: 4px solid #f59e0b;
+            border-radius: 3px;
+        }
+
+        .observaciones-titulo {
+            font-size: 8pt;
+            font-weight: 600;
+            color: #92400e;
+            margin-bottom: 4px;
+        }
+
+        .observaciones-texto {
+            font-size: 8.5pt;
+            color: #78350f;
+        }
+
+        .firmas {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 35px;
+        }
+
+        .firma-box {
+            text-align: center;
+            flex: 1;
+            margin: 0 15px;
+        }
+
+        .firma-linea {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            padding-top: 35px;
+        }
+
+        .firma-label {
+            font-size: 8pt;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .negrita {
+            font-weight: 600;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <img src="{{ logo_path }}" alt="Logo TEAMSA" class="logo">
+        <div class="titulo-container">
+            <div class="titulo-principal">REPORTE DE VIÁTICOS</div>
+            <div class="numero">{{ viatico.numero }}</div>
+        </div>
+    </div>
+
+    <div class="info-general">
+        <div class="info-row">
+            <div class="info-col">
+                <div class="info-label">Responsable</div>
+                <div class="info-value negrita">{{ responsable.nombres if responsable else viatico.responsable_id }}
+                </div>
+            </div>
+            <div class="info-col">
+                <div class="info-label">Proyecto</div>
+                <div class="info-value">{{ viatico.proyecto }}</div>
+            </div>
+        </div>
+        <div class="info-row">
+            <div class="info-col">
+                <div class="info-label">Cliente</div>
+                <div class="info-value">{{ viatico.cliente }}</div>
+            </div>
+            <div class="info-col">
+                <div class="info-label">Destino</div>
+                <div class="info-value">{{ viatico.destino }}</div>
+            </div>
+        </div>
+        <div class="info-row">
+            <div class="info-col">
+                <div class="info-label">Período</div>
+                <div class="info-value">{{ fecha_inicio_formateada }} - {{ fecha_fin_formateada }} ({{ viatico.dias }}
+                    días)</div>
+            </div>
+            <div class="info-col" style="text-align: right;">
+                <div class="info-label">Estado</div>
+                <div class="info-value" style="text-transform: capitalize;">{{ viatico.estado }}</div>
+            </div>
+        </div>
+    </div>
+
+    {% if gastos_transporte %}
+    <div class="categoria-titulo">🚗 Transporte</div>
+    <table class="gastos-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Fecha</th>
+                <th style="width: 40%;">Concepto</th>
+                <th class="text-right" style="width: 12%;">Cantidad</th>
+                <th class="text-right" style="width: 18%;">P. Unitario</th>
+                <th class="text-right" style="width: 18%;">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gasto in gastos_transporte %}
+            <tr>
+                <td>{{ gasto.fecha_gasto.strftime('%d/%m/%Y') }}</td>
+                <td>{{ gasto.concepto }}{% if gasto.tiene_factura %} 📄{% endif %}</td>
+                <td class="text-right">{{ gasto.cantidad }}</td>
+                <td class="text-right">${{ "{:,.2f}".format(gasto.precio_unitario) }}</td>
+                <td class="text-right negrita">${{ "{:,.2f}".format(gasto.importe) }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Subtotal Transporte:</td>
+                <td class="text-right">${{ "{:,.2f}".format(viatico.total_transporte) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if gastos_alojamiento %}
+    <div class="categoria-titulo">🏨 Alojamiento</div>
+    <table class="gastos-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Fecha</th>
+                <th style="width: 40%;">Concepto</th>
+                <th class="text-right" style="width: 12%;">Cantidad</th>
+                <th class="text-right" style="width: 18%;">P. Unitario</th>
+                <th class="text-right" style="width: 18%;">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gasto in gastos_alojamiento %}
+            <tr>
+                <td>{{ gasto.fecha_gasto.strftime('%d/%m/%Y') }}</td>
+                <td>{{ gasto.concepto }}{% if gasto.tiene_factura %} 📄{% endif %}</td>
+                <td class="text-right">{{ gasto.cantidad }}</td>
+                <td class="text-right">${{ "{:,.2f}".format(gasto.precio_unitario) }}</td>
+                <td class="text-right negrita">${{ "{:,.2f}".format(gasto.importe) }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Subtotal Alojamiento:</td>
+                <td class="text-right">${{ "{:,.2f}".format(viatico.total_alojamiento) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if gastos_alimentos %}
+    <div class="categoria-titulo">🍽️ Alimentos</div>
+    <table class="gastos-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Fecha</th>
+                <th style="width: 40%;">Concepto</th>
+                <th class="text-right" style="width: 12%;">Cantidad</th>
+                <th class="text-right" style="width: 18%;">P. Unitario</th>
+                <th class="text-right" style="width: 18%;">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gasto in gastos_alimentos %}
+            <tr>
+                <td>{{ gasto.fecha_gasto.strftime('%d/%m/%Y') }}</td>
+                <td>{{ gasto.concepto }}{% if gasto.tiene_factura %} 📄{% endif %}</td>
+                <td class="text-right">{{ gasto.cantidad }}</td>
+                <td class="text-right">${{ "{:,.2f}".format(gasto.precio_unitario) }}</td>
+                <td class="text-right negrita">${{ "{:,.2f}".format(gasto.importe) }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Subtotal Alimentos:</td>
+                <td class="text-right">${{ "{:,.2f}".format(viatico.total_alimentos) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if gastos_otros %}
+    <div class="categoria-titulo">📌 Otros Gastos</div>
+    <table class="gastos-table">
+        <thead>
+            <tr>
+                <th style="width: 12%;">Fecha</th>
+                <th style="width: 40%;">Concepto</th>
+                <th class="text-right" style="width: 12%;">Cantidad</th>
+                <th class="text-right" style="width: 18%;">P. Unitario</th>
+                <th class="text-right" style="width: 18%;">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for gasto in gastos_otros %}
+            <tr>
+                <td>{{ gasto.fecha_gasto.strftime('%d/%m/%Y') }}</td>
+                <td>{{ gasto.concepto }}{% if gasto.tiene_factura %} 📄{% endif %}</td>
+                <td class="text-right">{{ gasto.cantidad }}</td>
+                <td class="text-right">${{ "{:,.2f}".format(gasto.precio_unitario) }}</td>
+                <td class="text-right negrita">${{ "{:,.2f}".format(gasto.importe) }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="subtotal-row">
+                <td colspan="4" class="text-right">Subtotal Otros:</td>
+                <td class="text-right">${{ "{:,.2f}".format(viatico.total_otros) }}</td>
+            </tr>
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div class="totales-finales">
+        <div class="total-categoria">
+            <span>Transporte:</span>
+            <span>${{ "{:,.2f}".format(viatico.total_transporte) }}</span>
+        </div>
+        <div class="total-categoria">
+            <span>Alojamiento:</span>
+            <span>${{ "{:,.2f}".format(viatico.total_alojamiento) }}</span>
+        </div>
+        <div class="total-categoria">
+            <span>Alimentos:</span>
+            <span>${{ "{:,.2f}".format(viatico.total_alimentos) }}</span>
+        </div>
+        <div class="total-categoria">
+            <span>Otros Gastos:</span>
+            <span>${{ "{:,.2f}".format(viatico.total_otros) }}</span>
+        </div>
+        <div class="total-general-row">
+            <span>TOTAL GENERAL:</span>
+            <span>${{ "{:,.2f}".format(viatico.total_general) }}</span>
+        </div>
+    </div>
+
+    {% if viatico.observaciones %}
+    <div class="observaciones">
+        <div class="observaciones-titulo">OBSERVACIONES</div>
+        <div class="observaciones-texto">{{ viatico.observaciones }}</div>
+    </div>
+    {% endif %}
+
+    <div class="firmas">
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-label">{{ responsable.nombres if responsable else 'Responsable' }}</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-label">Aprobó</div>
+        </div>
+    </div>
+</body>
+
+</html>

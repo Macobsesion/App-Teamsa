@@ -1,0 +1,60 @@
+<!--
+  Plantilla base de la aplicación (Bootstrap, cabecera y pie).
+  Bloques: title, customCSS, content, customJS.
+-->
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}TEAMSA{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+  <link href="/static/css/app.css?v=2" rel="stylesheet">
+  {% block customCSS %}{% endblock %}
+</head>
+
+<body>
+  <header class="bg-light mb-4">
+    <div class="text-center mb-3">
+      <img src="/static/img/teamsa_logo.png" alt="Logo" class="login-logo">
+    </div>
+    {# Muestra la barra de navegación en páginas distintas al login #}
+    {% if request.url.path != '/' %}
+    {% include 'partials/nav.html' %}
+    {% endif %}
+  </header>
+  <main class="container">
+    <div id="mensaje" class="mx-auto"></div>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="bg-light p-3 mt-5 text-center">
+    <small>© 2025 TEAMSA</small>
+  </footer>
+
+</body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://unpkg.com/htmx.org@1.9.12"></script>
+{% block customJS %}{% endblock %}
+<script>
+  // Flash messages a partir de HX-Trigger { flash: { tipo, texto } }
+  (function () {
+    function mostrarFlash(texto, tipo) {
+      var cont = document.getElementById('mensaje');
+      if (!cont) return;
+      var t = tipo || 'success';
+      cont.innerHTML = '<div class="alert alert-' + t + '" role="alert">' + (texto || '') + '</div>';
+      setTimeout(function () { cont.innerHTML = ''; }, 4000);
+    }
+    document.body.addEventListener('flash', function (e) {
+      var d = (e && e.detail) || {};
+      if (typeof d === 'string') { mostrarFlash(d, 'success'); return; }
+      mostrarFlash(d.texto || 'Operación realizada', d.tipo || 'success');
+    });
+    // (Cierre robusto de modal eliminado para simplificar comportamiento)
+  })();
+</script>
+
+</html>

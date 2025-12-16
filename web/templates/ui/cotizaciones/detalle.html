@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+
+{% block title %}Cotización {{ cotizacion.numero }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {# Encabezado #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Cotización {{ cotizacion.numero }}</h2>
+            <p class="text-muted mb-0">
+                Cliente: <strong>{{ cliente.nombre }}</strong>
+                {% if cliente.rfc %} | RFC: {{ cliente.rfc }}{% endif %}
+            </p>
+        </div>
+        <div>
+            <span
+                class="badge bg-{{ 'secondary' if cotizacion.estado == 'borrador' else 'primary' if cotizacion.estado == 'enviada' else 'success' if cotizacion.estado == 'aceptada' else 'danger' if cotizacion.estado == 'rechazada' else 'info' }} fs-5">
+                {{ cotizacion.estado|title }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        {# Columna izquierda: Conceptos #}
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📦 Conceptos</h5>
+                    <button class="btn btn-light btn-sm" hx-get="/ui/cotizaciones/{{ cotizacion.id }}/concepto-form"
+                        hx-target="#modal-content" data-bs-toggle="modal" data-bs-target="#modal">
+                        + Agregar Servicio
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    {# Lista de conceptos (actualizada con HTMX) #}
+                    <div id="conceptos-list">
+                        {% include 'ui/cotizaciones/_conceptos_list.html' %}
+                    </div>
+                </div>
+            </div>
+
+            {# Resumen de Totales #}
+            <div class="card shadow-sm">
+                <div class="card-body" id="totales-section">
+                    {% include 'ui/cotizaciones/_totales.html' %}
+                </div>
+            </div>
+        </div>
+
+        {# Columna derecha: PDF y Acciones #}
+        <div class="col-lg-5">
+            {# Información de la Cotización #}
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title">📋 Información</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td class="text-muted">Fecha Emisión:</td>
+                            <td><strong>{{ cotizacion.fecha_emision.strftime('%d/%m/%Y') }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Fecha Vigencia:</td>
+                            <td><strong>{{ cotizacion.fecha_vigencia.strftime('%d/%m/%Y') }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Método de Pago:</td>
+                            <td><strong>{{ cotizacion.metodo_pago }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Forma de Pago SAT:</td>
+                            <td>
+                                <strong>
+                                    {% if cotizacion.forma_pago == '01' %}01 - Efectivo
+                                    {% elif cotizacion.forma_pago == '02' %}02 - Cheque nominativo
+                                    {% elif cotizacion.forma_pago == '03' %}03 - Transferencia electrónica
+                                    {% elif cotizacion.forma_pago == '04' %}04 - Tarjeta de crédito
+                                    {% elif cotizacion.forma_pago == '28' %}28 - Tarjeta de débito
+                                    {% else %}99 - Por definir
+                                    {% endif %}
+                                </strong>
+                            </td>
+                        </tr>
+                    </table>
+                    {% if cotizacion.notas %}
+                    <div class="mt-2">
+                        <small class="text-muted">Notas:</small>
+                        <p class="mb-0">{{ cotizacion.notas }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            {# Visor de PDF #}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📄 Vista Previa del PDF</h6>
+                </div>
+                <div class="card-body p-0">
+                    <iframe src="/api/cotizaciones/{{ cotizacion.id }}/pdf"
+                        style="width: 100%; height: 500px; border: none;"
+                        title="PDF Cotización {{ cotizacion.numero }}">
+                    </iframe>
+                </div>
+            </div>
+
+            {# Acciones #}
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/api/cotizaciones/{{ cotizacion.id }}/pdf" target="_blank" class="btn btn-primary">
+                            📥 Descargar PDF
+                        </a>
+                        <button class="btn btn-outline-primary" disabled>
+                            ✉️ Enviar por Correo (Próximamente)
+                        </button>
+                        <hr>
+                        <button class="btn btn-outline-secondary"
+                            hx-get="/ui/cotizaciones/form?modo=editar&id={{ cotizacion.id }}" hx-target="#modal-content"
+                            hx-on::after-request="new bootstrap.Modal(document.getElementById('modal')).show()">
+                            ✏️ Editar Información
+                        </button>
+                        <a href="/cotizaciones" class="btn btn-outline-secondary">
+                            ← Volver a Cotizaciones
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{# Resumen de totales con cálculos de descuento #}
+<table class="table table-sm mb-0">
+    <tr>
+        <td class="text-muted">Subtotal:</td>
+        <td class="text-end"><strong>${{ "%.2f"|format(cotizacion.subtotal) }}</strong></td>
+    </tr>
+    {% if cotizacion.descuento_global > 0 %}
+    <tr class="text-danger">
+        <td>Descuento Global:</td>
+        <td class="text-end">-${{ "%.2f"|format(cotizacion.descuento_global) }}</td>
+    </tr>
+    {% endif %}
+    <tr>
+        <td class="text-muted">IVA (16%):</td>
+        <td class="text-end">${{ "%.2f"|format(cotizacion.iva) }}</td>
+    </tr>
+    <tr class="table-primary">
+        <td><strong>TOTAL:</strong></td>
+        <td class="text-end">
+            <h5 class="mb-0">${{ "%.2f"|format(cotizacion.total) }}</h5>
+        </td>
+    </tr>
+</table>

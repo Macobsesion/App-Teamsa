@@ -1,0 +1,42 @@
+{% macro field_input(name, label, item=None, type='text', required=False, value=None, attrs='') %}
+  <div class="mb-3">
+    <label class="form-label">{{ label }}</label>
+    <input class="form-control" name="{{ name }}" type="{{ type }}" value="{{ value if value is not none else (getv(item, name) if item else '') }}" {% if required %}required{% endif %} {{ attrs|safe }}>
+  </div>
+{% endmacro %}
+
+{% macro field_textarea(name, label, item=None, required=False, rows=3) %}
+  <div class="mb-3">
+    <label class="form-label">{{ label }}</label>
+    <textarea class="form-control" name="{{ name }}" rows="{{ rows }}" {% if required %}required{% endif %}>{{ getv(item, name) if item else '' }}</textarea>
+  </div>
+{% endmacro %}
+
+{% macro field_select(name, label, options, item=None, required=False, multiple=False, value_attr='id', label_attr='nombre', empty_label='-- Selecciona --') %}
+  {% set selected = (getv(item, name) if item else ( [] if multiple else '' )) %}
+  <div class="mb-3">
+    <label class="form-label">{{ label }}</label>
+    <select class="form-select" name="{{ name }}" {% if multiple %} multiple {% endif %} {% if required %} required {% endif %}>
+      {% if not multiple %}
+        <option value="">{{ empty_label }}</option>
+      {% endif %}
+      {% for opt in options %}
+        {% set val = getv(opt, value_attr) %}
+        {% set lbl = getv(opt, label_attr) %}
+        {% if multiple %}
+          <option value="{{ val }}" {{ 'selected' if (selected and (val in selected)) else '' }}>{{ lbl }}</option>
+        {% else %}
+          <option value="{{ val }}" {{ 'selected' if (selected==val) else '' }}>{{ lbl }}</option>
+        {% endif %}
+      {% endfor %}
+    </select>
+  </div>
+{% endmacro %}
+
+{% macro field_file(name, label, required=False, current_url=None, accept='application/pdf') %}
+  <div class="mb-3">
+    <label class="form-label">{{ label }}</label>
+    {# Vista previa se maneja en cada formulario (iframe). Evitamos abrir nueva pestaña. #}
+    <input class="form-control" type="file" name="{{ name }}" accept="{{ accept }}" {% if required %}required{% endif %}>
+  </div>
+{% endmacro %}

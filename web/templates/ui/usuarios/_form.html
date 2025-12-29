@@ -1,65 +1,64 @@
 {% import 'partials/forms.html' as f %}
+
+{% call f.modal_wrapper('usuario', modo, 'frmUsuario', '/ui/usuarios', item) %}
+{% if modo == 'crear' %}{{ f.field_input('usuario','Usuario', required=True) }}{% endif %}
+{{ f.field_input('nombres','Nombres', item=item, required=True) }}
+{{ f.field_input('correo','Correo', item=item, type='email', required=True) }}
+{% set areas = [
+{'id':'Administración','nombre':'Administración'},
+{'id':'Dirección','nombre':'Dirección'},
+{'id':'ECO','nombre':'ECO'},
+{'id':'HI','nombre':'HI'},
+{'id':'HIDRO','nombre':'HIDRO'},
+{'id':'IND','nombre':'IND'},
+{'id':'MED','nombre':'MED'},
+{'id':'TI','nombre':'TI'}
+] %}
+{{ f.field_select('area','Área', areas, item=item) }}
+{% set roles = [
+{'id':'tecnico','nombre':'Técnico'},
+{'id':'admin','nombre':'Admin'},
+{'id':'funcionario','nombre':'Funcionario'}
+] %}
+{{ f.field_select('rol','Rol', roles, item=item, required=True) }}
+{# Contraseña editable también en edición: requerida sólo al crear #}
 {% set es_crear = (modo == 'crear') %}
-<div class="modal-header">
-  <h5 class="modal-title">{{ 'Crear usuario' if es_crear else 'Editar usuario' }}</h5>
-  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-  </div>
-<div class="modal-body">
-  {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
-  <form id="frmUsuario" hx-target="#modal-content" hx-swap="innerHTML"
-        {% if es_crear %} hx-post="/ui/usuarios/crear" {% else %} hx-post="/ui/usuarios/{{ item.id }}/actualizar" {% endif %}>
-    {% if not es_crear %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
-    {% if es_crear %}{{ f.field_input('usuario','Usuario', required=True) }}{% endif %}
-    {{ f.field_input('nombres','Nombres', item=item, required=True) }}
-    {{ f.field_input('correo','Correo', item=item, type='email', required=True) }}
-    {% set roles = [
-      {'id':'admin','nombre':'Admin'},
-      {'id':'funcionario','nombre':'Funcionario'},
-      {'id':'productor','nombre':'Productor'},
-      {'id':'conductor','nombre':'Conductor'},
-      {'id':'camarografo','nombre':'Camarógrafo'}
-    ] %}
-    {{ f.field_select('rol','Rol', roles, item=item, required=True) }}
-    {# Contraseña editable también en edición: requerida sólo al crear #}
-    {{ f.field_input('contrasena','Contraseña', type='password', required=es_crear, attrs='autocomplete="new-password"') }}
-    {{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=es_crear, attrs='autocomplete="new-password"') }}
-    <div class="modal-footer">
-      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-      <button type="submit" class="btn btn-primary">Guardar</button>
-    </div>
-  </form>
-  <script>
-    (function(){
-      var f = document.getElementById('frmUsuario');
-      if (!f) return;
-      var p = f.querySelector('input[name="contrasena"]');
-      var c = f.querySelector('input[name="confirmarContrasena"]');
-      var btn = f.querySelector('button[type="submit"]');
-      function validar(){
-        if (!p || !c) return;
-        var pv = (p.value||'');
-        var cv = (c.value||'');
-        // En edición, si ambos vacíos, no bloquear
-        if (!f.querySelector('input[name="id"]') && (pv === '' || cv === '')) {
-          // creación: requieren ambos no vacíos
-          try { p.classList.toggle('is-invalid', pv===''); c.classList.toggle('is-invalid', cv===''); } catch(_){ }
-        }
-        if (pv && cv) {
-          var ok = (pv === cv);
-          try { c.classList.toggle('is-invalid', !ok); c.classList.toggle('is-valid', ok); } catch(_){ }
-          if (btn) btn.disabled = !ok;
-        } else {
-          // En edición, permitimos vacío (no cambio de contraseña)
-          if (f.querySelector('input[name="id"]')) {
-            if (btn) btn.disabled = false;
-          }
+{{ f.field_input('contrasena','Contraseña', type='password', required=es_crear, attrs='autocomplete="new-password"') }}
+{{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=es_crear,
+attrs='autocomplete="new-password"') }}
+
+<script>
+  (function () {
+    var f = document.getElementById('frmUsuario');
+    if (!f) return;
+    var p = f.querySelector('input[name="contrasena"]');
+    var c = f.querySelector('input[name="confirmarContrasena"]');
+    var btn = f.querySelector('button[type="submit"]');
+    function validar() {
+      if (!p || !c) return;
+      var pv = (p.value || '');
+      var cv = (c.value || '');
+      // En edición, si ambos vacíos, no bloquear
+      if (!f.querySelector('input[name="id"]') && (pv === '' || cv === '')) {
+        // creación: requieren ambos no vacíos
+        try { p.classList.toggle('is-invalid', pv === ''); c.classList.toggle('is-invalid', cv === ''); } catch (_) { }
+      }
+      if (pv && cv) {
+        var ok = (pv === cv);
+        try { c.classList.toggle('is-invalid', !ok); c.classList.toggle('is-valid', ok); } catch (_) { }
+        if (btn) btn.disabled = !ok;
+      } else {
+        // En edición, permitimos vacío (no cambio de contraseña)
+        if (f.querySelector('input[name="id"]')) {
+          if (btn) btn.disabled = false;
         }
       }
-      ['input','change','blur'].forEach(function(ev){
-        if (p) p.addEventListener(ev, validar);
-        if (c) c.addEventListener(ev, validar);
-      });
-      validar();
-    })();
-  </script>
-</div>
+    }
+    ['input', 'change', 'blur'].forEach(function (ev) {
+      if (p) p.addEventListener(ev, validar);
+      if (c) c.addEventListener(ev, validar);
+    });
+    validar();
+  })();
+</script>
+{% endcall %}

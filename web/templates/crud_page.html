@@ -25,9 +25,11 @@
   <table class="table table-striped table-sm">
     <thead>
       <tr>
+        {% if crud_config and crud_config.columnas %}
         {% for col in crud_config.columnas %}
-        <th>{{ col.label }}</th>
+        <th>{{ col.titulo if col.titulo else col.campo|title }}</th>
         {% endfor %}
+        {% endif %}
         <th style="width:150px;">Acciones</th>
       </tr>
     </thead>

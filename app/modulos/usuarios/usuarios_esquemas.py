@@ -25,6 +25,7 @@ class UsuarioCreate(BaseModel):
     contrasena: str
     rol: RolUsuario | None = None
     correo: EmailStr
+    area: str | None = None
 
 
 class UsuarioListado(UsuarioBase):

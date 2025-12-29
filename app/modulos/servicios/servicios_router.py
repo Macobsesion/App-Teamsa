@@ -1,6 +1,4 @@
 """Router y descriptor CRUD para servicios."""
-from typing import Any
-
 from fastapi import APIRouter, Depends  # type: ignore
 from sqlmodel import Session  # type: ignore
 
@@ -13,18 +11,6 @@ from app.modulos.servicios.servicios_repositorio import RepositorioServicio
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 
-def _factory(db: Session) -> RepositorioServicio:
-    return RepositorioServicio(db)
-
-
-def _campos_creacion(payload: ServicioCreate, actor: UsuarioIdentity) -> dict[str, Any]:
-    return {"creado_por": actor.usuario, "modificado_por": actor.usuario}
-
-
-def _campos_actualizacion(payload: ServicioUpdate, actor: UsuarioIdentity) -> dict[str, Any]:
-    return {"modificado_por": actor.usuario}
-
-
 def _validar_unicidad(repo: RepositorioServicio, payload: ServicioCreate) -> str | None:
     """Valida que no exista un servicio con la misma clave."""
     if repo.obtener_por_clave(payload.clave):
@@ -32,11 +18,10 @@ def _validar_unicidad(repo: RepositorioServicio, payload: ServicioCreate) -> str
     return None
 
 
-# Descriptor declarativo del módulo
 descriptor = DescriptorCRUD[RepositorioServicio, ServicioCreate, ServicioUpdate, ServicioRead, UsuarioIdentity](
     label="Servicios",
     base_url="/api/servicios",
-    repo_factory=_factory,
+    repo_factory=RepositorioServicio,  # Clase directa - auditoría automática
     schema_read=ServicioRead,
     schema_create=ServicioCreate,
     schema_update=ServicioUpdate,
@@ -44,24 +29,20 @@ descriptor = DescriptorCRUD[RepositorioServicio, ServicioCreate, ServicioUpdate,
         "codigo_sat", "codigo_unidad", "clave", "descripcion",
         "tipo", "precio_base", "unidad", "activo", "notas"
     },
-    campos_creacion_extra=_campos_creacion,
-    campos_actualizacion_extra=_campos_actualizacion,
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"activo", "tipo"},
     campo_busqueda="clave",
     columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
-# Router API JSON
 router_api = descriptor.to_api_router(
     obtener_sesion=obtener_sesion_bd,
     write_dependency=exigir_roles("admin"),
 )
 
-# Router UI HTML/HTMX
 router_ui = construir_enrutador_ui(
     prefix="/ui/servicios",
-    repo_factory=_factory,
+    repo_factory=RepositorioServicio,
     schema_create=ServicioCreate,
     schema_update=ServicioUpdate,
     hooks=descriptor.build_hooks(),
@@ -78,7 +59,6 @@ router_ui = construir_enrutador_ui(
     campo_busqueda=descriptor.campo_busqueda,
 )
 
-# Endpoint adicional para selects dinámicos
 @router_api.get("/select", response_model=list[dict])
 def obtener_servicios_para_select(
     db: Session = Depends(obtener_sesion_bd),
@@ -100,10 +80,9 @@ def obtener_servicios_para_select(
             "activo": s.activo
         }
         for s in servicios
-        if s.activo  # Solo servicios activos
+        if s.activo
     ]
 
-# Router principal que combina API + UI
 router = APIRouter()
 router.include_router(router_api)
 router.include_router(router_ui)

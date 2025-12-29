@@ -1,6 +1,4 @@
 """Router y descriptor CRUD para clientes."""
-from typing import Any
-
 from fastapi import APIRouter, Depends  # type: ignore
 from sqlmodel import Session  # type: ignore
 
@@ -13,18 +11,6 @@ from app.modulos.clientes.clientes_repositorio import RepositorioCliente
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 
-def _factory(db: Session) -> RepositorioCliente:
-    return RepositorioCliente(db)
-
-
-def _campos_creacion(payload: ClienteCreate, actor: UsuarioIdentity) -> dict[str, Any]:
-    return {"creado_por": actor.usuario, "modificado_por": actor.usuario}
-
-
-def _campos_actualizacion(payload: ClienteUpdate, actor: UsuarioIdentity) -> dict[str, Any]:
-    return {"modificado_por": actor.usuario}
-
-
 def _validar_unicidad(repo: RepositorioCliente, payload: ClienteCreate) -> str | None:
     """Valida que no exista un cliente con el mismo nombre."""
     if repo.obtener_por_nombre(payload.nombre):
@@ -32,37 +18,32 @@ def _validar_unicidad(repo: RepositorioCliente, payload: ClienteCreate) -> str |
     return None
 
 
-# Descriptor declarativo del módulo
 descriptor = DescriptorCRUD[RepositorioCliente, ClienteCreate, ClienteUpdate, ClienteRead, UsuarioIdentity](
     label="Clientes",
     base_url="/api/clientes",
-    repo_factory=_factory,
+    repo_factory=RepositorioCliente,  # Clase directa - auditoría automática
     schema_read=ClienteRead,
     schema_create=ClienteCreate,
     schema_update=ClienteUpdate,
     campos_editables={
         "nombre", "rfc", "razon_social", "contacto", "email",
-        "telefono", "direccion", "ciudad", "estado", "cp",
+        "telefono", "direccion", "ciudad", "cp",
         "activo", "notas"
     },
-    campos_creacion_extra=_campos_creacion,
-    campos_actualizacion_extra=_campos_actualizacion,
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"activo"},
     campo_busqueda="nombre",
     columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
-# Router API JSON
 router_api = descriptor.to_api_router(
     obtener_sesion=obtener_sesion_bd,
     write_dependency=exigir_roles("admin"),
 )
 
-# Router UI HTML/HTMX
 router_ui = construir_enrutador_ui(
     prefix="/ui/clientes",
-    repo_factory=_factory,
+    repo_factory=RepositorioCliente,
     schema_create=ClienteCreate,
     schema_update=ClienteUpdate,
     hooks=descriptor.build_hooks(),
@@ -79,7 +60,6 @@ router_ui = construir_enrutador_ui(
     campo_busqueda=descriptor.campo_busqueda,
 )
 
-# Endpoint adicional para selects dinámicos
 @router_api.get("/select", response_model=list[dict])
 def obtener_clientes_para_select(
     db: Session = Depends(obtener_sesion_bd),
@@ -101,7 +81,6 @@ def obtener_clientes_para_select(
         if c.activo  # Solo clientes activos
     ]
 
-# Router principal que combina API + UI
 router = APIRouter()
 router.include_router(router_api)
 router.include_router(router_ui)

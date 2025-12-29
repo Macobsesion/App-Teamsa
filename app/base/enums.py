@@ -77,3 +77,15 @@ class EstadoViatico(str, Enum):
     APROBADO = "aprobado"
     RECHAZADO = "rechazado"
     PAGADO = "pagado"
+
+
+class AreaUsuario(str, Enum):
+    """Áreas organizacionales de la empresa."""
+    ADMINISTRACION = "Administración"
+    DIRECCION = "Dirección"
+    ECO = "ECO"
+    HI = "HI"
+    HIDRO = "HIDRO"
+    IND = "IND"
+    MED = "MED"
+    TI = "TI"

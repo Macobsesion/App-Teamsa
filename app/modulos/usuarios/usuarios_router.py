@@ -30,7 +30,6 @@ def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str,
     rol = payload.rol or 'funcionario'
     extras: dict[str, object] = {
         'rol': rol,
-        'area': area_por_rol(rol),
         'contrasena': _hashear_contrasena(payload.contrasena),
         'creado_por': actor.usuario,
         'modificado_por': actor.usuario,
@@ -41,13 +40,6 @@ def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str,
 def _extra_actualizacion(_payload: UsuarioUpdatePartial, actor: UsuarioIdentity) -> dict[str, object]:
     # Auditoría estándar desde el propio router
     extras: dict[str, object] = {'modificado_por': actor.usuario}
-    # Derivar el área 100% desde el rol si se modifica
-    try:
-        nuevo_rol = getattr(_payload, 'rol', None)
-        if nuevo_rol:
-            extras['area'] = area_por_rol(nuevo_rol)
-    except Exception:
-        pass
     # Si llega una contraseña no vacía, hashearla
     try:
         nueva_pass = getattr(_payload, 'contrasena', None)
@@ -77,7 +69,7 @@ descriptor = DescriptorCRUD[
     schema_read=UsuarioRead,
     schema_create=UsuarioCreate,
     schema_update=UsuarioUpdatePartial,
-    campos_editables={"nombres", "correo", "rol", "contrasena"},
+    campos_editables={"nombres", "correo", "area", "rol", "contrasena"},
     campos_creacion_extra=_extra_creacion,
     campos_actualizacion_extra=_extra_actualizacion,
     validar_unicidad=_validar_unicidad,

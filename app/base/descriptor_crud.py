@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, TypeVar, Generic
+from typing import Any, Callable, Iterable, TypeVar, Generic, Union, Type
 
 from pydantic import BaseModel  # type: ignore
 
@@ -22,6 +22,19 @@ ReadSchema = TypeVar("ReadSchema", bound=BaseModel)
 ActorType = TypeVar("ActorType")
 
 
+def _auditoria_creacion_default(payload: Any, actor: Any) -> dict[str, Any]:
+    """Auditoría por defecto para creación: creado_por y modificado_por."""
+    return {
+        "creado_por": actor.usuario,
+        "modificado_por": actor.usuario
+    }
+
+
+def _auditoria_actualizacion_default(payload: Any, actor: Any) -> dict[str, Any]:
+    """Auditoría por defecto para actualización: modificado_por."""
+    return {"modificado_por": actor.usuario}
+
+
 @dataclass
 class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, ActorType]):
     """Descriptor de un módulo CRUD.
@@ -30,16 +43,22 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
     - label, base_url, repo_factory y esquemas (read/create/update)
     - campos_editables/creables, validación de unicidad y filtros permitidos
     - metadata de frontend (columnas, mensajes y formularios opcionales)
+    
+    Mejoras:
+    - repo_factory ahora acepta clases o funciones
+    - Auditoría automática si no se especifican campos_*_extra
     """
     label: str
     base_url: str
-    repo_factory: Callable[[Any], ReposType]
+    # Acepta AMBOS: clase directa o función factory
+    repo_factory: Union[Type[ReposType], Callable[[Any], ReposType]]
     schema_read: type[ReadSchema]
     schema_create: type[CreateSchema]
     schema_update: type[UpdateSchema]
     campos_editables: Iterable[str] = field(default_factory=list)
-    campos_creacion_extra: Callable[[CreateSchema, ActorType], dict[str, Any]] = lambda *_: {}
-    campos_actualizacion_extra: Callable[[UpdateSchema, ActorType], dict[str, Any]] = lambda *_: {}
+    # None significa "usar auditoría automática", lambda vacía significa "sin auditoría"
+    campos_creacion_extra: Callable[[CreateSchema, ActorType], dict[str, Any]] | None = None
+    campos_actualizacion_extra: Callable[[UpdateSchema, ActorType], dict[str, Any]] | None = None
     validar_unicidad: Callable[[ReposType, CreateSchema], str | None] | None = None
     validar_actualizacion: Callable[[ReposType, UpdateSchema, int], str | None] | None = None
     filtros_permitidos: set[str] = field(default_factory=set)
@@ -50,6 +69,23 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
     columnas_excluir: Iterable[str] | None = None
     selectores: dict[str, Any] = field(default_factory=dict)
     form: list[dict[str, Any]] | None = None
+
+    def __post_init__(self):
+        """Configura auditoría automática si no se proporcionaron funciones."""
+        # Si es None (no se especificó), usar auditoría automática
+        if self.campos_creacion_extra is None:
+            self.campos_creacion_extra = _auditoria_creacion_default
+        if self.campos_actualizacion_extra is None:
+            self.campos_actualizacion_extra = _auditoria_actualizacion_default
+    
+    def _get_repo_instance(self, db: Any) -> ReposType:
+        """Obtiene instancia del repositorio, soportando clase o callable."""
+        if isinstance(self.repo_factory, type):
+            # Es una clase, instanciarla directamente
+            return self.repo_factory(db)  # type: ignore
+        else:
+            # Es un callable (función), llamarlo
+            return self.repo_factory(db)
 
     def build_hooks(self) -> GanchosCRUD[ReposType, CreateSchema, UpdateSchema, ActorType]:
         """Construye las funciones de orquestación para el ciclo CRUD.
@@ -77,8 +113,8 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
             preparar_creacion=_preparar_creacion,
             preparar_actualizacion=_preparar_actualizacion,
             validar_unicidad=self.validar_unicidad,
-            extra_kwargs_creacion=self.campos_creacion_extra,
-            extra_kwargs_actualizacion=self.campos_actualizacion_extra,
+            extra_kwargs_creacion=self.campos_creacion_extra,  # type: ignore
+            extra_kwargs_actualizacion=self.campos_actualizacion_extra,  # type: ignore
             validar_actualizacion=self.validar_actualizacion,
         )
 

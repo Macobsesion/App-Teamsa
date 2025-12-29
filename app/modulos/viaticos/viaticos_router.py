@@ -25,29 +25,30 @@ from app.modulos.viaticos.pdf_generator import generar_pdf_viatico
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 
-def _factory(db: Session) -> RepositorioViatico:
-    return RepositorioViatico(db)
-
-
 def _campos_creacion(payload: ViaticoCreate, actor: UsuarioIdentity) -> dict[str, Any]:
     """Genera campos adicionales al crear un viático."""
+    from app.base.descriptor_crud import _auditoria_creacion_default
+    
     # Crear repo temporal para generar número y calcular días
     with Session(obtener_motor()) as db:
         repo_temp = RepositorioViatico(db)
         numero = repo_temp.generar_siguiente_numero()
         dias = repo_temp.calcular_dias(payload.fecha_inicio, payload.fecha_fin)
     
-    return {
+    # Combinar auditoría automática con lógica de negocio
+    extras = _auditoria_creacion_default(payload, actor)
+    extras.update({
         "numero": numero,
         "dias": dias,
-        "creado_por": actor.usuario,
-        "modificado_por": actor.usuario,
-    }
+    })
+    return extras
 
 
 def _campos_actualizacion(payload: ViaticoUpdate, actor: UsuarioIdentity) -> dict[str, Any]:
     """Recalcula días si cambian las fechas."""
-    extras = {"modificado_por": actor.usuario}
+    from app.base.descriptor_crud import _auditoria_actualizacion_default
+    
+    extras = _auditoria_actualizacion_default(payload, actor)
     
     # Si cambian fechas, recalcular días
     if payload.fecha_inicio and payload.fecha_fin:
@@ -63,7 +64,7 @@ def _campos_actualizacion(payload: ViaticoUpdate, actor: UsuarioIdentity) -> dic
 descriptor = DescriptorCRUD[RepositorioViatico, ViaticoCreate, ViaticoUpdate, ViaticoRead, UsuarioIdentity](
     label="Viáticos",
     base_url="/api/viaticos",
-    repo_factory=_factory,
+    repo_factory=RepositorioViatico,  # Clase directa
     schema_read=ViaticoRead,
     schema_create=ViaticoCreate,
     schema_update=ViaticoUpdate,
@@ -87,7 +88,7 @@ router_api = descriptor.to_api_router(
 # Router UI HTML/HTMX
 router_ui = construir_enrutador_ui(
     prefix="/ui/viaticos",
-    repo_factory=_factory,
+    repo_factory=RepositorioViatico,
     schema_create=ViaticoCreate,
     schema_update=ViaticoUpdate,
     hooks=descriptor.build_hooks(),

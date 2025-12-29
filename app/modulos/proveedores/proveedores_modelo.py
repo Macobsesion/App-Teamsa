@@ -26,7 +26,6 @@ class Proveedor(AuditMixin, SQLModel, table=True):
     # Dirección
     direccion: str | None = None
     ciudad: str | None = None
-    estado: str | None = None
     cp: str | None = Field(default=None, max_length=5)
     
     # Categoría y estado

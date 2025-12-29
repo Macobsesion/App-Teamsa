@@ -1,94 +1,79 @@
 {% import 'partials/forms.html' as f %}
-{% set es_crear = (modo == 'crear') %}
-<div class="modal-header">
-    <h5 class="modal-title">{{ 'Crear cotización' if es_crear else 'Editar cotización' }}</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+
+{% call f.modal_wrapper('cotización', modo, 'frmCotizacion', '/ui/cotizaciones', item) %}
+{# Select dinámico de clientes #}
+<div class="mb-3">
+    <label class="form-label">Cliente *</label>
+    <select class="form-select" name="cliente_id" id="select-cliente" required
+        data-current-cliente-id="{{ item.cliente_id if item else '' }}">
+        <option value="">-- Seleccionar cliente --</option>
+    </select>
+    <small class="text-muted">Cargando clientes...</small>
 </div>
-<div class="modal-body">
-    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
-    <form id="frmCotizacion" hx-target="#modal-content" hx-swap="innerHTML" {% if es_crear %}
-        hx-post="/ui/cotizaciones/crear" {% else %} hx-post="/ui/cotizaciones/{{ item.id }}/actualizar" {% endif %}>
-        {% if not es_crear %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
 
-        {# Select dinámico de clientes #}
-        <div class="mb-3">
-            <label class="form-label">Cliente *</label>
-            <select class="form-select" name="cliente_id" id="select-cliente" required
-                data-current-cliente-id="{{ item.cliente_id if item else '' }}">
-                <option value="">-- Seleccionar cliente --</option>
-            </select>
-            <small class="text-muted">Cargando clientes...</small>
-        </div>
+{# Estados #}
+{% set estados = [
+{'id':'borrador','nombre':'Borrador'},
+{'id':'enviada','nombre':'Enviada'},
+{'id':'aceptada','nombre':'Aceptada'},
+{'id':'rechazada','nombre':'Rechazada'},
+{'id':'cobrado','nombre':'Cobrado'}
+] %}
+{{ f.field_select('estado','Estado', estados, item=item) }}
 
-        {# Estados #}
-        {% set estados = [
-        {'id':'borrador','nombre':'Borrador'},
-        {'id':'enviada','nombre':'Enviada'},
-        {'id':'aceptada','nombre':'Aceptada'},
-        {'id':'rechazada','nombre':'Rechazada'},
-        {'id':'cobrado','nombre':'Cobrado'}
-        ] %}
-        {{ f.field_select('estado','Estado', estados, item=item) }}
+{# Método de pago #}
+{% set metodos_pago = [
+{'id':'Transferencia SPEI','nombre':'Transferencia SPEI'},
+{'id':'Efectivo','nombre':'Efectivo'},
+{'id':'Cheque','nombre':'Cheque'},
+{'id':'Tarjeta','nombre':'Tarjeta'}
+] %}
+{{ f.field_select('metodo_pago','Método de Pago', metodos_pago, item=item) }}
 
-        {# Método de pago #}
-        {% set metodos_pago = [
-        {'id':'Transferencia SPEI','nombre':'Transferencia SPEI'},
-        {'id':'Efectivo','nombre':'Efectivo'},
-        {'id':'Cheque','nombre':'Cheque'},
-        {'id':'Tarjeta','nombre':'Tarjeta'}
-        ] %}
-        {{ f.field_select('metodo_pago','Método de Pago', metodos_pago, item=item) }}
+{# Notas #}
+{{ f.field_textarea('notas','Notas', item=item, rows=3) }}
 
-        {# Notas #}
-        {{ f.field_textarea('notas','Notas', item=item, rows=3) }}
+{# JavaScript para cargar clientes dinámicamente #}
+<script>
+    (function () {
+        const selectCliente = document.getElementById('select-cliente');
+        // Leer el ID desde el atributo data, convirtiéndolo a entero si existe
+        const currentIdStr = selectCliente.dataset.currentClienteId;
+        const currentClienteId = currentIdStr ? parseInt(currentIdStr) : null;
 
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-    </form>
+        // Cargar clientes desde la API
+        fetch('/api/clientes/select')
+            .then(response => response.json())
+            .then(clientes => {
+                // Limpiar mensaje de carga
+                selectCliente.nextElementSibling.textContent = '';
 
-    {# JavaScript para cargar clientes dinámicamente #}
-    <script>
-        (function () {
-            const selectCliente = document.getElementById('select-cliente');
-            // Leer el ID desde el atributo data, convirtiéndolo a entero si existe
-            const currentIdStr = selectCliente.dataset.currentClienteId;
-            const currentClienteId = currentIdStr ? parseInt(currentIdStr) : null;
+                // Agregar opciones
+                clientes.forEach(cliente => {
+                    const option = document.createElement('option');
+                    option.value = cliente.id;
+                    option.textContent = `${cliente.nombre}${cliente.rfc ? ' - ' + cliente.rfc : ''}`;
 
-            // Cargar clientes desde la API
-            fetch('/api/clientes/select')
-                .then(response => response.json())
-                .then(clientes => {
-                    // Limpiar mensaje de carga
-                    selectCliente.nextElementSibling.textContent = '';
-
-                    // Agregar opciones
-                    clientes.forEach(cliente => {
-                        const option = document.createElement('option');
-                        option.value = cliente.id;
-                        option.textContent = `${cliente.nombre}${cliente.rfc ? ' - ' + cliente.rfc : ''}`;
-
-                        // Seleccionar si es el cliente actual
-                        if (currentClienteId && cliente.id === currentClienteId) {
-                            option.selected = true;
-                        }
-
-                        selectCliente.appendChild(option);
-                    });
-
-                    // Si no hay clientes
-                    if (clientes.length === 0) {
-                        selectCliente.disabled = true;
-                        selectCliente.nextElementSibling.textContent = 'No hay clientes activos. Crea uno primero.';
-                        selectCliente.nextElementSibling.classList.add('text-danger');
+                    // Seleccionar si es el cliente actual
+                    if (currentClienteId && cliente.id === currentClienteId) {
+                        option.selected = true;
                     }
-                })
-                .catch(error => {
-                    console.error('Error cargando clientes:', error);
-                    selectCliente.nextElementSibling.textContent = 'Error cargando clientes';
-                    selectCliente.nextElementSibling.classList.add('text-danger');
+
+                    selectCliente.appendChild(option);
                 });
-        })();
-    </script>
-</div>
+
+                // Si no hay clientes
+                if (clientes.length === 0) {
+                    selectCliente.disabled = true;
+                    selectCliente.nextElementSibling.textContent = 'No hay clientes activos. Crea uno primero.';
+                    selectCliente.nextElementSibling.classList.add('text-danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error cargando clientes:', error);
+                selectCliente.nextElementSibling.textContent = 'Error cargando clientes';
+                selectCliente.nextElementSibling.classList.add('text-danger');
+            });
+    })();
+</script>
+{% endcall %}

@@ -23,43 +23,49 @@ from app.modulos.cotizaciones.cotizaciones_repositorio import (
 )
 from app.modulos.cotizaciones.pdf_generator import generar_pdf_cotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from fastapi.templating import Jinja2Templates
 
-
-def _factory(db: Session) -> RepositorioCotizacion:
-    return RepositorioCotizacion(db)
+# Templates globales para evitar recrearlos en cada endpoint
+TEMPLATES = Jinja2Templates(directory="web/templates")
 
 
 def _campos_creacion(payload: CotizacionCreate, actor: UsuarioIdentity) -> dict[str, Any]:
     """Genera campos adicionales al crear una cotización."""
-    # Crear repo temporal para generar número
+    from app.base.descriptor_crud import _auditoria_creacion_default
+    
+    # Crear repo temporal para generar número y fecha de vigencia
     with Session(obtener_motor()) as db:
         repo_temp = RepositorioCotizacion(db)
         numero = repo_temp.generar_siguiente_numero()
         fecha_vigencia = repo_temp.calcular_fecha_vigencia(date.today())
     
-    return {
+    # Combinar auditoría automática con lógica de negocio
+    extras = _auditoria_creacion_default(payload, actor)
+    extras.update({
         "numero": numero,
         "fecha_emision": date.today(),
         "fecha_vigencia": fecha_vigencia,
-        "creado_por": actor.usuario,
-        "modificado_por": actor.usuario,
-    }
+    })
+    return extras
 
 
 def _campos_actualizacion(payload: CotizacionUpdate, actor: UsuarioIdentity) -> dict[str, Any]:
-    return {"modificado_por": actor.usuario}
+    """Solo actualiza el campo modificado_por."""
+    from app.base.descriptor_crud import _auditoria_actualizacion_default
+    return _auditoria_actualizacion_default(payload, actor)
 
 
 # Descriptor declarativo del módulo
 descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionUpdate, CotizacionRead, UsuarioIdentity](
     label="Cotizaciones",
     base_url="/api/cotizaciones",
-    repo_factory=_factory,
+    repo_factory=RepositorioCotizacion,  # Clase directa
     schema_read=CotizacionRead,
     schema_create=CotizacionCreate,
     schema_update=CotizacionUpdate,
     campos_editables={
-        "cliente_id", "peticion", "estado", "notas", "condiciones_pago"
+        "cliente_id", "metodo_pago", "forma_pago", "notas", 
+        "atencion_a", "estado"
     },
     campos_creacion_extra=_campos_creacion,
     campos_actualizacion_extra=_campos_actualizacion,
@@ -77,7 +83,7 @@ router_api = descriptor.to_api_router(
 # Router UI HTML/HTMX
 router_ui = construir_enrutador_ui(
     prefix="/ui/cotizaciones",
-    repo_factory=_factory,
+    repo_factory=RepositorioCotizacion,
     schema_create=CotizacionCreate,
     schema_update=CotizacionUpdate,
     hooks=descriptor.build_hooks(),
@@ -105,10 +111,7 @@ def mostrar_wizard_cotizacion(
     usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
 ):
     """Wizard para crear cotización completa."""
-    from fastapi.templating import Jinja2Templates
-    templates = Jinja2Templates(directory="web/templates")
-    
-    return templates.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/wizard.html",
         {
             "request": request,
@@ -125,11 +128,8 @@ def ver_detalle_cotizacion(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
     """Vista de detalle de una cotización con gestión de conceptos."""
-    from fastapi.templating import Jinja2Templates
     from app.modulos.clientes.clientes_modelo import Cliente
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    templates = Jinja2Templates(directory="web/templates")
     
     # Obtener cotización
     repo = RepositorioCotizacion(db)
@@ -143,7 +143,7 @@ def ver_detalle_cotizacion(
     # Obtener conceptos
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
-    return templates.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/detalle.html",
         {
             "request": request,
@@ -163,10 +163,7 @@ def mostrar_formulario_concepto(
     _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
     """Formulario para agregar concepto (modal HTMX)."""
-    from fastapi.templating import Jinja2Templates
-    templates = Jinja2Templates(directory="web/templates")
-    
-    return templates.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/_concepto_form.html",
         {
             "request": request,
@@ -190,11 +187,8 @@ def agregar_concepto_htmx(
     descuento_porcentaje: float = 0.0,
 ):
     """Agrega concepto y devuelve lista actualizada (HTMX)."""
-    from fastapi.templating import Jinja2Templates
     from decimal import Decimal
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    templates = Jinja2Templates(directory="web/templates")
     
     # Agregar concepto
     repo_concepto = RepositorioConcepto(db)
@@ -215,7 +209,7 @@ def agregar_concepto_htmx(
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
     # Devolver lista actualizada
-    return templates.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/_conceptos_list.html",
         {
             "request": request,
@@ -234,10 +228,7 @@ def eliminar_concepto_htmx(
     _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
 ):
     """Elimina concepto y devuelve lista actualizada (HTMX)."""
-    from fastapi.templating import Jinja2Templates
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    templates = Jinja2Templates(directory="web/templates")
     
     # Eliminar concepto
     repo_concepto = RepositorioConcepto(db)
@@ -249,7 +240,7 @@ def eliminar_concepto_htmx(
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
     # Devolver lista actualizada
-    return templates.TemplateResponse(
+    return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/_conceptos_list.html",
         {
             "request": request,

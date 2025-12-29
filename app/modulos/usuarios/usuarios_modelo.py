@@ -19,4 +19,4 @@ class Usuario(AuditMixin, SQLModel, table=True):
     nombres: str
     rol: str = Field(default="funcionario")
     correo: str = Field(default="")
-    area: str = Field(default="")
+    area: str | None = None

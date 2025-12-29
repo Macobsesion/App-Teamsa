@@ -1,4 +1,5 @@
 """Generador de PDF para cotizaciones usando WeasyPrint."""
+import base64
 from io import BytesIO
 from pathlib import Path
 from weasyprint import HTML, CSS  # type: ignore
@@ -8,7 +9,26 @@ from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
 from app.modulos.clientes.clientes_modelo import Cliente
 from app.base.constantes import FORMATO_FECHA_LARGA, IVA_DESCRIPCION, LOGO_PDF
+from app.base.utilidades_fecha import formatear_fecha_español
 from sqlmodel import Session  # type: ignore
+
+
+def imagen_a_data_uri(ruta_imagen: Path) -> str:
+    """
+    Convierte una imagen a data URI base64 para embedding en PDF.
+    
+    Args:
+        ruta_imagen: Ruta a la imagen
+        
+    Returns:
+        Data URI en formato data:image/png;base64,{contenido} o string vacío si no existe
+    """
+    if not ruta_imagen.exists():
+        return ""
+    
+    with open(ruta_imagen, 'rb') as f:
+        imagen_base64 = base64.b64encode(f.read()).decode('utf-8')
+        return f"data:image/png;base64,{imagen_base64}"
 
 
 def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
@@ -37,44 +57,21 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
     template_content = template_path.read_text(encoding="utf-8")
     template = Template(template_content)
     
-    # Convertir logo a base64 para embedder en PDF
-    import base64
-    logo_path = Path(LOGO_PDF)
-    if logo_path.exists():
-        with open(logo_path, 'rb') as f:
-            logo_base64 = base64.b64encode(f.read()).decode('utf-8')
-            logo_data_uri = f"data:image/png;base64,{logo_base64}"
-    else:
-        logo_data_uri = ""  # Sin logo si no existe
-    
-    # Convertir firma a base64 si existe
+    # Convertir imágenes a data URIs
+    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
     firma_path = Path(__file__).parent.parent.parent.parent / "web" / "static" / "img" / "firma_jefe.png"
-    firma_data_uri = ""
-    if firma_path.exists():
-        with open(firma_path, 'rb') as f:
-            firma_base64 = base64.b64encode(f.read()).decode('utf-8')
-            firma_data_uri = f"data:image/png;base64,{firma_base64}"
+    firma_data_uri = imagen_a_data_uri(firma_path)
     
-    # Preparar datos para el template
     # Formatear fechas en español
-    meses_es = {
-        1: 'enero', 2: 'febrero', 3: 'marzo', 4: 'abril',
-        5: 'mayo', 6: 'junio', 7: 'julio', 8: 'agosto',
-        9: 'septiembre', 10: 'octubre', 11: 'noviembre', 12: 'diciembre'
-    }
-    
-    fecha_emision = cotizacion.fecha_emision
-    fecha_vigencia = cotizacion.fecha_vigencia
-    
-    fecha_emision_es = f"{fecha_emision.day} de {meses_es[fecha_emision.month]} de {fecha_emision.year}"
-    fecha_vigencia_es = f"{fecha_vigencia.day} de {meses_es[fecha_vigencia.month]} de {fecha_vigencia.year}"
+    fecha_emision_es = formatear_fecha_español(cotizacion.fecha_emision)
+    fecha_vigencia_es = formatear_fecha_español(cotizacion.fecha_vigencia)
     
     contexto = {
         "cotizacion": cotizacion,
         "cliente": cliente,
         "conceptos": conceptos,
-        "logo_path": logo_data_uri,  # Data URI en lugar de ruta de archivo
-        "firma_responsable": firma_data_uri,  # Firma del responsable
+        "logo_path": logo_data_uri,
+        "firma_responsable": firma_data_uri,
         "iva_descripcion": IVA_DESCRIPCION,
         "fecha_emision_formateada": fecha_emision_es,
         "fecha_vigencia_formateada": fecha_vigencia_es,

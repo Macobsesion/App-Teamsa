@@ -1,35 +1,20 @@
 {% import 'partials/forms.html' as f %}
-{% set es_crear = (modo == 'crear') %}
-<div class="modal-header">
-    <h5 class="modal-title">{{ 'Crear viático' if es_crear else 'Editar viático' }}</h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-</div>
-<div class="modal-body">
-    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
-    <form id="frmViatico" hx-target="#modal-content" hx-swap="innerHTML" {% if es_crear %} hx-post="/ui/viaticos/crear"
-        {% else %} hx-post="/ui/viaticos/{{ item.id }}/actualizar" {% endif %}>
-        {% if not es_crear %}<input type="hidden" name="id" value="{{ item.id }}">{% endif %}
 
-        {{ f.field_input('responsable_id','ID Responsable', item=item, type='number', required=True) }}
-        {{ f.field_input('proyecto','Proyecto', item=item, required=True) }}
-        {{ f.field_input('cliente','Cliente', item=item, required=True) }}
-        {{ f.field_input('destino','Destino', item=item, required=True) }}
-        {{ f.field_input('fecha_inicio','Fecha Inicio', item=item, type='date', required=True) }}
-        {{ f.field_input('fecha_fin','Fecha Fin', item=item, type='date', required=True) }}
-        {% set estados = [
-        {'id':'borrador','nombre':'Borrador'},
-        {'id':'enviado','nombre':'Enviado'},
-        {'id':'aprobado','nombre':'Aprobado'},
-        {'id':'rechazado','nombre':'Rechazado'},
-        {'id':'pagado','nombre':'Pagado'}
-        ] %}
-        {{ f.field_select('estado','Estado', estados, item=item) }}
-        {{ f.field_textarea('notas','Notas', item=item) }}
-        {{ f.field_textarea('observaciones','Observaciones', item=item) }}
-
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Guardar</button>
-        </div>
-    </form>
-</div>
+{% call f.modal_wrapper('viático', modo, 'frmViatico', '/ui/viaticos', item) %}
+{{ f.field_input('responsable_id','ID Responsable', item=item, type='number', required=True) }}
+{{ f.field_input('proyecto','Proyecto', item=item, required=True) }}
+{{ f.field_input('cliente','Cliente', item=item, required=True) }}
+{{ f.field_input('destino','Destino', item=item, required=True) }}
+{{ f.field_input('fecha_inicio','Fecha Inicio', item=item, type='date', required=True) }}
+{{ f.field_input('fecha_fin','Fecha Fin', item=item, type='date', required=True) }}
+{% set estados = [
+{'id':'borrador','nombre':'Borrador'},
+{'id':'enviado','nombre':'Enviado'},
+{'id':'aprobado','nombre':'Aprobado'},
+{'id':'rechazado','nombre':'Rechazado'},
+{'id':'pagado','nombre':'Pagado'}
+] %}
+{{ f.field_select('estado','Estado', estados, item=item) }}
+{{ f.field_textarea('notas','Notas', item=item) }}
+{{ f.field_textarea('observaciones','Observaciones', item=item) }}
+{% endcall %}

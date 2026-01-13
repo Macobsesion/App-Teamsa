@@ -27,10 +27,6 @@
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">📦 Conceptos</h5>
-                    <button class="btn btn-light btn-sm" hx-get="/ui/cotizaciones/{{ cotizacion.id }}/concepto-form"
-                        hx-target="#modal-content" data-bs-toggle="modal" data-bs-target="#modal">
-                        + Agregar Servicio
-                    </button>
                 </div>
                 <div class="card-body p-0">
                     {# Lista de conceptos (actualizada con HTMX) #}
@@ -115,11 +111,16 @@
                             ✉️ Enviar por Correo (Próximamente)
                         </button>
                         <hr>
-                        <button class="btn btn-outline-secondary"
-                            hx-get="/ui/cotizaciones/form?modo=editar&id={{ cotizacion.id }}" hx-target="#modal-content"
-                            hx-on::after-request="new bootstrap.Modal(document.getElementById('modal')).show()">
-                            ✏️ Editar Información
+                        {% if cotizacion.estado != 'modificada' %}
+                        <a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
+                            ✏️ Editar Cotización
+                        </a>
+                        {% else %}
+                        <button class="btn btn-secondary" disabled
+                            title="Esta cotización fue modificada y no se puede editar">
+                            🔒 Cotización Bloqueada
                         </button>
+                        {% endif %}
                         <a href="/cotizaciones" class="btn btn-outline-secondary">
                             ← Volver a Cotizaciones
                         </a>

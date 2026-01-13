@@ -14,7 +14,7 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     modelo = Cotizacion
     campos_filtrables = {"estado", "cliente_id"}
     campos_actualizables = {
-        "cliente_id", "estado", "notas", "metodo_pago",
+        "cliente_id", "estado", "notas", "notas_privadas", "metodo_pago",
         "descuento_porcentaje", "modificado_por"
     }
     campos_busqueda = {"numero": "icontains"}
@@ -22,29 +22,37 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     
     def generar_siguiente_numero(self) -> str:
         """
-        Genera el siguiente número de cotización secuencial.
+        DEPRECATED: Este método ya no se usa para generar números.
+        Los números ahora se generan después de insertar en la BD usando el ID.
+        
+        Se mantiene por compatibilidad pero devuelve una cadena temporal.
+        El número real se asigna en generar_numero_desde_id().
         
         Returns:
-            Número en formato COT-00001, COT-00002, etc.
+            String temporal que será reemplazado
         """
-        # Buscar el último número usado
-        ultima_cotizacion = self.db.exec(
-            select(Cotizacion).order_by(Cotizacion.id.desc()).limit(1)
-        ).first()
+        return "TEMP-PENDING"
+    
+    def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
+        """
+        Genera el número de cotización basado en el ID y la fecha.
         
-        if ultima_cotizacion and ultima_cotizacion.numero:
-            # Extraer el número de "COT-00123" -> 123
-            try:
-                ultimo_numero_str = ultima_cotizacion.numero.split("-")[-1]
-                ultimo_numero = int(ultimo_numero_str)
-                siguiente_numero = ultimo_numero + 1
-            except (ValueError, IndexError):
-                siguiente_numero = 1
-        else:
-            siguiente_numero = 1
+        Formato: COT-YYMMID
+        Ejemplo: COT-26011623 (año 26, mes 01, día 16, ID 23)
         
-        # Formatear con ceros a la izquierda: COT-00001
-        return f"{PREFIJO_NUMERO_COTIZACION}-{siguiente_numero:05d}"
+        Args:
+            cotizacion_id: ID de la cotización en la BD
+            fecha_emision: Fecha de emisión de la cotización
+            
+        Returns:
+            Número en formato COT-YYMMID
+        """
+        from app.base.constantes import PREFIJO_NUMERO_COTIZACION
+        
+        # Formato: COT-YYMMDD + ID
+        # Ejemplo: COT-260116 + 23 = COT-26011623
+        fecha_str = fecha_emision.strftime("%y%m%d")
+        return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}{cotizacion_id}"
     
     def eliminar(self, entidad_id: int) -> None:
         """

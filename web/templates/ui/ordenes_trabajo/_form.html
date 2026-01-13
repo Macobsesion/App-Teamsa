@@ -1,0 +1,41 @@
+{# Formulario de orden de trabajo #}
+<form hx-post="{{ accion }}" hx-target="closest .modal" hx-swap="outerHTML">
+    <div class="mb-3">
+        <label class="form-label">Estado</label>
+        <select name="estado" class="form-select">
+            <option value="pendiente" {{ 'selected' if item and item.estado=='pendiente' else '' }}>Pendiente</option>
+            <option value="programada" {{ 'selected' if item and item.estado=='programada' else '' }}>Programada
+            </option>
+            <option value="en_progreso" {{ 'selected' if item and item.estado=='en_progreso' else '' }}>En Progreso
+            </option>
+            <option value="completada" {{ 'selected' if item and item.estado=='completada' else '' }}>Completada
+            </option>
+            <option value="cancelada" {{ 'selected' if item and item.estado=='cancelada' else '' }}>Cancelada</option>
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Fecha Programada</label>
+        <input type="date" name="fecha_programada" class="form-control"
+            value="{{ item.fecha_programada if item else '' }}">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Técnico Asignado</label>
+        <input type="number" name="tecnico_asignado_id" class="form-control"
+            value="{{ item.tecnico_asignado_id if item else '' }}">
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Notas</label>
+        <textarea name="notas" class="form-control" rows="3">{{ item.notas if item else '' }}</textarea>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Observaciones Técnicas</label>
+        <textarea name="observaciones_tecnicas" class="form-control"
+            rows="3">{{ item.observaciones_tecnicas if item else '' }}</textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Guardar</button>
+</form>

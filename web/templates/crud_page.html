@@ -49,4 +49,84 @@
     </div>
   </div>
 </div>
+
+{# Modal de Notas Privadas - compartido para todas las cotizaciones #}
+{% if 'cotizaciones' in ui_base %}
+<div class="modal fade" id="modalNotasPrivadas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalNotasPrivadasTitulo">📝 Notas Privadas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info alert-sm">
+          <small><strong>ℹ️ Nota:</strong> Estas notas son solo para uso interno y no aparecen en el PDF del
+            cliente.</small>
+        </div>
+        <textarea class="form-control" id="notasPrivadasTexto" rows="5"
+          placeholder="Escribe notas internas aquí..."></textarea>
+        <input type="hidden" id="notasPrivadasCotizacionId">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="guardarNotasPrivadas()">
+          💾 Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Función para abrir modal de notas privadas
+  function abrirNotasPrivadas(cotizacionId, numero, notasActuales) {
+    document.getElementById('modalNotasPrivadasTitulo').textContent = `📝 Notas Privadas - ${numero}`;
+    document.getElementById('notasPrivadasTexto').value = notasActuales || '';
+    document.getElementById('notasPrivadasCotizacionId').value = cotizacionId;
+
+    const modal = new bootstrap.Modal(document.getElementById('modalNotasPrivadas'));
+    modal.show();
+  }
+
+  // Event delegation para botones de notas privadas (evita problemas de sintaxis con onclick)
+  document.addEventListener('click', function (e) {
+    if (e.target.closest('.btn-notas-privadas')) {
+      const btn = e.target.closest('.btn-notas-privadas');
+      const cotizacionId = btn.getAttribute('data-cotizacion-id');
+      const numero = btn.getAttribute('data-numero');
+      const notas = btn.getAttribute('data-notas');
+      abrirNotasPrivadas(cotizacionId, numero, notas);
+    }
+  });
+
+  // Función para guardar notas privadas
+  function guardarNotasPrivadas() {
+    const cotizacionId = document.getElementById('notasPrivadasCotizacionId').value;
+    const notas = document.getElementById('notasPrivadasTexto').value;
+
+    fetch(`/api/cotizaciones/${cotizacionId}/notas-privadas`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notas_privadas: notas })
+    })
+      .then(response => {
+        if (response.ok) {
+          const modal = bootstrap.Modal.getInstance(document.getElementById('modalNotasPrivadas'));
+          modal.hide();
+          alert('✅ Notas privadas guardadas correctamente');
+
+          // Recargar filas para actualizar
+          htmx.trigger('#tbody-lista', 'load');
+        } else {
+          alert('❌ Error al guardar las notas');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error de red al guardar las notas');
+      });
+  }
+</script>
+{% endif %}
 {% endblock %}

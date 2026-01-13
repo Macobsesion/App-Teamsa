@@ -1,5 +1,6 @@
 """Router y descriptor CRUD para viáticos con endpoint de PDF."""
 from typing import Any
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException  # type: ignore
 from fastapi.responses import Response  # type: ignore
@@ -59,7 +60,7 @@ def _campos_actualizacion(payload: ViaticoUpdate, actor: UsuarioIdentity) -> dic
     return extras
 
 
-# ---------- Descriptor ----------
+# Descriptor declarativo del módulo
 descriptor = DescriptorCRUD[RepositorioViatico, ViaticoCreate, ViaticoUpdate, ViaticoRead, UsuarioIdentity](
     label="Viáticos",
     base_url="/api/viaticos",
@@ -78,17 +79,37 @@ descriptor = DescriptorCRUD[RepositorioViatico, ViaticoCreate, ViaticoUpdate, Vi
     columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
-
-# ---------- Crear routers manualmente (tiene endpoints adicionales) ----------
+# Router API JSON
 router_api = descriptor.to_api_router(
     obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
     write_dependency=exigir_roles("admin"),
 )
 
+# Router UI HTML/HTMX
+router_ui = construir_enrutador_ui(
+    prefix="/ui/viaticos",
+    repo_factory=RepositorioViatico,
+    schema_create=ViaticoCreate,
+    schema_update=ViaticoUpdate,
+    hooks=descriptor.build_hooks(),
+    obtener_sesion=obtener_sesion_bd,
+    list_dependencies=[Depends(dp_usuario_actual)],
+    write_dependency=exigir_roles("admin"),
+    ui=DescriptorUI(
+        tpl_filas="ui/viaticos/_filas.html",
+        tpl_form="ui/viaticos/_form.html",
+    ),
+    label=descriptor.label,
+    actor_dependency=dp_usuario_actual,
+    columnas=descriptor.frontend_config().get("columnas"),
+    campo_busqueda=descriptor.campo_busqueda,
+)
 
-# ---------- Endpoints Adicionales ----------
-@router_api.post("/{viatico_id}/gastos", response_model=GastoRead)
+# Router adicional para gastos y PDF
+router_extra = APIRouter(prefix="/api/viaticos", tags=["Viáticos"])
+
+
+@router_extra.post("/{viatico_id}/gastos", response_model=GastoRead)
 def agregar_gasto(
     viatico_id: int,
     gasto: GastoCreate,
@@ -109,7 +130,7 @@ def agregar_gasto(
     )
 
 
-@router_api.delete("/{viatico_id}/gastos/{gasto_id}")
+@router_extra.delete("/{viatico_id}/gastos/{gasto_id}")
 def eliminar_gasto(
     viatico_id: int,
     gasto_id: int,
@@ -122,7 +143,7 @@ def eliminar_gasto(
     return {"detail": "Gasto eliminado"}
 
 
-@router_api.get("/{viatico_id}/pdf")
+@router_extra.get("/{viatico_id}/pdf")
 def descargar_pdf(
     viatico_id: int,
     db: Session = Depends(obtener_sesion_bd),
@@ -150,27 +171,8 @@ def descargar_pdf(
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
 
-# ---------- Crear router UI ----------
-router_ui = construir_enrutador_ui(
-    prefix="/ui/viaticos",
-    repo_factory=RepositorioViatico,
-    schema_create=ViaticoCreate,
-    schema_update=ViaticoUpdate,
-    hooks=descriptor.build_hooks(),
-    obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-    ui=DescriptorUI(
-        tpl_filas="ui/viaticos/_filas.html",
-        tpl_form="ui/viaticos/_form.html",
-    ),
-    label=descriptor.label,
-    actor_dependency=dp_usuario_actual,
-    columnas=descriptor.frontend_config().get("columnas"),
-    campo_busqueda=descriptor.campo_busqueda,
-)
-
-# Router principal que combina API + UI
+# Router principal que combina API + UI + extras
 router = APIRouter()
 router.include_router(router_api)
 router.include_router(router_ui)
+router.include_router(router_extra)

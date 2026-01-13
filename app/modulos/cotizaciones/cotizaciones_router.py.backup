@@ -250,26 +250,6 @@ def eliminar_concepto_htmx(
     )
 
 
-@router_extra_ui.get("/{cotizacion_id}/notas-privadas-modal")
-def cargar_modal_notas_privadas(
-    cotizacion_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
-):
-    """Carga el modal de notas privadas para una cotización."""
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/_notas_privadas_modal.html",
-        {"request": request, "cotizacion": cotizacion}
-    )
-
-
 # Router adicional para API de conceptos y PDF
 router_extra_api = APIRouter(prefix="/api/cotizaciones", tags=["Cotizaciones"])
 
@@ -339,35 +319,31 @@ def crear_cotizacion_completa(
     usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
 ):
     """Crea una cotización completa con conceptos en una sola transacción."""
-    from datetime import date
+    from datetime import date, timedelta
     from decimal import Decimal
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
     
+    # Generar número de cotización
     repo = RepositorioCotizacion(db)
-    fecha_hoy = date.today()
+    numero_nuevo = repo.generar_siguiente_numero() # Renamed 'numero' to 'numero_nuevo' for clarity
     
-    # Crear cotización base SIN número (se generará después con el ID)
-    cotizacion = Cotizacion(
-        numero="TEMP",  # Temporal, se actualiza después
-        numero_version="TEMP",  # Temporal
+    # Crear cotización base
+    cotizacion = Cotizacion( # Changed object name to 'cotizacion' to match db.add
+        numero=numero_nuevo,  # COT-00001 (sin letra para original)
+        numero_version=numero_nuevo,  # Mismo valor (alias)
         cliente_id=data['cliente_id'],
         estado='borrador',
-        metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),  # Default: Por definir
+        metodo_pago=data.get('metodo_pago', 'Por confirmar'),
         forma_pago=data.get('forma_pago', '99'),
         notas=data.get('notas'),
-        fecha_emision=fecha_hoy,
-        fecha_vigencia=repo.calcular_fecha_vigencia(fecha_hoy),
+        fecha_emision=date.today(),
+        fecha_vigencia=repo.calcular_fecha_vigencia(date.today()),
         creado_por=usuario.usuario,
         modificado_por=usuario.usuario,
     )
     
     db.add(cotizacion)
     db.flush()  # Para obtener el ID
-    
-    # Ahora generar el número real basado en el ID
-    numero_real = repo.generar_numero_desde_id(cotizacion.id, fecha_hoy)
-    cotizacion.numero = numero_real
-    cotizacion.numero_version = numero_real
     
     # Agregar conceptos
     repo_concepto = RepositorioConcepto(db)
@@ -441,7 +417,6 @@ def actualizar_notas_privadas(
     db.commit()
     db.refresh(cotizacion)
     
-    # Retornar JSON (el modal usa JavaScript vanilla, no HTMX)
     return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
 
 

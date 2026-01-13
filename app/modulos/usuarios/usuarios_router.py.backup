@@ -4,8 +4,7 @@ Usuarios: API JSON + UI HTMX con generador genérico.
 Se mantiene el DescriptorCRUD y se sustituye la UI manual por el builder
 `construir_enrutador_ui` para evitar duplicación entre módulos.
 """
-from fastapi import APIRouter, Depends  # type: ignore
-from sqlmodel import Session  # type: ignore
+from fastapi import Depends  # type: ignore
 
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
@@ -17,11 +16,13 @@ from app.modulos.usuarios.usuarios_esquemas import (
 )
 from app.modulos.usuarios.usuarios_repositorio import RepositorioUsuario
 from app.nucleo.cls_autenticacion import obtener_gestor_autenticacion
+from app.base.mapas import area_por_rol
 from app.rutas.dependencias import dp_obtener_sesion_db, dp_usuario_actual, exigir_roles
 
 
 def _hashear_contrasena(contrasena: str) -> str:
     return obtener_gestor_autenticacion().obtener_hash_contrasena(contrasena)
+
 
 
 def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str, object]:
@@ -55,14 +56,6 @@ def _validar_unicidad(repo: RepositorioUsuario, payload: UsuarioCreate) -> str |
     return None
 
 
-def _validar_form_creacion(datos: dict[str, object]) -> str | None:
-    # Confirmación de contraseña en el formulario de creación
-    if datos.get("contrasena") != datos.get("confirmarContrasena"):
-        return "Las contraseñas no coinciden"
-    return None
-
-
-# ---------- Descriptor ----------
 descriptor = DescriptorCRUD[
     RepositorioUsuario,
     UsuarioCreate,
@@ -135,13 +128,20 @@ descriptor = DescriptorCRUD[
     ],
 )
 
-
-# ---------- Crear routers manualmente (tiene validación personalizada) ----------
 api_router = descriptor.to_api_router(
     obtener_sesion=dp_obtener_sesion_db,
     list_dependencies=[Depends(dp_usuario_actual)],
     write_dependency=exigir_roles("admin"),
 )
+from fastapi import APIRouter
+
+
+def _validar_form_creacion(datos: dict[str, object]) -> str | None:
+    # Confirmación de contraseña en el formulario de creación
+    if datos.get("contrasena") != datos.get("confirmarContrasena"):
+        return "Las contraseñas no coinciden"
+    return None
+
 
 ui_router = construir_enrutador_ui(
     prefix="/ui/usuarios",

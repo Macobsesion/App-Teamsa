@@ -35,14 +35,19 @@ class CotizacionBase(BaseModel):
     """Campos comunes de cotización."""
     cliente_id: int
     estado: str = Field(default="borrador")
-    metodo_pago: str = Field(default="Transferencia SPEI")
+    metodo_pago: str = Field(default="POR_DEFINIR")
     notas: str | None = None
+    notas_privadas: str | None = None  # Notas internas (no visibles en PDF)
 
 
 class CotizacionRead(CotizacionBase):
     """Schema de lectura (incluye campos calculados y auditoría)."""
     id: int
     numero: str
+    numero_version: str  # Campo agregado para versionamiento
+    version_letra: str | None = None  # Letra de versión (None, "B", "C", etc.)
+    cotizacion_original_id: int | None = None  # FK al original si es versión
+    forma_pago: str = Field(default="99")  # Forma de pago SAT
     subtotal: Decimal
     descuento_global: Decimal
     iva: Decimal
@@ -66,6 +71,7 @@ class CotizacionUpdate(BaseModel):
     estado: str | None = None
     metodo_pago: str | None = None
     notas: str | None = None
+    notas_privadas: str | None = None  # Permitir actualizar notas privadas
 
 
 class CotizacionConConceptos(CotizacionRead):

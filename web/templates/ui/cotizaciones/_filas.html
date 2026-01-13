@@ -2,28 +2,41 @@
 {% if items %}
 {% for item in items %}
 <tr>
-    <td>{{ item.numero }}</td>
+    <td><strong>{{ item.numero_version if item.numero_version else item.numero }}</strong></td>
     <td>{{ item.cliente_id }}</td>
     <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
-    <td class="text-end">${{ "%.2f"|format(item.total) }}</td>
+    <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
     <td>
         <span
-            class="badge bg-{{ 'secondary' if item.estado == 'borrador' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
+            class="badge bg-{{ 'secondary' if item.estado == 'borrador' else 'warning' if item.estado == 'modificada' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
             {{ item.estado|title }}
         </span>
     </td>
     <td>
         <div class="btn-group btn-group-sm">
-            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-primary" title="Ver Detalle">
-                👁️ Ver
+            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-sm btn-primary" title="Ver Detalle">
+                👁️
             </a>
-            <button class="btn btn-outline-secondary" hx-get="/ui/cotizaciones/form?modo=editar&id={{ item.id }}"
-                hx-target="#modal-content"
-                hx-on::after-request="new bootstrap.Modal(document.getElementById('modal')).show()" title="Editar">
-                ✏️
+
+            {# Botón Notas Privadas - usa data attributes #}
+            <button class="btn btn-sm btn-info btn-notas-privadas" title="Notas Privadas"
+                data-cotizacion-id="{{ item.id }}" data-numero="{{ item.numero_version | default(item.numero, true) }}"
+                data-notas="{{ item.notas_privadas | default('', true) }}">
+                📝
             </button>
-            <button class="btn btn-outline-danger" hx-delete="/api/cotizaciones/{{ item.id }}" hx-target="closest tr"
-                hx-swap="delete" hx-confirm="¿Eliminar cotización {{ item.numero }}?" title="Eliminar">
+
+            {% if item.estado not in ['modificada', 'programada', 'finalizada'] %}
+            <a href="/ui/cotizaciones/{{ item.id }}/editar" class="btn btn-sm btn-warning" title="Editar">
+                ✏️
+            </a>
+            {% else %}
+            <button class="btn btn-sm btn-secondary" disabled title="Bloqueada ({{ item.estado }})">
+                🔒
+            </button>
+            {% endif %}
+            <button class="btn btn-sm btn-outline-danger" hx-delete="/api/cotizaciones/{{ item.id }}"
+                hx-target="closest tr" hx-swap="delete" hx-confirm="¿Eliminar cotización {{ item.numero }}?"
+                title="Eliminar">
                 🗑️
             </button>
         </div>

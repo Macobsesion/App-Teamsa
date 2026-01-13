@@ -10,19 +10,34 @@ if TYPE_CHECKING:
     from app.modulos.clientes.clientes_modelo import Cliente
 
 
+# Constantes de estados de cotización (flujo de negocio)
+ESTADOS_EDITABLES = {'borrador', 'enviada'}
+ESTADOS_VERSIONABLES = {'borrador', 'enviada'}
+ESTADOS_PUEDEN_CREAR_OT = {'enviada'}
+ESTADOS_BLOQUEADOS = {'modificada', 'programada', 'finalizada'}
+
+
 class Cotizacion(AuditMixin, SQLModel, table=True):
     """Cotización comercial con conceptos dinámicos."""
     
     id: int | None = Field(default=None, primary_key=True)
     
-    # Numeración única y secuencial
-    numero: str = Field(unique=True, index=True, description="Número de cotización: COT-00001")
+    # Numeración
+    numero: str = Field(unique=True, index=True, description="Número con versión: COT-00001 o COT-00001-B")
+    numero_version: str = Field(unique=True, index=True, description="Alias de numero (para compatibilidad)")
+    
+    # Versionamiento
+    version_letra: str | None = Field(default=None, description="Letra de versión: None=original, B, C, etc.")
+    cotizacion_original_id: int | None = Field(default=None, foreign_key="cotizacion.id", description="ID de la cotización original si es versión")
     
     # Relación con cliente
     cliente_id: int = Field(foreign_key="cliente.id", index=True)
     
-    # Estado
-    estado: str = Field(default="borrador", description="Estado: borrador, enviada, aceptada, rechazada, cobrado")
+    # Estado (flujo de negocio)
+    estado: str = Field(
+        default="borrador",
+        description="Estado: borrador (creación) | enviada (enviada por correo) | modificada (versionada/bloqueada) | programada (con OT) | finalizada (OT completada)"
+    )
     
     # Importes calculados (suma de conceptos)
     subtotal: Decimal = Field(default=Decimal("0.00"), decimal_places=2, description="Suma de items (precio × cantidad)")
@@ -40,6 +55,7 @@ class Cotizacion(AuditMixin, SQLModel, table=True):
     
     # Información adicional
     notas: str | None = Field(default=None, description="Notas adicionales, origen de petición, observaciones")
+    notas_privadas: str | None = Field(default=None, description="Notas internas (no visibles en PDF)")
     
     # Relationship (para cargar conceptos)
     # conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")

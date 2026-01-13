@@ -1,0 +1,40 @@
+{% extends 'modal_base.html' %}
+
+{% block modal_id %}modalNotasPrivadas{{ cotizacion.id }}{% endblock %}
+{% block modal_title %}🔒 Notas Privadas - {{ cotizacion.numero_version | default(cotizacion.numero, true) }}{% endblock
+%}
+
+{% block modal_body %}
+<form hx-patch="/api/cotizaciones/{{ cotizacion.id }}/notas-privadas" hx-target="#modalNotasPrivadas{{ cotizacion.id }}"
+    hx-swap="outerHTML swap:500ms">
+    <div class="mb-3">
+        <label for="notas-privadas-{{ cotizacion.id }}" class="form-label">
+            Notas Internas (Solo visibles para administración)
+        </label>
+        <textarea class="form-control" id="notas-privadas-{{ cotizacion.id }}" name="notas_privadas" rows="6"
+            placeholder="Escribe notas internas aquí...">{{ cotizacion.notas_privadas if cotizacion.notas_privadas else '' }}</textarea>
+        <small class="text-muted">
+            Estas notas NO se mostrarán en el PDF ni se copiarán a órdenes de trabajo
+        </small>
+    </div>
+    <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Guardar</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block modal_scripts %}
+<script>
+    // Abrir modal automáticamente cuando se carga
+    document.addEventListener('DOMContentLoaded', function () {
+        var modal = new bootstrap.Modal(document.getElementById('modalNotasPrivadas{{ cotizacion.id }}'));
+        modal.show();
+
+        // Eliminar el modal del DOM cuando se cierra
+        document.getElementById('modalNotasPrivadas{{ cotizacion.id }}').addEventListener('hidden.bs.modal', function () {
+            this.remove();
+        });
+    });
+</script>
+{% endblock %}

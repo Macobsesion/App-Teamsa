@@ -9,7 +9,7 @@
             {# Wizard Header #}
             <div class="card shadow-sm mb-4">
                 <div class="card-body">
-                    <h3 class="mb-4">✨ Nueva Cotización</h3>
+                    <h3 class="mb-4" id="wizard-titulo">✨ Nueva Cotización</h3>
 
                     {# Progress Steps #}
                     <div class="d-flex justify-content-between mb-4">
@@ -48,13 +48,12 @@
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Método de Pago</label>
+                                <label class="form-label">Método de Pago SAT</label>
                                 <select class="form-select" id="metodo-pago">
-                                    <option value="Por confirmar" selected>Por confirmar</option>
-                                    <option value="Transferencia SPEI">Transferencia SPEI</option>
-                                    <option value="Efectivo">Efectivo</option>
-                                    <option value="Cheque">Cheque</option>
-                                    <option value="Tarjeta">Tarjeta</option>
+                                    <option value="POR_DEFINIR" selected>Por definir</option>
+                                    <option value="PUE">PUE - Pago en Una Sola Exhibición</option>
+                                    <option value="PPD">PPD - Pago en Parcialidades o Diferido</option>
+                                    <option value="PIP">PIP - Pago Inicial y Parcialidades</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -174,11 +173,41 @@
                             <button type="button" class="btn btn-primary" id="btn-next" onclick="nextStep()">Siguiente
                                 →</button>
                             <button type="button" class="btn btn-success d-none" id="btn-submit"
-                                onclick="submitCotizacion()">✓
-                                Crear Cotización</button>
+                                onclick="submitCotizacion()">
+                                <span id="btn-submit-text">✓ Crear Cotización</span>
+                            </button>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal confirmación versionamiento -->
+<div class="modal fade" id="modalVersionamiento" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">⚠️ Cambios Detectados en Servicios</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Se detectaron cambios en los servicios o precios de la cotización.</strong></p>
+                <p>¿Desea continuar?</p>
+                <div class="alert alert-info small">
+                    <strong>Esto creará una nueva versión:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>Se generará un nuevo número con sufijo (ej: COT-001-B)</li>
+                        <li>La versión original quedará bloqueada para edición</li>
+                        <li>La nueva versión estará en estado "borrador"</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-warning" onclick="confirmarVersionamiento()">Sí, Crear Nueva
+                    Versión</button>
             </div>
         </div>
     </div>
@@ -236,7 +265,7 @@
     const wizardState = {
         currentStep: 1,
         cliente_id: null,
-        metodo_pago: 'Por confirmar',
+        metodo_pago: 'POR_DEFINIR',  // Default: Por definir
         forma_pago: '99',
         notas: '',
         servicios: [],  // Array de {servicio_id, descripcion, cantidad, precio_unitario, descuento_porcentaje, codigo_sat, unidad}
@@ -245,19 +274,55 @@
     let clientesData = [];
     let serviciosData = [];
 
+    // Variables para modo edición
+    let modoEdicion = false;
+    let cotizacionId = null;
+    let serviciosOriginales = [];  // Para comparar cambios
+
     // Cargar datos al iniciar
     document.addEventListener('DOMContentLoaded', () => {
+        // Detectar modo edición
+        const urlParams = new URLSearchParams(window.location.search);
+        cotizacionId = urlParams.get('id');
+        modoEdicion = cotizacionId !== null;
+
+        if (modoEdicion) {
+            document.getElementById('wizard-titulo').textContent = '✏️ Modificar Cotización';
+            document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
+        }
+
         cargarClientes();
         cargarServicios();
+
+        // Si es modo edición, cargar datos después de cargar catálogos
+        if (modoEdicion) {
+            setTimeout(() => cargarCotizacionParaEditar(cotizacionId), 500);
+        }
     });
 
+    // Carga clientes desde el backend
     async function cargarClientes() {
         try {
-            const response = await fetch('/api/clientes/select');
-            clientesData = await response.json();
+            const response = await fetch('/api/clientes/select', {
+                credentials: 'include',  // ✅ Incluir cookies de sesión
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
 
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const clientes = await response.json();
+            clientesData = clientes;  // ✅ Asignar a variable global
             const select = document.getElementById('cliente-select');
-            select.nextElementSibling.textContent = '';
+
+            // Limpiar mensaje de cargando
+            const smallText = select.nextElementSibling;
+            if (smallText && smallText.tagName === 'SMALL') {
+                smallText.remove();
+            }
 
             clientesData.forEach(c => {
                 const option = document.createElement('option');
@@ -405,17 +470,103 @@
             const total = subtotal - descuento;
 
             html += `<tr>
-            <td>${s.descripcion}</td>
-            <td class="text-center">${s.cantidad}</td>
-            <td class="text-end">$${s.precio_unitario.toFixed(2)}</td>
-            <td class="text-center">${s.descuento_porcentaje}%</td>
-            <td class="text-end"><strong>$${total.toFixed(2)}</strong></td>
-            <td><button class="btn btn-sm btn-outline-danger" onclick="eliminarServicio(${idx})">×</button></td>
+            <td>
+                <input type="text" class="form-control form-control-sm" value="${s.descripcion}" 
+                    onchange="actualizarServicio(${idx}, 'descripcion', this.value)">
+            </td>
+            <td style="width: 100px;">
+                <input type="number" class="form-control form-control-sm text-center" value="${s.cantidad}" 
+                    min="1" step="1"
+                    oninput="actualizarServicioNumerico(${idx}, 'cantidad', this.value)">
+            </td>
+            <td style="width: 120px;">
+                <input type="number" class="form-control form-control-sm text-end" value="${s.precio_unitario}" 
+                    min="0" step="0.01"
+                    oninput="actualizarServicioNumerico(${idx}, 'precio_unitario', this.value)">
+            </td>
+            <td style="width: 100px;">
+                <div class="input-group input-group-sm">
+                    <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
+                        min="0" max="100" step="0.01"
+                        oninput="actualizarServicioNumerico(${idx}, 'descuento_porcentaje', this.value)">
+                    <span class="input-group-text">%</span>
+                </div>
+            </td>
+            <td class="text-end" style="width: 120px;">
+                <strong id="total-servicio-${idx}">$${total.toFixed(2)}</strong>
+            </td>
+            <td style="width: 50px;">
+                <button class="btn btn-sm btn-outline-danger" onclick="eliminarServicio(${idx})">×</button>
+            </td>
         </tr>`;
         });
 
         html += '</tbody></table></div>';
         lista.innerHTML = html;
+    }
+
+    // Función para actualizar campos de texto
+    function actualizarServicio(index, campo, valor) {
+        wizardState.servicios[index][campo] = valor;
+    }
+
+    // Función para actualizar campos numéricos con recálculo automático
+    function actualizarServicioNumerico(index, campo, valor) {
+        const numValor = parseFloat(valor);
+
+        // Validar valor numérico
+        if (isNaN(numValor) || numValor < 0) {
+            return; // No actualizar si el valor es inválido
+        }
+
+        // Validación específica por campo
+        if (campo === 'cantidad' && numValor < 1) {
+            return;
+        }
+        if (campo === 'descuento_porcentaje' && numValor > 100) {
+            return;
+        }
+
+        // Actualizar el estado
+        wizardState.servicios[index][campo] = numValor;
+
+        // Recalcular el total del servicio individual
+        const servicio = wizardState.servicios[index];
+        const subtotal = servicio.cantidad * servicio.precio_unitario;
+        const descuento = subtotal * (servicio.descuento_porcentaje / 100);
+        const total = subtotal - descuento;
+
+        // Actualizar el DOM del total individual
+        const totalElement = document.getElementById(`total-servicio-${index}`);
+        if (totalElement) {
+            totalElement.textContent = `$${total.toFixed(2)}`;
+        }
+
+        // Recalcular y actualizar totales globales si estamos en el paso 2
+        if (wizardState.currentStep === 2) {
+            actualizarTotalesGlobales();
+        }
+    }
+
+    // Función para recalcular los totales globales (opcional, para mostrar en el step 2)
+    function actualizarTotalesGlobales() {
+        let subtotalGlobal = 0;
+        let descuentoGlobal = 0;
+
+        wizardState.servicios.forEach(s => {
+            const sub = s.cantidad * s.precio_unitario;
+            const desc = sub * (s.descuento_porcentaje / 100);
+            subtotalGlobal += sub;
+            descuentoGlobal += desc;
+        });
+
+        const baseIva = subtotalGlobal - descuentoGlobal;
+        const iva = baseIva * 0.16;
+        const totalGlobal = baseIva + iva;
+
+        // Aquí podrías mostrar estos totales en algún lugar del step 2 si quieres
+        // Por ahora solo se actualizan en el resumen (step 3)
+        console.log('Totales actualizados:', { subtotalGlobal, descuentoGlobal, iva, totalGlobal });
     }
 
     function actualizarResumen() {
@@ -469,6 +620,29 @@
     async function submitCotizacion() {
         const btn = document.getElementById('btn-submit');
         btn.disabled = true;
+
+        if (modoEdicion) {
+            // Modo edición: verificar si hay cambios en servicios
+            const hayCambiosServicios = detectarCambiosServicios();
+
+            if (hayCambiosServicios) {
+                // Mostrar modal de confirmación
+                const modal = new bootstrap.Modal(document.getElementById('modalVersionamiento'));
+                modal.show();
+                btn.disabled = false;
+                return;  // Esperar confirmación del usuario
+            } else {
+                // Sin cambios en servicios, actualizar sin versionar
+                await actualizarSinVersionar();
+            }
+        } else {
+            // Modo creación normal
+            await crearCotizacionNueva();
+        }
+    }
+
+    async function crearCotizacionNueva() {
+        const btn = document.getElementById('btn-submit');
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando...';
 
         try {
@@ -481,15 +655,159 @@
             if (!response.ok) throw new Error('Error al crear cotización');
 
             const data = await response.json();
-
-            // Redirigir a la vista de detalle
             window.location.href = `/ui/cotizaciones/${data.id}/detalle`;
         } catch (error) {
             console.error('Error:', error);
             alert('Error al crear la cotización: ' + error.message);
             btn.disabled = false;
-            btn.innerHTML = '✓ Crear Cotización';
+            btn.innerHTML = '<span id="btn-submit-text">✓ Crear Cotización</span>';
         }
     }
+
+    async function actualizarSinVersionar() {
+        const btn = document.getElementById('btn-submit');
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
+
+        try {
+            const response = await fetch(`/api/cotizaciones/${cotizacionId}/actualizar-sin-version`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    metodo_pago: wizardState.metodo_pago,
+                    forma_pago: wizardState.forma_pago,
+                    notas: wizardState.notas
+                })
+            });
+
+            if (!response.ok) throw new Error('Error al actualizar');
+
+            alert('✅ Cotización actualizada correctamente');
+            window.location.href = '/cotizaciones';
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al actualizar la cotización: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
+        }
+    }
+
+    async function confirmarVersionamiento() {
+        // Cerrar modal
+        const modalEl = document.getElementById('modalVersionamiento');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando versión...';
+
+        try {
+            const response = await fetch(`/api/cotizaciones/${cotizacionId}/nueva-version`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    metodo_pago: wizardState.metodo_pago,
+                    forma_pago: wizardState.forma_pago,
+                    notas: wizardState.notas,
+                    servicios: wizardState.servicios
+                })
+            });
+
+            if (!response.ok) throw new Error('Error al crear versión');
+
+            const data = await response.json();
+            alert(`✅ Nueva versión ${data.numero_version} creada exitosamente`);
+            window.location.href = '/cotizaciones';
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al crear nueva versión: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
+        }
+    }
+
+    async function cargarCotizacionParaEditar(id) {
+        try {
+            const response = await fetch(`/api/cotizaciones/${id}`);
+            if (!response.ok) throw new Error('Cotización no encontrada');
+
+            const cotizacion = await response.json();
+
+            console.log('Cotización cargada:', cotizacion);  // DEBUG
+
+            // Cargar paso 1
+            wizardState.cliente_id = cotizacion.cliente_id;
+            wizardState.metodo_pago = cotizacion.metodo_pago || 'Por confirmar';
+            wizardState.forma_pago = cotizacion.forma_pago || '99';
+            wizardState.notas = cotizacion.notas || '';
+
+            document.getElementById('cliente-select').value = cotizacion.cliente_id;
+            document.getElementById('cliente-select').disabled = true;  // Bloqueado en modo edición
+            document.getElementById('metodo-pago').value = wizardState.metodo_pago;
+            document.getElementById('forma-pago').value = wizardState.forma_pago;
+            document.getElementById('notas').value = wizardState.notas;
+
+            // Cargar servicios desde la respuesta
+            if (cotizacion.conceptos && cotizacion.conceptos.length > 0) {
+                wizardState.servicios = cotizacion.conceptos.map(c => ({
+                    servicio_id: c.servicio_id,
+                    descripcion: c.descripcion,
+                    codigo_sat: c.codigo_sat || '',
+                    unidad: c.unidad || 'pieza',
+                    cantidad: parseFloat(c.cantidad),
+                    precio_unitario: parseFloat(c.precio_unitario),
+                    descuento_porcentaje: parseFloat(c.descuento_porcentaje || 0)
+                }));
+
+                // Copiar para comparación posterior
+                serviciosOriginales = JSON.parse(JSON.stringify(wizardState.servicios));
+
+                console.log('Servicios cargados:', wizardState.servicios);  // DEBUG
+                console.log('Servicios originales guardados:', serviciosOriginales);  // DEBUG
+
+                renderizarServicios();
+            } else {
+                console.warn('No se encontraron conceptos en la cotización');
+            }
+        } catch (error) {
+            console.error('Error cargando cotización:', error);
+            alert('Error al cargar la cotización para editar');
+            window.location.href = '/cotizaciones';
+        }
+    }
+
+    function calcularTotalCotizacion(servicios) {
+        let subtotal = 0;
+        servicios.forEach(s => {
+            const importe = s.cantidad * s.precio_unitario;
+            const descuento = importe * (s.descuento_porcentaje / 100);
+            subtotal += (importe - descuento);
+        });
+        const iva = subtotal * 0.16;
+        return subtotal + iva;
+    }
+
+    function detectarCambiosServicios() {
+        // Enfoque híbrido: más simple y confiable
+
+        // 1. Cambió la cantidad de servicios?
+        if (serviciosOriginales.length !== wizardState.servicios.length) {
+            console.log('✅ Cambio detectado: cantidad de servicios diferente');
+            return true;
+        }
+
+        // 2. Cambió el total de la cotización?
+        const totalOriginal = calcularTotalCotizacion(serviciosOriginales);
+        const totalActual = calcularTotalCotizacion(wizardState.servicios);
+
+        if (Math.abs(totalOriginal - totalActual) > 0.01) {  // Tolerancia de 1 centavo
+            console.log(`✅ Cambio detectado: total diferente (${totalOriginal.toFixed(2)} → ${totalActual.toFixed(2)})`);
+            return true;
+        }
+
+        console.log('✅ Sin cambios en servicios (misma cantidad y mismo total)');
+        return false;
+    }
+
 </script>
 {% endblock %}

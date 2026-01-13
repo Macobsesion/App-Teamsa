@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends  # type: ignore
 from sqlmodel import Session  # type: ignore
 
 from app.base.descriptor_crud import DescriptorCRUD
+from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
 from app.nucleo.base_datos import obtener_sesion_bd
 from app.rutas.dependencias import exigir_roles, dp_usuario_actual
 from app.modulos.servicios.servicios_esquemas import ServicioRead, ServicioCreate, ServicioUpdate
@@ -17,7 +18,6 @@ def _validar_unicidad(repo: RepositorioServicio, payload: ServicioCreate) -> str
     return None
 
 
-# ---------- Descriptor ----------
 descriptor = DescriptorCRUD[RepositorioServicio, ServicioCreate, ServicioUpdate, ServicioRead, UsuarioIdentity](
     label="Servicios",
     base_url="/api/servicios",
@@ -35,16 +35,30 @@ descriptor = DescriptorCRUD[RepositorioServicio, ServicioCreate, ServicioUpdate,
     columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
-
-# ---------- Crear router API directamente para agregar endpoints adicionales ----------
 router_api = descriptor.to_api_router(
     obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
     write_dependency=exigir_roles("admin"),
 )
 
+router_ui = construir_enrutador_ui(
+    prefix="/ui/servicios",
+    repo_factory=RepositorioServicio,
+    schema_create=ServicioCreate,
+    schema_update=ServicioUpdate,
+    hooks=descriptor.build_hooks(),
+    obtener_sesion=obtener_sesion_bd,
+    list_dependencies=[Depends(dp_usuario_actual)],
+    write_dependency=exigir_roles("admin"),
+    ui=DescriptorUI(
+        tpl_filas="ui/servicios/_filas.html",
+        tpl_form="ui/servicios/_form.html",
+    ),
+    label=descriptor.label,
+    actor_dependency=dp_usuario_actual,
+    columnas=descriptor.frontend_config().get("columnas"),
+    campo_busqueda=descriptor.campo_busqueda,
+)
 
-# ---------- Endpoints Adicionales en router_api ----------
 @router_api.get("/select", response_model=list[dict])
 def obtener_servicios_para_select(
     db: Session = Depends(obtener_sesion_bd),
@@ -53,6 +67,7 @@ def obtener_servicios_para_select(
     """Devuelve lista de servicios activos para usar en selects/dropdowns."""
     repo = RepositorioServicio(db)
     servicios = repo.listar()
+    
     return [
         {
             "id": s.id,
@@ -68,30 +83,6 @@ def obtener_servicios_para_select(
         if s.activo
     ]
 
-
-# ---------- Router Combinado usando Factory (pero sin el API, ya lo creamos arriba) ----------
-from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
-
-router_ui = construir_enrutador_ui(
-    prefix="/ui/servicios",
-    repo_factory=descriptor.repo_factory,
-    schema_create=descriptor.schema_create,
-    schema_update=descriptor.schema_update,
-    hooks=descriptor.build_hooks(),
-    obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-    ui=DescriptorUI(
-        tpl_filas="ui/servicios/_filas.html",
-        tpl_form="ui/servicios/_form.html",
-    ),
-    label=descriptor.label,
-    actor_dependency=dp_usuario_actual,
-    columnas=descriptor.frontend_config().get("columnas"),
-    campo_busqueda=descriptor.campo_busqueda,
-)
-
-# Combinar routers
 router = APIRouter()
 router.include_router(router_api)
 router.include_router(router_ui)

@@ -1,14 +1,14 @@
 """
-Usuarios: API JSON + UI HTMX con generador genérico.
+Usuarios: API JSON + UI HTMX usando factory pattern.
 
-Se mantiene el DescriptorCRUD y se sustituye la UI manual por el builder
-`construir_enrutador_ui` para evitar duplicación entre módulos.
+Migrado al factory pattern para reducir duplicación y simplificar mantenimiento.
 """
-from fastapi import APIRouter, Depends  # type: ignore
-from sqlmodel import Session  # type: ignore
+from typing import Any
 
 from app.base.descriptor_crud import DescriptorCRUD
-from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
+from app.base.factory_modulo import crear_modulo_crud
+from app.nucleo.base_datos import obtener_sesion_bd
+from app.rutas.dependencias import dp_usuario_actual, exigir_roles
 from app.modulos.usuarios.usuarios_esquemas import (
     UsuarioCreate,
     UsuarioIdentity,
@@ -17,46 +17,52 @@ from app.modulos.usuarios.usuarios_esquemas import (
 )
 from app.modulos.usuarios.usuarios_repositorio import RepositorioUsuario
 from app.nucleo.cls_autenticacion import obtener_gestor_autenticacion
-from app.rutas.dependencias import dp_obtener_sesion_db, dp_usuario_actual, exigir_roles
 
 
 def _hashear_contrasena(contrasena: str) -> str:
     return obtener_gestor_autenticacion().obtener_hash_contrasena(contrasena)
 
 
-def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str, object]:
-    # Genera campos adicionales listos para el modelo (sin lógica en el repositorio)
+def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str, Any]:
+    """Genera campos adicionales al crear usuario (con hash de contraseña)."""
+    from app.base.descriptor_crud import _auditoria_creacion_default
+    
     rol = payload.rol or 'funcionario'
-    extras: dict[str, object] = {
+    extras = _auditoria_creacion_default(payload, actor)
+    extras.update({
         'rol': rol,
         'contrasena': _hashear_contrasena(payload.contrasena),
-        'creado_por': actor.usuario,
-        'modificado_por': actor.usuario,
-    }
+    })
     return extras
 
 
-def _extra_actualizacion(_payload: UsuarioUpdatePartial, actor: UsuarioIdentity) -> dict[str, object]:
-    # Auditoría estándar desde el propio router
-    extras: dict[str, object] = {'modificado_por': actor.usuario}
+def _extra_actualizacion(payload: UsuarioUpdatePartial, actor: UsuarioIdentity) -> dict[str, Any]:
+    """Actualiza auditoría y hashea contraseña si se proporciona."""
+    from app.base.descriptor_crud import _auditoria_actualizacion_default
+    
+    extras = _auditoria_actualizacion_default(payload, actor)
+    
     # Si llega una contraseña no vacía, hashearla
     try:
-        nueva_pass = getattr(_payload, 'contrasena', None)
+        nueva_pass = getattr(payload, 'contrasena', None)
         if nueva_pass:
             extras['contrasena'] = _hashear_contrasena(nueva_pass)
     except Exception:
         pass
+    
     return extras
 
 
 def _validar_unicidad(repo: RepositorioUsuario, payload: UsuarioCreate) -> str | None:
-    if repo.obtener_por_username(username=payload.usuario):
+    """Valida que el usuario no exista."""
+    # Usar el método genérico del repositorio base
+    if repo.obtener_por_campo("usuario", payload.usuario):
         return "El usuario ya existe"
     return None
 
 
 def _validar_form_creacion(datos: dict[str, object]) -> str | None:
-    # Confirmación de contraseña en el formulario de creación
+    """Validación específica de formulario: confirmación de contraseña."""
     if datos.get("contrasena") != datos.get("confirmarContrasena"):
         return "Las contraseñas no coinciden"
     return None
@@ -82,88 +88,16 @@ descriptor = DescriptorCRUD[
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"rol", "area"},
     campo_busqueda="nombres",
-    topic="usuarios",
-    mensajes={
-        'validacionNombres': 'El campo nombres no puede estar vacío',
-        'validacionCorreo': 'El campo correo no puede estar vacío',
-        'validacionArea': 'Selecciona un área',
-        'validacionUsuario': 'El campo usuario no puede estar vacío',
-        'validacionContrasena': 'La contraseña es requerida',
-        'validacionConfirmacion': 'Las contraseñas deben coincidir',
-        'correoInvalido': 'Correo no válido',
-        'confirmacionCoincide': 'Las contraseñas coinciden',
-        'confirmacionNoCoincide': 'Las contraseñas no coinciden',
-    },
-    columnas_incluir=[
-        'usuario',
-        'nombres',
-        'rol',
-        'correo',
-        'area',
-        'id',
-        'fecha_creacion',
-        'fecha_modificacion',
-        'creado_por',
-        'modificado_por',
-    ],
-    selectores={
-        'tablaId': 'tablaUsuarios',
-        'modalId': 'editModal',
-        'modalTituloId': 'editModalLabel',
-        'modalConfirmGroupId': 'grupoConfirmacion',
-        'modalFeedbackId': 'modalPassFeedback',
-        'botones': {
-            'guardar': 'btnGuardar',
-            'agregar': 'btnAgregar',
-        },
-        # IDs de campos se definen en form para permitir auto-render del modal
-    },
-    form=[
-        {'name': 'id', 'label': 'ID', 'type': 'hidden', 'id': 'modalUsuarioId'},
-        {'name': 'usuario', 'label': 'Usuario', 'type': 'text', 'id': 'modalUsuario', 'required': True, 'createOnly': True},
-        {'name': 'nombres', 'label': 'Nombres', 'type': 'text', 'id': 'modalNombres', 'required': True},
-        {'name': 'rol', 'label': 'Rol', 'type': 'select', 'id': 'modalRol', 'options': [
-            {'value': 'admin', 'label': 'Admin'},
-            {'value': 'funcionario', 'label': 'Funcionario'},
-            {'value': 'productor', 'label': 'Productor'},
-            {'value': 'conductor', 'label': 'Conductor'},
-            {'value': 'camarografo', 'label': 'Camarógrafo'}
-        ], 'required': True},
-        {'name': 'correo', 'label': 'Correo', 'type': 'email', 'id': 'modalCorreo', 'required': True},
-        {'name': 'contrasena', 'label': 'Contraseña', 'type': 'password', 'id': 'modalPassword', 'required': True, 'createOnly': True},
-        {'name': 'confirmarContrasena', 'label': 'Confirma la contraseña', 'type': 'password', 'id': 'modalPasswordConfirmacion', 'createOnly': True, 'confirmWith': 'contrasena'},
-    ],
 )
 
 
-# ---------- Crear routers manualmente (tiene validación personalizada) ----------
-api_router = descriptor.to_api_router(
-    obtener_sesion=dp_obtener_sesion_db,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-)
-
-ui_router = construir_enrutador_ui(
-    prefix="/ui/usuarios",
-    repo_factory=RepositorioUsuario,
-    schema_create=UsuarioCreate,
-    schema_update=UsuarioUpdatePartial,
-    hooks=descriptor.build_hooks(),
-    obtener_sesion=dp_obtener_sesion_db,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-    ui=DescriptorUI(
-        tpl_filas="ui/usuarios/_filas.html",
-        tpl_form="ui/usuarios/_form.html",
-    ),
-    label=descriptor.label,
-    validar_form_creacion=_validar_form_creacion,
+# ---------- Router Combinado usando Factory ----------
+router = crear_modulo_crud(
+    descriptor=descriptor,
+    obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    columnas=descriptor.frontend_config()["columnas"],
-    campo_busqueda=descriptor.campo_busqueda,
+    write_dependency=exigir_roles("admin"),
+    tpl_filas="ui/usuarios/_filas.html",
+    tpl_form="ui/usuarios/_form.html",
+    validar_form_creacion=_validar_form_creacion,
 )
-
-# Router combinado (API + UI)
-router = APIRouter()
-router.include_router(api_router)
-router.include_router(ui_router)

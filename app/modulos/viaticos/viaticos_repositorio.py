@@ -48,17 +48,9 @@ class RepositorioViatico(RepositorioCRUD[Viatico]):
         return f"{PREFIJO_NUMERO_VIATICO}-{siguiente_numero:05d}"
     
     def calcular_dias(self, fecha_inicio: date, fecha_fin: date) -> int:
-        """
-        Calcula los días del viaje.
-        
-        Args:
-            fecha_inicio: Fecha de inicio
-            fecha_fin: Fecha de fin
-            
-        Returns:
-            Número de días
-        """
-        return (fecha_fin - fecha_inicio).days + 1  # +1 para incluir ambos días
+        """Calcula los días del viaje usando el servicio de dominio."""
+        from app.modulos.viaticos.servicios import ServicioCalculadoraViatico
+        return ServicioCalculadoraViatico.calcular_dias(fecha_inicio, fecha_fin)
     
     def obtener_gastos(self, viatico_id: int) -> list[GastoViatico]:
         """Obtiene todos los gastos de un viático."""
@@ -70,30 +62,24 @@ class RepositorioViatico(RepositorioCRUD[Viatico]):
     
     def recalcular_totales(self, viatico_id: int) -> None:
         """
-        Recalcula totales por categoría basándose en los gastos.
-        
-        Args:
-            viatico_id: ID del viático a recalcular
+        Recalcula totales por categoría usando el servicio de dominio.
         """
+        from app.modulos.viaticos.servicios import ServicioCalculadoraViatico
+        
         gastos = self.obtener_gastos(viatico_id)
         
-        # Calcular totales por categoría
-        total_transporte = sum(g.importe for g in gastos if g.categoria == "transporte")
-        total_alojamiento = sum(g.importe for g in gastos if g.categoria == "alojamiento")
-        total_alimentos = sum(g.importe for g in gastos if g.categoria == "alimentos")
-        total_otros = sum(g.importe for g in gastos if g.categoria == "otros")
-        
-        # Total general
-        total_general = total_transporte + total_alojamiento + total_alimentos + total_otros
+        # Delegar cálculo al servicio
+        totales = ServicioCalculadoraViatico.calcular_totales(gastos)
         
         # Actualizar viático
         viatico = self.db.get(Viatico, viatico_id)
         if viatico:
-            viatico.total_transporte = total_transporte
-            viatico.total_alojamiento = total_alojamiento
-            viatico.total_alimentos = total_alimentos
-            viatico.total_otros = total_otros
-            viatico.total_general = total_general
+            viatico.total_transporte = totales["transporte"]
+            viatico.total_alojamiento = totales["alojamiento"]
+            viatico.total_alimentos = totales["alimentos"]
+            viatico.total_otros = totales["otros"]
+            viatico.total_general = totales["general"]
+            
             self.db.add(viatico)
             self.db.commit()
             self.db.refresh(viatico)

@@ -66,7 +66,7 @@ def pagina_error(request: Request, status: int = 401, detail: str = "No autentic
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_usuarios(request: Request):
-    return render_crud_page(request, template="usuarios.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", puede_editar=True)
+    return render_crud_page(request, template="usuarios_lista.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", puede_editar=True)
 
 
 @router.get(
@@ -75,7 +75,7 @@ def pagina_listado_usuarios(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_clientes(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", puede_editar=True)
+    return render_crud_page(request, template="clientes_lista.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", puede_editar=True)
 
 
 @router.get(
@@ -93,7 +93,7 @@ def pagina_listado_servicios(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_proveedores(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", puede_editar=True)
+    return render_crud_page(request, template="proveedores_lista.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", puede_editar=True)
 
 
 @router.get(
@@ -102,7 +102,7 @@ def pagina_listado_proveedores(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_cotizaciones(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", puede_editar=True)
+    return render_crud_page(request, template="cotizaciones_lista.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", puede_editar=True)
 
 
 @router.get(

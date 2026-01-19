@@ -94,6 +94,41 @@ class RepositorioCRUD(Generic[TModelo]):
             raise LookupError(f"{self.modelo.__name__} no encontrado")
         self._eliminar(entidad)
 
+    def obtener_por_id(self, entidad_id: int) -> TModelo | None:
+        """Obtiene una entidad por su ID."""
+        return self.db.get(self.modelo, entidad_id)
+
+    def obtener_por_campo(self, campo: str, valor: Any) -> TModelo | None:
+        """
+        Busca una entidad por un campo específico con valor exacto.
+        
+        Este método genérico reemplaza la necesidad de crear métodos
+        personalizados como obtener_por_nombre, obtener_por_clave, etc.
+        
+        Args:
+            campo: Nombre del campo a buscar (ej: 'nombre', 'clave', 'usuario')
+            valor: Valor exacto a buscar
+            
+        Returns:
+            La primera entidad que coincide o None si no existe
+            
+        Raises:
+            ValueError: Si el campo no existe en el modelo
+            
+        Example:
+            >>> repo.obtener_por_campo("nombre", "Acme Corp")
+            <Cliente(id=1, nombre="Acme Corp")>
+        """
+        columna = getattr(self.modelo, campo, None)
+        if columna is None:
+            raise ValueError(f"Campo '{campo}' no existe en {self.modelo.__name__}")
+        
+        from sqlmodel import select
+        consulta = select(self.modelo).where(columna == valor)
+        return self.db.exec(consulta).first()
+
+
+
     # ---- helpers internos ----
     def _aplicar_filtros(self, consulta, filtros: Mapping[str, Any]):
         for campo, valor in filtros.items():

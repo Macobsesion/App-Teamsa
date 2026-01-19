@@ -31,7 +31,6 @@ descriptor = DescriptorCRUD[RepositorioProveedor, ProveedorCreate, ProveedorUpda
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"activo", "categoria"},
     campo_busqueda="nombre",
-    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
 

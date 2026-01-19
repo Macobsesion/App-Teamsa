@@ -1,8 +1,45 @@
-{% from 'partials/actions.html' import acciones %}
-{% from 'partials/rows.html' import celdas %}
 {% for u in items %}
-  <tr>
-    {{ celdas(u, columnas) }}
-    {{ acciones(ui_base, u.id, True, None, 'Eliminar', '¿Eliminar usuario?') }}
-  </tr>
+<tr>
+  <td>
+    <strong>{{ u.usuario }}</strong>
+    <br><small class="text-muted">{{ u.nombres }}</small>
+  </td>
+  <td>
+    {% if u.rol == 'admin' %}
+    <span class="badge bg-danger">Admin</span>
+    {% else %}
+    <span class="badge bg-info text-dark">{{ u.rol|title }}</span>
+    {% endif %}
+    {% if u.area %}
+    <br><small class="text-muted">{{ u.area }}</small>
+    {% endif %}
+  </td>
+  <td>
+    {% if u.correo %}
+    <a href="mailto:{{ u.correo }}" class="text-decoration-none small">{{ u.correo }}</a>
+    {% else %}
+    <span class="text-muted small">-</span>
+    {% endif %}
+  </td>
+  <td>
+    <div class="btn-group btn-group-sm">
+      <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal"
+        hx-get="/ui/usuarios/form?id={{ u.id }}&modo=editar" hx-target="#modal-content" hx-swap="innerHTML"
+        title="Editar">
+        ✏️
+      </button>
+      <button class="btn btn-sm btn-outline-danger" hx-delete="/api/usuarios/{{ u.id }}" hx-target="closest tr"
+        hx-swap="delete" hx-confirm="¿Eliminar usuario {{ u.usuario }}?" title="Eliminar">
+        🗑️
+      </button>
+    </div>
+  </td>
+</tr>
 {% endfor %}
+{% if not items %}
+<tr>
+  <td colspan="4" class="text-center py-3 text-muted">
+    No se encontraron usuarios.
+  </td>
+</tr>
+{% endif %}

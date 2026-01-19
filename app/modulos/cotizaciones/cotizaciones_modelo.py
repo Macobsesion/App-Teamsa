@@ -58,7 +58,8 @@ class Cotizacion(AuditMixin, SQLModel, table=True):
     notas_privadas: str | None = Field(default=None, description="Notas internas (no visibles en PDF)")
     
     # Relationship (para cargar conceptos)
-    # conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")
+    cliente: "Cliente" = Relationship(back_populates="cotizaciones")
+    conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")
 
 
 class ConceptoCotizacion(SQLModel, table=True):
@@ -89,4 +90,4 @@ class ConceptoCotizacion(SQLModel, table=True):
     importe: Decimal = Field(decimal_places=2, description="Total del concepto con descuento aplicado")
     
     # Relationships
-    # cotizacion: "Cotizacion" = Relationship(back_populates="conceptos")
+    cotizacion: "Cotizacion" = Relationship(back_populates="conceptos")

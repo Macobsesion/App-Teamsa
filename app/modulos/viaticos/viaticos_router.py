@@ -1,27 +1,18 @@
-"""Router y descriptor CRUD para viáticos con endpoint de PDF."""
+"""Router y descriptor CRUD para viáticos usando factory pattern."""
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException  # type: ignore
-from fastapi.responses import Response  # type: ignore
-from sqlmodel import Session  # type: ignore
+from sqlmodel import Session
 
 from app.base.descriptor_crud import DescriptorCRUD
-from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
+from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
 from app.rutas.dependencias import exigir_roles, dp_usuario_actual
-from app.modulos.viaticos.viaticos_esquemas import (
-    ViaticoRead,
-    ViaticoCreate,
-    ViaticoUpdate,
-    GastoCreate,
-    GastoRead,
-)
-from app.modulos.viaticos.viaticos_repositorio import (
-    RepositorioViatico,
-    RepositorioGasto,
-)
-from app.modulos.viaticos.pdf_generator import generar_pdf_viatico
+from app.modulos.viaticos.viaticos_esquemas import ViaticoRead, ViaticoCreate, ViaticoUpdate
+from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+
+# Importar routers adicionales
+from app.modulos.viaticos import gastos_router, pdf_router
 
 
 def _campos_creacion(payload: ViaticoCreate, actor: UsuarioIdentity) -> dict[str, Any]:
@@ -29,10 +20,14 @@ def _campos_creacion(payload: ViaticoCreate, actor: UsuarioIdentity) -> dict[str
     from app.base.descriptor_crud import _auditoria_creacion_default
     
     # Crear repo temporal para generar número y calcular días
+    # Crear repo temporal SOLO para generar número (si aún es necesario)
     with Session(obtener_motor()) as db:
         repo_temp = RepositorioViatico(db)
         numero = repo_temp.generar_siguiente_numero()
-        dias = repo_temp.calcular_dias(payload.fecha_inicio, payload.fecha_fin)
+    
+    # Calcular días sin BB
+    from app.modulos.viaticos.servicios import ServicioCalculadoraViatico
+    dias = ServicioCalculadoraViatico.calcular_dias(payload.fecha_inicio, payload.fecha_fin)
     
     # Combinar auditoría automática con lógica de negocio
     extras = _auditoria_creacion_default(payload, actor)
@@ -51,10 +46,9 @@ def _campos_actualizacion(payload: ViaticoUpdate, actor: UsuarioIdentity) -> dic
     
     # Si cambian fechas, recalcular días
     if payload.fecha_inicio and payload.fecha_fin:
-        with Session(obtener_motor()) as db:
-            repo_temp = RepositorioViatico(db)
-            dias = repo_temp.calcular_dias(payload.fecha_inicio, payload.fecha_fin)
-            extras["dias"] = dias
+        from app.modulos.viaticos.servicios import ServicioCalculadoraViatico
+        dias = ServicioCalculadoraViatico.calcular_dias(payload.fecha_inicio, payload.fecha_fin)
+        extras["dias"] = dias
     
     return extras
 
@@ -63,7 +57,7 @@ def _campos_actualizacion(payload: ViaticoUpdate, actor: UsuarioIdentity) -> dic
 descriptor = DescriptorCRUD[RepositorioViatico, ViaticoCreate, ViaticoUpdate, ViaticoRead, UsuarioIdentity](
     label="Viáticos",
     base_url="/api/viaticos",
-    repo_factory=RepositorioViatico,  # Clase directa
+    repo_factory=RepositorioViatico,
     schema_read=ViaticoRead,
     schema_create=ViaticoCreate,
     schema_update=ViaticoUpdate,
@@ -79,98 +73,17 @@ descriptor = DescriptorCRUD[RepositorioViatico, ViaticoCreate, ViaticoUpdate, Vi
 )
 
 
-# ---------- Crear routers manualmente (tiene endpoints adicionales) ----------
-router_api = descriptor.to_api_router(
+# ---------- Router Combinado usando Factory ----------
+router = crear_modulo_crud(
+    descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-)
-
-
-# ---------- Endpoints Adicionales ----------
-@router_api.post("/{viatico_id}/gastos", response_model=GastoRead)
-def agregar_gasto(
-    viatico_id: int,
-    gasto: GastoCreate,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Agrega un gasto a un viático y recalcula totales."""
-    repo = RepositorioGasto(db)
-    return repo.crear(
-        viatico_id=viatico_id,
-        categoria=gasto.categoria,
-        concepto=gasto.concepto,
-        cantidad=gasto.cantidad,
-        precio_unitario=gasto.precio_unitario,
-        fecha_gasto=gasto.fecha_gasto,
-        tiene_factura=gasto.tiene_factura,
-        numero_factura=gasto.numero_factura,
-    )
-
-
-@router_api.delete("/{viatico_id}/gastos/{gasto_id}")
-def eliminar_gasto(
-    viatico_id: int,
-    gasto_id: int,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Elimina un gasto de un viático y recalcula totales."""
-    repo = RepositorioGasto(db)
-    repo.eliminar(gasto_id, viatico_id)
-    return {"detail": "Gasto eliminado"}
-
-
-@router_api.get("/{viatico_id}/pdf")
-def descargar_pdf(
-    viatico_id: int,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Genera y descarga el PDF de un viático."""
-    try:
-        pdf_bytes = generar_pdf_viatico(viatico_id, db)
-        
-        # Obtener número de viático para el filename
-        from app.modulos.viaticos.viaticos_modelo import Viatico
-        viatico = db.get(Viatico, viatico_id)
-        filename = f"{viatico.numero if viatico else 'viatico'}.pdf"
-        
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="{filename}"'
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
-
-
-# ---------- Crear router UI ----------
-router_ui = construir_enrutador_ui(
-    prefix="/ui/viaticos",
-    repo_factory=RepositorioViatico,
-    schema_create=ViaticoCreate,
-    schema_update=ViaticoUpdate,
-    hooks=descriptor.build_hooks(),
-    obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-    ui=DescriptorUI(
-        tpl_filas="ui/viaticos/_filas.html",
-        tpl_form="ui/viaticos/_form.html",
-    ),
-    label=descriptor.label,
     actor_dependency=dp_usuario_actual,
-    columnas=descriptor.frontend_config().get("columnas"),
-    campo_busqueda=descriptor.campo_busqueda,
+    write_dependency=exigir_roles("admin"),
+    tpl_filas="ui/viaticos/_filas.html",
+    tpl_form="ui/viaticos/_form.html",
+    routers_adicionales=[
+        gastos_router.router,
+        pdf_router.router,
+    ],
 )
 
-# Router principal que combina API + UI
-router = APIRouter()
-router.include_router(router_api)
-router.include_router(router_ui)

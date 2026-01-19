@@ -1,8 +1,46 @@
-{% from 'partials/actions.html' import acciones %}
-{% from 'partials/rows.html' import celdas %}
 {% for item in items %}
 <tr>
-    {{ celdas(item, columnas) }}
-    {{ acciones(ui_base, item.id, True, None, 'Eliminar', '¿Eliminar cliente?') }}
+    <td>
+        <strong>{{ item.nombre }}</strong>
+        {% if item.razon_social and item.razon_social != item.nombre %}
+        <br><small class="text-muted">{{ item.razon_social }}</small>
+        {% endif %}
+    </td>
+    <td>
+        <span class="font-monospace">{{ item.rfc if item.rfc else '-' }}</span>
+    </td>
+    <td>
+        {% if item.contacto %}{{ item.contacto }}<br>{% endif %}
+        {% if item.email %}
+        <a href="mailto:{{ item.email }}" class="text-decoration-none small">{{ item.email }}</a>
+        {% endif %}
+    </td>
+    <td class="text-center">
+        {% if item.activo %}
+        <span class="badge bg-success">Activo</span>
+        {% else %}
+        <span class="badge bg-secondary">Inactivo</span>
+        {% endif %}
+    </td>
+    <td>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal"
+                hx-get="/ui/clientes/form?id={{ item.id }}&modo=editar" hx-target="#modal-content" hx-swap="innerHTML"
+                title="Editar">
+                ✏️
+            </button>
+            <button class="btn btn-sm btn-outline-danger" hx-delete="/api/clientes/{{ item.id }}" hx-target="closest tr"
+                hx-swap="delete" hx-confirm="¿Eliminar cliente {{ item.nombre }}?" title="Eliminar">
+                🗑️
+            </button>
+        </div>
+    </td>
 </tr>
 {% endfor %}
+{% if not items %}
+<tr>
+    <td colspan="5" class="text-center py-3 text-muted">
+        No se encontraron clientes.
+    </td>
+</tr>
+{% endif %}

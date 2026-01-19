@@ -140,6 +140,21 @@ def construir_enrutador_crud(
         except LookupError as exc:  # pragma: no cover
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado") from exc
 
+    @router.get("/{entidad_id}", response_model=schema_read)
+    def obtener(
+        entidad_id: int,
+        db: Session = Depends(obtener_sesion),
+    ):
+        repo = _get_repo(db)
+        try:
+            entidad = repo.obtener_por_id(entidad_id)
+            if entidad is None:
+                 raise LookupError("Recurso no encontrado")
+            return entidad
+        except LookupError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado") from exc
+
+
     @router.delete("/{entidad_id}", status_code=status.HTTP_204_NO_CONTENT)
     def eliminar(
         entidad_id: int,

@@ -19,6 +19,8 @@ class ConceptoBase(BaseModel):
 
 class ConceptoRead(ConceptoBase):
     """Schema de lectura de concepto."""
+    model_config = {"from_attributes": True}
+    
     id: int
     cotizacion_id: int
     importe: Decimal

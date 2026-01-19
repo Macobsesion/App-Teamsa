@@ -1,32 +1,22 @@
-"""Router y descriptor CRUD para cotizaciones con endpoint de PDF."""
+"""Router y descriptor CRUD para cotizaciones usando factory pattern."""
 from typing import Any
 from datetime import date
+from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Request  # type: ignore
-from fastapi.responses import Response  # type: ignore
-from sqlmodel import Session  # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, Response
+from sqlmodel import Session
 
 from app.base.descriptor_crud import DescriptorCRUD
-from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
+from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
 from app.rutas.dependencias import exigir_roles, dp_usuario_actual
-from app.modulos.cotizaciones.cotizaciones_esquemas import (
-    CotizacionRead,
-    CotizacionCreate,
-    CotizacionUpdate,
-    ConceptoCreate,
-    ConceptoRead,
-)
-from app.modulos.cotizaciones.cotizaciones_repositorio import (
-    RepositorioCotizacion,
-    RepositorioConcepto,
-)
-from app.modulos.cotizaciones.pdf_generator import generar_pdf_cotizacion
+from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate
+from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
-from fastapi.templating import Jinja2Templates
+from app.modulos.cotizaciones.pdf_generator import generar_pdf_cotizacion
 
-# Templates globales para evitar recrearlos en cada endpoint
-TEMPLATES = Jinja2Templates(directory="web/templates")
+# Importar routers adicionales
+from app.modulos.cotizaciones import conceptos_router, wizard_router
 
 
 def _campos_creacion(payload: CotizacionCreate, actor: UsuarioIdentity) -> dict[str, Any]:
@@ -55,426 +45,37 @@ def _campos_actualizacion(payload: CotizacionUpdate, actor: UsuarioIdentity) -> 
     return _auditoria_actualizacion_default(payload, actor)
 
 
-# Descriptor declarativo del módulo
-descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionUpdate, CotizacionRead, UsuarioIdentity](
-    label="Cotizaciones",
-    base_url="/api/cotizaciones",
-    repo_factory=RepositorioCotizacion,  # Clase directa
-    schema_read=CotizacionRead,
-    schema_create=CotizacionCreate,
-    schema_update=CotizacionUpdate,
-    campos_editables={
-        "cliente_id", "metodo_pago", "forma_pago", "notas", 
-        "atencion_a", "estado"
-    },
-    campos_creacion_extra=_campos_creacion,
-    campos_actualizacion_extra=_campos_actualizacion,
-    filtros_permitidos={"estado", "cliente_id"},
-    campo_busqueda="numero",
-    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
-)
+# ---------- Router Extras (Funcionalidad avanzada) ----------
+router_extras = APIRouter(prefix="/api/cotizaciones", tags=["Cotizaciones - Extras"])
 
-# Router API JSON
-router_api = descriptor.to_api_router(
-    obtener_sesion=obtener_sesion_bd,
-    write_dependency=exigir_roles("admin"),
-)
-
-# Router UI HTML/HTMX
-router_ui = construir_enrutador_ui(
-    prefix="/ui/cotizaciones",
-    repo_factory=RepositorioCotizacion,
-    schema_create=CotizacionCreate,
-    schema_update=CotizacionUpdate,
-    hooks=descriptor.build_hooks(),
-    obtener_sesion=obtener_sesion_bd,
-    list_dependencies=[Depends(dp_usuario_actual)],
-    write_dependency=exigir_roles("admin"),
-    ui=DescriptorUI(
-        tpl_filas="ui/cotizaciones/_filas.html",
-        tpl_form="ui/cotizaciones/_form.html",
-    ),
-    label=descriptor.label,
-    actor_dependency=dp_usuario_actual,
-    columnas=descriptor.frontend_config().get("columnas"),
-    campo_busqueda=descriptor.campo_busqueda,
-)
-
-# Router extra para vistas HTML adicionales y conceptos
-router_extra_ui = APIRouter(prefix="/ui/cotizaciones", tags=["Cotizaciones UI"])
-
-
-@router_extra_ui.get("/wizard")
-def mostrar_wizard_cotizacion(
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Wizard para crear cotización completa."""
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/wizard.html",
-        {
-            "request": request,
-            "usuario": usuario,
-        }
-    )
-
-
-@router_extra_ui.get("/{cotizacion_id}/detalle")
-def ver_detalle_cotizacion(
-    cotizacion_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(dp_usuario_actual),
-):
-    """Vista de detalle de una cotización con gestión de conceptos."""
-    from app.modulos.clientes.clientes_modelo import Cliente
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    # Obtener cotización
-    repo = RepositorioCotizacion(db)
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotizacion no encontrada")
-    
-    # Obtener cliente
-    cliente = db.get(Cliente, cotizacion.cliente_id)
-    
-    # Obtener conceptos
-    conceptos = repo.obtener_conceptos(cotizacion_id)
-    
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/detalle.html",
-        {
-            "request": request,
-            "usuario": usuario,
-            "cotizacion": cotizacion,
-            "cliente": cliente,
-            "conceptos": conceptos,
-        }
-    )
-
-
-@router_extra_ui.get("/{cotizacion_id}/concepto-form")
-def mostrar_formulario_concepto(
-    cotizacion_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
-):
-    """Formulario para agregar concepto (modal HTMX)."""
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/_concepto_form.html",
-        {
-            "request": request,
-            "cotizacion_id": cotizacion_id,
-        }
-    )
-
-
-@router_extra_ui.post("/{cotizacion_id}/conceptos")
-def agregar_concepto_htmx(
-    cotizacion_id: int,
-    servicio_id: int,
-    codigo_sat: str,
-    descripcion: str,
-    unidad: str,
-    cantidad: float,
-    precio_unitario: float,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-    descuento_porcentaje: float = 0.0,
-):
-    """Agrega concepto y devuelve lista actualizada (HTMX)."""
-    from decimal import Decimal
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    # Agregar concepto
-    repo_concepto = RepositorioConcepto(db)
-    repo_concepto.crear(
-        cotizacion_id=cotizacion_id,
-        servicio_id=servicio_id,
-        codigo_sat=codigo_sat,
-        descripcion=descripcion,
-        unidad=unidad,
-        cantidad=Decimal(str(cantidad)),
-        precio_unitario=Decimal(str(precio_unitario)),
-        descuento_porcentaje=Decimal(str(descuento_porcentaje)),
-    )
-    
-    # Obtener datos actualizados
-    repo = RepositorioCotizacion(db)
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    conceptos = repo.obtener_conceptos(cotizacion_id)
-    
-    # Devolver lista actualizada
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/_conceptos_list.html",
-        {
-            "request": request,
-            "cotizacion": cotizacion,
-            "conceptos": conceptos,
-        }
-    )
-
-
-@router_extra_ui.delete("/{cotizacion_id}/conceptos/{concepto_id}")
-def eliminar_concepto_htmx(
-    cotizacion_id: int,
-    concepto_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Elimina concepto y devuelve lista actualizada (HTMX)."""
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    # Eliminar concepto
-    repo_concepto = RepositorioConcepto(db)
-    repo_concepto.eliminar(concepto_id, cotizacion_id)
-    
-    # Obtener datos actualizados
-    repo = RepositorioCotizacion(db)
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    conceptos = repo.obtener_conceptos(cotizacion_id)
-    
-    # Devolver lista actualizada
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/_conceptos_list.html",
-        {
-            "request": request,
-            "cotizacion": cotizacion,
-            "conceptos": conceptos,
-        }
-    )
-
-
-@router_extra_ui.get("/{cotizacion_id}/notas-privadas-modal")
-def cargar_modal_notas_privadas(
-    cotizacion_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
-):
-    """Carga el modal de notas privadas para una cotización."""
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    
-    return TEMPLATES.TemplateResponse(
-        "ui/cotizaciones/_notas_privadas_modal.html",
-        {"request": request, "cotizacion": cotizacion}
-    )
-
-
-# Router adicional para API de conceptos y PDF
-router_extra_api = APIRouter(prefix="/api/cotizaciones", tags=["Cotizaciones"])
-
-
-@router_extra_api.get("/{cotizacion_id}")
-def obtener_cotizacion(
+@router_extras.get("/{cotizacion_id}/completa")
+def obtener_completa(
     cotizacion_id: int,
     db: Session = Depends(obtener_sesion_bd),
     _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
-    """Obtiene una cotización individual por ID con sus conceptos."""
+    """Obtiene una cotización con sus conceptos (para edición)."""
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+    from app.modulos.cotizaciones.cotizaciones_esquemas import ConceptoRead
     
-    repo = RepositorioCotizacion(db)
     cotizacion = db.get(Cotizacion, cotizacion_id)
-    
     if not cotizacion:
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
     
-    # Obtener conceptos
+    # Obtener conceptos usando repository existente
+    repo = RepositorioCotizacion(db)
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
-    # Construir respuesta con conceptos
-    return {
-        **cotizacion.model_dump(),
-        "conceptos": [c.model_dump() for c in conceptos]
-    }
-
-
-@router_extra_api.post("/{cotizacion_id}/conceptos", response_model=ConceptoRead)
-def agregar_concepto_api(
-    cotizacion_id: int,
-    concepto: ConceptoCreate,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Agrega un concepto a una cotización y recalcula totales (API JSON)."""
-    repo = RepositorioConcepto(db)
-    return repo.crear(
-        cotizacion_id=cotizacion_id,
-        servicio_id=concepto.servicio_id,
-        codigo_sat=concepto.codigo_sat,
-        descripcion=concepto.descripcion,
-        unidad=concepto.unidad,
-        cantidad=concepto.cantidad,
-        precio_unitario=concepto.precio_unitario,
-    )
-
-
-@router_extra_api.delete("/{cotizacion_id}/conceptos/{concepto_id}")
-def eliminar_concepto_api(
-    cotizacion_id: int,
-    concepto_id: int,
-    db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Elimina un concepto de una cotización y recalcula totales (API JSON)."""
-    repo = RepositorioConcepto(db)
-    repo.eliminar(concepto_id, cotizacion_id)
-    return {"detail": "Concepto eliminado"}
-
-
-@router_extra_api.post("/crear-completa")
-def crear_cotizacion_completa(
-    data: dict,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Crea una cotización completa con conceptos en una sola transacción."""
-    from datetime import date
-    from decimal import Decimal
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+    # Convertir a dict y agregar conceptos
+    cotizacion_dict = cotizacion.model_dump()
+    cotizacion_dict["conceptos"] = [
+        ConceptoRead.model_validate(c) for c in conceptos
+    ]
     
-    repo = RepositorioCotizacion(db)
-    fecha_hoy = date.today()
-    
-    # Crear cotización base SIN número (se generará después con el ID)
-    cotizacion = Cotizacion(
-        numero="TEMP",  # Temporal, se actualiza después
-        numero_version="TEMP",  # Temporal
-        cliente_id=data['cliente_id'],
-        estado='borrador',
-        metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),  # Default: Por definir
-        forma_pago=data.get('forma_pago', '99'),
-        notas=data.get('notas'),
-        fecha_emision=fecha_hoy,
-        fecha_vigencia=repo.calcular_fecha_vigencia(fecha_hoy),
-        creado_por=usuario.usuario,
-        modificado_por=usuario.usuario,
-    )
-    
-    db.add(cotizacion)
-    db.flush()  # Para obtener el ID
-    
-    # Ahora generar el número real basado en el ID
-    numero_real = repo.generar_numero_desde_id(cotizacion.id, fecha_hoy)
-    cotizacion.numero = numero_real
-    cotizacion.numero_version = numero_real
-    
-    # Agregar conceptos
-    repo_concepto = RepositorioConcepto(db)
-    for servicio_data in data.get('servicios', []):
-        repo_concepto.crear(
-            cotizacion_id=cotizacion.id,
-            servicio_id=servicio_data['servicio_id'],
-            codigo_sat=servicio_data['codigo_sat'],
-            descripcion=servicio_data['descripcion'],
-            unidad=servicio_data['unidad'],
-            cantidad=Decimal(str(servicio_data['cantidad'])),
-            precio_unitario=Decimal(str(servicio_data['precio_unitario'])),
-            descuento_porcentaje=Decimal(str(servicio_data.get('descuento_porcentaje', 0))),
-        )
-    
-    db.commit()
-    db.refresh(cotizacion)
-    
-    return {"id": cotizacion.id, "numero": cotizacion.numero, "numero_version": cotizacion.numero_version}
+    return cotizacion_dict
 
 
-@router_extra_api.patch("/{cotizacion_id}/actualizar-sin-version")
-def actualizar_sin_versionar(
-    cotizacion_id: int,
-    data: dict,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """
-    Actualiza cotización SIN crear versión.
-    Solo permite cambiar: metodo_pago, forma_pago, notas.
-    """
-    from app.modulos.cotizaciones.versionamiento import actualizar_sin_versionar as actualizar_fn
-    return actualizar_fn(cotizacion_id, data, db, usuario)
-
-
-@router_extra_api.post("/{cotizacion_id}/nueva-version")
-def crear_version(
-    cotizacion_id: int,
-    data: dict,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """
-    Crea nueva VERSIÓN de cotización.
-    - Cambia original a estado "modificada"
-    """
-    from app.modulos.cotizaciones.versionamiento import crear_nueva_version as crear_version_fn
-    return crear_version_fn(cotizacion_id, data, db, usuario)
-
-
-@router_extra_api.patch("/{cotizacion_id}/notas-privadas")
-def actualizar_notas_privadas(
-    cotizacion_id: int,
-    data: dict,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
-):
-    """Actualiza únicamente las notas privadas de una cotización."""
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    
-    # Actualizar solo notas privadas
-    cotizacion.notas_privadas = data.get('notas_privadas')
-    cotizacion.modificado_por = usuario.usuario
-    
-    db.add(cotizacion)
-    db.commit()
-    db.refresh(cotizacion)
-    
-    # Retornar JSON (el modal usa JavaScript vanilla, no HTMX)
-    return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
-
-
-@router_extra_ui.get("/{cotizacion_id}/editar")
-def editar_cotizacion(
-    cotizacion_id: int,
-    request: Request,
-    db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(dp_usuario_actual),
-):
-    """
-    Redirige al wizard en modo edición con datos precargados.
-    """
-    from fastapi.responses import RedirectResponse
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    
-    # Verificar que cotización NO esté en estado "modificada"
-    cotizacion = db.get(Cotizacion, cotizacion_id)
-    
-    if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
-    
-    if cotizacion.estado == "modificada":
-        raise HTTPException(
-            status_code=403, 
-            detail="No se puede editar una cotización modificada. Use la versión más reciente."
-        )
-    
-    # Redirigir al wizard con ID
-    return RedirectResponse(url=f"/ui/cotizaciones/wizard?id={cotizacion_id}", status_code=302)
-
-
-@router_extra_api.get("/{cotizacion_id}/pdf")
+@router_extras.get("/{cotizacion_id}/pdf")
 def descargar_pdf(
     cotizacion_id: int,
     db: Session = Depends(obtener_sesion_bd),
@@ -484,7 +85,6 @@ def descargar_pdf(
     try:
         pdf_bytes = generar_pdf_cotizacion(cotizacion_id, db)
         
-        # Obtener número de cotización para el filename
         from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
         cotizacion = db.get(Cotizacion, cotizacion_id)
         filename = f"{cotizacion.numero if cotizacion else 'cotizacion'}.pdf"
@@ -492,9 +92,7 @@ def descargar_pdf(
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'inline; filename="{filename}"'
-            }
+            headers={"Content-Disposition": f'inline; filename="{filename}"'}
         )
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
@@ -502,9 +100,101 @@ def descargar_pdf(
         raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
 
 
-# Router principal que combina API + UI + extras
-router = APIRouter()
-router.include_router(router_api)
-router.include_router(router_ui)
-router.include_router(router_extra_ui)
-router.include_router(router_extra_api)
+@router_extras.patch("/{cotizacion_id}/notas-privadas")
+def actualizar_notas_privadas(
+    cotizacion_id: int,
+    data: dict,
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+):
+    """Actualiza únicamente las notas privadas de una cotización."""
+    repo = RepositorioCotizacion(db)
+    try:
+        cotizacion = repo.actualizar_notas_privadas(
+            cotizacion_id, 
+            data.get('notas_privadas'), 
+            usuario.usuario
+        )
+        return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router_extras.post("/crear-completa")
+def crear_cotizacion_completa(
+    data: dict,
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+):
+    """Crea una cotización completa con conceptos en una transacción."""
+    repo = RepositorioCotizacion(db)
+    
+    # Delegar toda la lógica al repositorio
+    cotizacion = repo.crear_completa(data, usuario.usuario)
+    
+    return {
+        "id": cotizacion.id, 
+        "numero": cotizacion.numero, 
+        "numero_version": cotizacion.numero_version
+    }
+
+
+@router_extras.patch("/{cotizacion_id}/actualizar-sin-version")
+def actualizar_sin_versionar(
+    cotizacion_id: int,
+    data: dict,
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+):
+    """Actualiza cotización SIN crear versión."""
+    from app.modulos.cotizaciones.versionamiento import actualizar_sin_versionar as actualizar_fn
+    return actualizar_fn(cotizacion_id, data, db, usuario)
+
+
+@router_extras.post("/{cotizacion_id}/nueva-version")
+def crear_version(
+    cotizacion_id: int,
+    data: dict,
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+):
+    """Crea nueva VERSIÓN de cotización."""
+    from app.modulos.cotizaciones.versionamiento import crear_nueva_version as crear_version_fn
+    return crear_version_fn(cotizacion_id, data, db, usuario)
+
+
+# ---------- Descriptor ----------
+descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionUpdate, CotizacionRead, UsuarioIdentity](
+    label="Cotizaciones",
+    base_url="/api/cotizaciones",
+    repo_factory=RepositorioCotizacion,
+    schema_read=CotizacionRead,
+    schema_create=CotizacionCreate,
+    schema_update=CotizacionUpdate,
+    campos_editables={
+        "cliente_id", "metodo_pago", "forma_pago", "notas",
+        "atencion_a", "estado", "notas_privadas"
+    },
+    campos_creacion_extra=_campos_creacion,
+    campos_actualizacion_extra=_campos_actualizacion,
+    filtros_permitidos={"estado", "cliente_id"},
+    campo_busqueda="numero",
+    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
+)
+
+
+# ---------- Router Combinado usando Factory ----------
+router = crear_modulo_crud(
+    descriptor=descriptor,
+    obtener_sesion=obtener_sesion_bd,
+    actor_dependency=dp_usuario_actual,
+    write_dependency=exigir_roles("admin"),
+    tpl_filas="ui/cotizaciones/_filas.html",
+    tpl_form="ui/cotizaciones/_form.html",
+    routers_adicionales=[
+        conceptos_router.router_ui,
+        conceptos_router.router_api,
+        wizard_router.router,
+        router_extras,
+    ],
+)

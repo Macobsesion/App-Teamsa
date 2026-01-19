@@ -41,11 +41,26 @@ def fmt_none(value: Any, fallback: str = "") -> str:
     return fallback if value is None else str(value)
 
 
+def fmt_fecha_es(value: Any) -> str:
+    """Formatea una fecha en español (ej: '5 de diciembre de 2025')."""
+    if value is None:
+        return ""
+    if isinstance(value, (datetime, date)):
+        # Importación lazy para evitar dependencias circulares
+        from app.base.utilidades_fecha import formatear_fecha_español
+        # Convertir datetime a date si es necesario
+        fecha = value.date() if isinstance(value, datetime) else value
+        return formatear_fecha_español(fecha)
+    return str(value)
+
+
+
 def register_jinja_filters(templates: Jinja2Templates) -> None:
     env = templates.env
     env.filters["fmt_dt"] = fmt_dt
     env.filters["fmt_time"] = fmt_time
     env.filters["fmt_none"] = fmt_none
+    env.filters["fmt_fecha_es"] = fmt_fecha_es
     # Helper global para obtener atributos o claves dinámicamente desde plantillas
     def getv(obj, name, default=""):
         try:

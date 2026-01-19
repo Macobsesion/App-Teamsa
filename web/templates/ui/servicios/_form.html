@@ -5,8 +5,29 @@
 {{ f.field_input('descripcion','Descripción', item=item, required=True) }}
 {{ f.field_input('codigo_sat','Código SAT', item=item) }}
 {{ f.field_input('codigo_unidad','Código Unidad', item=item) }}
-{{ f.field_input('unidad','Unidad', item=item) }}
-{{ f.field_input('area','Área', item=item) }}
+{{ f.field_select('unidad','Unidad', [
+{'value': 'MUESTRA', 'label': 'MUESTRA'},
+{'value': 'SERVICIO', 'label': 'SERVICIO'},
+{'value': 'CASETTE', 'label': 'CASETTE'},
+{'value': 'KIT', 'label': 'KIT'},
+{'value': 'Chimenea', 'label': 'Chimenea'},
+{'value': 'REPORTE', 'label': 'REPORTE'},
+{'value': 'ANÁLISIS', 'label': 'ANÁLISIS'},
+{'value': 'Punto de Estudio', 'label': 'Punto de Estudio'},
+{'value': 'Punto de Estudio/Compuesto', 'label': 'Punto de Estudio/Compuesto'},
+{'value': 'Reconocimiento Inicial', 'label': 'Reconocimiento Inicial'},
+{'value': 'PIEZA', 'label': 'PIEZA'},
+{'value': 'Estudio de 4 Puntos', 'label': 'Estudio de 4 Puntos'},
+{'value': 'Zona Crítica', 'label': 'Zona Crítica'},
+{'value': 'MUESTREO', 'label': 'MUESTREO'}
+], item=item, required=True, value_attr='value', label_attr='label') }}
+{{ f.field_select('area','Área', [
+{'value': 'ECO', 'label': 'ECO'},
+{'value': 'HI', 'label': 'HI'},
+{'value': 'HIDRO', 'label': 'HIDRO'},
+{'value': 'IND', 'label': 'IND'},
+{'value': 'MED', 'label': 'MED'}
+], item=item, required=True, value_attr='value', label_attr='label') }}
 {{ f.field_input('precio_base','Precio Base', item=item, type='number', attrs='step="0.01"') }}
 {{ f.field_textarea('notas','Notas', item=item) }}
 {{ f.field_checkbox('activo', 'Activo', item=item) }}

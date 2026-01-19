@@ -47,7 +47,7 @@ En la UI se usa HTML renderizado en servidor con Jinja y HTMX para intercambiar 
   - Invitados/Testimonios: `web/templates/ui/invitados/_filas.html`, `_form.html`; `web/templates/ui/testimonios/_filas.html`, `_form.html`
 
 - Filtros y helpers Jinja: `app/web/jinja.py`
-  - `fmt_dt` (datetime/date), `fmt_time` (time) y `fmt_none`. `get_templates()` registra los filtros y devuelve una instancia compartida para render.
+  - `fmt_dt` (datetime/date ISO), `fmt_time` (time), `fmt_none` (fallback para None), `fmt_fecha_es` (fechas en español como "5 de diciembre de 2025"). `get_templates()` registra los filtros y devuelve una instancia compartida para render.
    - `getv(obj, name)`: acceso seguro a atributos o claves para plantillas dinámicas.
 
 - Macros Jinja reutilizables:
@@ -110,9 +110,10 @@ En la UI se usa HTML renderizado en servidor con Jinja y HTMX para intercambiar 
   - `to_api_router(...)` construye el router JSON sin repetir parámetros.
 
 - Builder API JSON: `app/base/enrutador_crud.py:1`
-  - Endpoints: `GET /`, `POST /`, `PATCH /{id}`, `DELETE /{id}`, `GET /metadata`.
+  - Endpoints: `GET /`, `GET /{id}`, `POST /`, `PATCH /{id}`, `DELETE /{id}`, `GET /metadata`.
   - Lee filtros desde querystring y aplica paginación básica.
   - Usa dependencias pasadas por el módulo (sesión y autorización).
+  - `GET /{id}`: Devuelve una entidad individual por su ID (genérico para todos los módulos).
   - Validaciones:
     - `validar_unicidad(repo, payload_create) -> str | None` (400 si retorna mensaje)
     - `validar_actualizacion(repo, payload_update, id) -> str | None` (400 en PATCH si retorna mensaje)
@@ -223,7 +224,7 @@ Listo: tendrás operaciones de listar/crear/editar/eliminar funcionando con una 
   - Al construir el UI puedes pasarlos en `DescriptorUI`; si no, se derivan del `label` automáticamente.
 
 - ¿Cómo formateo fechas y horas en las tablas?
-  - Usa filtros `fmt_dt` y `fmt_time` en los parciales.
+  - Usa filtros `fmt_dt` (ISO), `fmt_time` (hora), o `fmt_fecha_es` (español) en los parciales.
 
 - ¿Cómo protejo una página por rol?
   - Añade `Depends(exigir_roles('admin', ...))` en la ruta HTML y/o en los routers API/UI.

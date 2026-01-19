@@ -3,7 +3,16 @@
 {% for item in items %}
 <tr>
     <td><strong>{{ item.numero_version if item.numero_version else item.numero }}</strong></td>
-    <td>{{ item.cliente_id }}</td>
+    <td>
+        {% if item.cliente %}
+        {{ item.cliente.nombre }}
+        {% if item.cliente.razon_social and item.cliente.razon_social != item.cliente.nombre %}
+        <br><small class="text-muted">{{ item.cliente.razon_social }}</small>
+        {% endif %}
+        {% else %}
+        <span class="text-muted">ID: {{ item.cliente_id }}</span>
+        {% endif %}
+    </td>
     <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
     <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
     <td>
@@ -20,8 +29,7 @@
 
             {# Botón Notas Privadas - usa data attributes #}
             <button class="btn btn-sm btn-info btn-notas-privadas" title="Notas Privadas"
-                data-cotizacion-id="{{ item.id }}" data-numero="{{ item.numero_version | default(item.numero, true) }}"
-                data-notas="{{ item.notas_privadas | default('', true) }}">
+                data-cotizacion-id="{{ item.id }}" data-numero="{{ item.numero_version | default(item.numero, true) }}">
                 📝
             </button>
 

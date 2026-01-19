@@ -97,7 +97,7 @@
                                     <div class="col-md-2">
                                         <label class="form-label">Descuento %</label>
                                         <input type="number" class="form-control" id="descuento-input" value="0" min="0"
-                                            max="100" step="0.01">
+                                            max="100" step="1">
                                     </div>
                                     <div class="col-md-3 d-flex align-items-end">
                                         <button type="button" class="btn btn-primary w-100"
@@ -304,7 +304,6 @@
     async function cargarClientes() {
         try {
             const response = await fetch('/api/clientes/select', {
-                credentials: 'include',  // ✅ Incluir cookies de sesión
                 headers: {
                     'Accept': 'application/json'
                 }
@@ -487,7 +486,7 @@
             <td style="width: 100px;">
                 <div class="input-group input-group-sm">
                     <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
-                        min="0" max="100" step="0.01"
+                        min="0" max="100" step="1"
                         oninput="actualizarServicioNumerico(${idx}, 'descuento_porcentaje', this.value)">
                     <span class="input-group-text">%</span>
                 </div>
@@ -728,7 +727,7 @@
 
     async function cargarCotizacionParaEditar(id) {
         try {
-            const response = await fetch(`/api/cotizaciones/${id}`);
+            const response = await fetch(`/api/cotizaciones/${id}/completa`);
             if (!response.ok) throw new Error('Cotización no encontrada');
 
             const cotizacion = await response.json();

@@ -7,7 +7,7 @@ from sqlmodel import Session
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
-from app.base.utilidades_versionamiento import calcular_siguiente_letra, obtener_versiones_existentes
+
 
 
 def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuario: UsuarioIdentity):
@@ -34,6 +34,7 @@ def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuari
     return {"id": cotizacion.id, "numero": cotizacion.numero, "numero_version": cotizacion.numero_version}
 
 
+
 def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: UsuarioIdentity):
     """
     Crea una NUEVA VERSIÓN de una cotización existente.
@@ -41,7 +42,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     Funciona correctamente incluso si se versiona una versión (ej: COT-00001-B -> COT-00001-C).
     Siempre encuentra la cotización madre y todas sus versiones hermanas.
     """
-    from app.base.utilidades_versionamiento import extraer_numero_base, obtener_versiones_por_familia
+    from app.modulos.cotizaciones.servicios import ServicioCalculadoraCotizacion
     
     repo = RepositorioCotizacion(db)
     cotizacion_actual = db.get(Cotizacion, cotizacion_id)
@@ -62,14 +63,16 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
         cotizacion_madre = cotizacion_actual
     
     # 2. OBTENER TODAS LAS VERSIONES DE LA FAMILIA
-    versiones = obtener_versiones_por_familia(db, id_madre)
+    # Usar método del repositorio re-factorizado
+    versiones = repo.obtener_versiones_familia(id_madre)
     letras_usadas = [v[1] for v in versiones]
     
     # 3. CALCULAR SIGUIENTE LETRA
-    nueva_letra = calcular_siguiente_letra(letras_usadas)
+    # Usar servicio de dominio puro
+    nueva_letra = ServicioCalculadoraCotizacion.calcular_siguiente_letra(letras_usadas)
     
     # 4. EXTRAER NÚMERO BASE LIMPIO
-    numero_base = extraer_numero_base(cotizacion_madre.numero)
+    numero_base = ServicioCalculadoraCotizacion.extraer_numero_base(cotizacion_madre.numero)
     nuevo_numero = f"{numero_base}-{nueva_letra}"
     
     # 5. MARCAR LA COTIZACIÓN ACTUAL COMO MODIFICADA

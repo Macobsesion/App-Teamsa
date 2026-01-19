@@ -35,7 +35,7 @@ def login(
     gestor_autenticacion: GestorAutenticacion = Depends(_obtener_gestor_autenticacion),
 ):
     repo = _obtener_repo(db)
-    usuario = repo.obtener_por_username(username=txtNombre)
+    usuario = repo.obtener_por_campo("usuario", txtNombre)
     logger = logging.getLogger("teamsa")
     # Verifica la contraseña contra el hash almacenado en DB
     if not usuario or not gestor_autenticacion.verificar_contrasena(txtPassword, usuario.contrasena):

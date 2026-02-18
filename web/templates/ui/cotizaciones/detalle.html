@@ -1,133 +1,230 @@
-{% extends 'base.html' %}
+{% extends 'layouts/documento_detalle.html' %}
+{% import 'partials/components.html' as comp %}
 
-{% block title %}Cotización {{ cotizacion.numero }}{% endblock %}
+{% block header_title %}Cotización {{ cotizacion.numero }}{% endblock %}
 
-{% block content %}
-<div class="container-fluid py-4">
-    {# Encabezado #}
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h2>Cotización {{ cotizacion.numero }}</h2>
-            <p class="text-muted mb-0">
-                Cliente: <strong>{{ cliente.nombre }}</strong>
-                {% if cliente.rfc %} | RFC: {{ cliente.rfc }}{% endif %}
-            </p>
-        </div>
-        <div>
-            <span
-                class="badge bg-{{ 'secondary' if cotizacion.estado == 'borrador' else 'primary' if cotizacion.estado == 'enviada' else 'success' if cotizacion.estado == 'aceptada' else 'danger' if cotizacion.estado == 'rechazada' else 'info' }} fs-5">
-                {{ cotizacion.estado|title }}
-            </span>
-        </div>
-    </div>
+{% block header_subtitle %}
+Cliente: <strong>{{ cliente.nombre }}</strong>
+{% if cliente.rfc %} | RFC: {{ cliente.rfc }}{% endif %}
+{% endblock %}
 
-    <div class="row">
-        {# Columna izquierda: Conceptos #}
-        <div class="col-lg-7">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">📦 Conceptos</h5>
-                </div>
-                <div class="card-body p-0">
-                    {# Lista de conceptos (actualizada con HTMX) #}
-                    <div id="conceptos-list">
-                        {% include 'ui/cotizaciones/_conceptos_list.html' %}
-                    </div>
+{% block status_badge %}
+{{ comp.status_badge(cotizacion.estado) }}
+{% endblock %}
+
+{% block items_content %}
+<div id="conceptos-list">
+    {% include 'ui/cotizaciones/_conceptos_list.html' %}
+</div>
+
+<!-- Modal Cerrar Cotización -->
+<div class="modal fade" id="modalCerrarCotizacion" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🔒 Cerrar Cotización</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Cómo deseas cerrar esta cotización?</p>
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success" onclick="cerrarCotizacion('finalizada')">
+                        ✅ Finalizada (Completada exitosamente)
+                    </button>
+                    <button type="button" class="btn btn-warning" onclick="cerrarCotizacion('cancelada')">
+                        ❌ Cancelada (No se concretó)
+                    </button>
                 </div>
             </div>
-
-            {# Resumen de Totales #}
-            <div class="card shadow-sm">
-                <div class="card-body" id="totales-section">
-                    {% include 'ui/cotizaciones/_totales.html' %}
-                </div>
-            </div>
-        </div>
-
-        {# Columna derecha: PDF y Acciones #}
-        <div class="col-lg-5">
-            {# Información de la Cotización #}
-            <div class="card shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="card-title">📋 Información</h6>
-                    <table class="table table-sm">
-                        <tr>
-                            <td class="text-muted">Fecha Emisión:</td>
-                            <td><strong>{{ cotizacion.fecha_emision.strftime('%d/%m/%Y') }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">Fecha Vigencia:</td>
-                            <td><strong>{{ cotizacion.fecha_vigencia.strftime('%d/%m/%Y') }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">Método de Pago:</td>
-                            <td><strong>{{ cotizacion.metodo_pago }}</strong></td>
-                        </tr>
-                        <tr>
-                            <td class="text-muted">Forma de Pago SAT:</td>
-                            <td>
-                                <strong>
-                                    {% if cotizacion.forma_pago == '01' %}01 - Efectivo
-                                    {% elif cotizacion.forma_pago == '02' %}02 - Cheque nominativo
-                                    {% elif cotizacion.forma_pago == '03' %}03 - Transferencia electrónica
-                                    {% elif cotizacion.forma_pago == '04' %}04 - Tarjeta de crédito
-                                    {% elif cotizacion.forma_pago == '28' %}28 - Tarjeta de débito
-                                    {% else %}99 - Por definir
-                                    {% endif %}
-                                </strong>
-                            </td>
-                        </tr>
-                    </table>
-                    {% if cotizacion.notas %}
-                    <div class="mt-2">
-                        <small class="text-muted">Notas:</small>
-                        <p class="mb-0">{{ cotizacion.notas }}</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            {# Visor de PDF #}
-            <div class="card shadow-sm mb-3">
-                <div class="card-header bg-light">
-                    <h6 class="mb-0">📄 Vista Previa del PDF</h6>
-                </div>
-                <div class="card-body p-0">
-                    <iframe src="/api/cotizaciones/{{ cotizacion.id }}/pdf"
-                        style="width: 100%; height: 500px; border: none;"
-                        title="PDF Cotización {{ cotizacion.numero }}">
-                    </iframe>
-                </div>
-            </div>
-
-            {# Acciones #}
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="/api/cotizaciones/{{ cotizacion.id }}/pdf" target="_blank" class="btn btn-primary">
-                            📥 Descargar PDF
-                        </a>
-                        <button class="btn btn-outline-primary" disabled>
-                            ✉️ Enviar por Correo (Próximamente)
-                        </button>
-                        <hr>
-                        {% if cotizacion.estado != 'modificada' %}
-                        <a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
-                            ✏️ Editar Cotización
-                        </a>
-                        {% else %}
-                        <button class="btn btn-secondary" disabled
-                            title="Esta cotización fue modificada y no se puede editar">
-                            🔒 Cotización Bloqueada
-                        </button>
-                        {% endif %}
-                        <a href="/cotizaciones" class="btn btn-outline-secondary">
-                            ← Volver a Cotizaciones
-                        </a>
-                    </div>
-                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
             </div>
         </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block totals_content %}
+{# Usamos el parcial existente o lo reescribimos con macros.
+Por ahora reescribimos con macros para máxima consistencia #}
+<table class="table table-sm mb-0">
+    {{ comp.totals_row('Subtotal', cotizacion.subtotal) }}
+    {{ comp.totals_row('Descuento', cotizacion.descuento_global) }}
+    {{ comp.totals_row('IVA (16%)', cotizacion.iva) }}
+    {{ comp.totals_row('Total', cotizacion.total, is_total=True) }}
+</table>
+{% endblock %}
+
+{% block info_content %}
+{{ comp.info_row('Fecha Emisión', cotizacion.fecha_emision.strftime('%d/%m/%Y')) }}
+{{ comp.info_row('Fecha Vigencia', cotizacion.fecha_vigencia.strftime('%d/%m/%Y') if cotizacion.fecha_vigencia else
+'N/A') }}
+{{ comp.info_row('Método de Pago', cotizacion.metodo_pago) }}
+{# Forma de pago con lógica custom #}
+<tr>
+    <td class="text-muted">Forma de Pago:</td>
+    <td><strong>
+            {% if cotizacion.forma_pago == '01' %}01 - Efectivo
+            {% elif cotizacion.forma_pago == '02' %}02 - Cheque nominativo
+            {% elif cotizacion.forma_pago == '03' %}03 - Transferencia electrónica
+            {% elif cotizacion.forma_pago == '04' %}04 - Tarjeta de crédito
+            {% elif cotizacion.forma_pago == '28' %}28 - Tarjeta de débito
+            {% else %}99 - Por definir
+            {% endif %}
+        </strong></td>
+</tr>
+{% endblock %}
+
+{% block extra_info %}
+{% if cotizacion.notas %}
+<div class="mt-2 text-muted">
+    <small>Notas:</small>
+    <p class="mb-0">{{ cotizacion.notas }}</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block pdf_url %}/api/cotizaciones/{{ cotizacion.id }}/pdf{% endblock %}
+{% block pdf_url_download %}/api/cotizaciones/{{ cotizacion.id }}/pdf{% endblock %}
+
+{% block actions_content %}
+<button class="btn btn-outline-primary" disabled>
+    ✉️ Enviar por Correo
+</button>
+<hr>
+
+{# Botón Editar Cotización #}
+{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+<a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
+    ✏️ Editar Cotización
+</a>
+{% endif %}
+
+{# Botón Nueva Versión #}
+{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+<button type="button" class="btn btn-info" onclick="crearNuevaVersion()">
+    📋 Nueva Versión
+</button>
+{% endif %}
+
+{# Botón Crear OT #}
+{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+<button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearOT">
+    🛠️ Crear Orden de Trabajo
+</button>
+{% endif %}
+
+{# Botón Cerrar Cotización #}
+{% if cotizacion.estado in ['enviada', 'aceptada', 'programada'] %}
+<button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalCerrarCotizacion">
+    🔒 Cerrar Cotización
+</button>
+{% endif %}
+{% endblock %}
+
+{% block back_button %}
+<a href="/cotizaciones" class="btn btn-outline-secondary">
+    ← Volver a Cotizaciones
+</a>
+{% endblock %}
+
+{% block extra_scripts %}
+<!-- Modal Crear OT -->
+<div class="modal fade" id="modalCrearOT" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🛠️ Generar Orden de Trabajo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearOT">
+                    <input type="hidden" name="cotizacion_id" value="{{ cotizacion.id }}">
+                    <div class="mb-3">
+                        <label class="form-label">Fecha Programada</label>
+                        <input type="date" class="form-control" name="fecha_programada" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hora Programada</label>
+                        <input type="time" class="form-control" name="hora_programada" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Duración Estimada (Horas)</label>
+                        <input type="number" class="form-control" name="duracion" value="1" min="1" required>
+                    </div>
+                    <div class="alert alert-info py-2">
+                        <small>ℹ️ Al generar la OT, esta cotización pasará a estado <strong>Aceptada</strong>.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="crearOrdenTrabajo()">✨ Confirmar y Crear</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function cerrarCotizacion(estado) {
+        // Cerrar modal
+        const modalEl = document.getElementById('modalCerrarCotizacion');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
+        if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) {
+            return;
+        }
+
+        fetch('/api/cotizaciones/{{ cotizacion.id }}/cerrar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: estado })
+        })
+            .then(async res => {
+                if (res.ok) {
+                    location.reload();
+                } else {
+                }
+            });
+    }
+
+    function crearNuevaVersion() {
+        if (!confirm('¿Crear nueva versión de esta cotización? La cotización actual se marcará como "modificada".')) {
+            return;
+        }
+        // Redirigir al wizard con el ID de la cotización a versionar
+        window.location.href = `/ui/cotizaciones/wizard?version_de={{ cotizacion.id }}`;
+    }
+
+    function crearOrdenTrabajo() {
+        const form = document.getElementById('formCrearOT');
+        if (!form.reportValidity()) return;
+
+        const data = {
+            cotizacion_id: parseInt(form.cotizacion_id.value),
+            fecha_programada: form.fecha_programada.value,
+            hora_programada: form.hora_programada.value,
+            duracion: parseInt(form.duracion.value)
+        };
+
+        fetch('/api/ordenes/crear-desde-cotizacion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+            .then(async res => {
+                if (res.ok) {
+                    const json = await res.json();
+                    window.location.href = `/ui/ordenes/${json.id}/detalle`;
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + (err.detail || 'No se pudo crear la OT'));
+                }
+            })
+            .catch(console.error);
+    }
+</script>
 {% endblock %}

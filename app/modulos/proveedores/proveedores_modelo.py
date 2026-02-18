@@ -3,7 +3,11 @@
 Gestiona información de proveedores comerciales, similar a clientes
 pero desde la perspectiva de compras.
 """
-from sqlmodel import Field, SQLModel  # type: ignore
+from sqlmodel import Field, SQLModel, Relationship  # type: ignore
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from app.modulos.servicios_proveedores.servicios_proveedores_modelo import ServicioProveedor
 
 from app.base.auditoria import AuditMixin
 
@@ -32,3 +36,7 @@ class Proveedor(AuditMixin, SQLModel, table=True):
     categoria: str | None = Field(default=None, description="Tipo de proveedor: materiales, servicios, etc.")
     activo: bool = Field(default=True)
     notas: str | None = None
+
+    # Relaciones
+    servicios: List["ServicioProveedor"] = Relationship(back_populates="proveedor")
+

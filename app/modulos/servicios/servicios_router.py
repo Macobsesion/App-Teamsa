@@ -10,7 +10,7 @@ from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 def _validar_unicidad(repo: RepositorioServicio, payload: ServicioCreate) -> str | None:
     """Valida que no exista un servicio con la misma clave."""
-    if repo.obtener_por_clave(payload.clave):
+    if repo.obtener_por_campo("clave", payload.clave):
         return f"Ya existe un servicio con la clave '{payload.clave}'"
     return None
 

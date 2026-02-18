@@ -21,11 +21,15 @@ class Settings(BaseSettings):
     # Configuración de Autenticación/JWT
     SECRET_KEY: str = "dev-secret-change-me"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     ACCESS_COOKIE_NAME: str = "sesion_teamsa"
 
     # CORS (lista separada por comas o "*")
     CORS_ALLOW_ORIGINS: str = "*"
+    
+    # Entorno de ejecución (development o production)
+    # Controla configuraciones de seguridad como cookies seguras
+    ENVIRONMENT: str = "development"
 
     @computed_field
     @property

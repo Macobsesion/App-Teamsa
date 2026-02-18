@@ -1,0 +1,113 @@
+{% extends 'layouts/documento_detalle.html' %}
+{% import 'partials/components.html' as comp %}
+
+{% block header_title %}Orden de Compra {{ orden.folio }}{% endblock %}
+
+{% block header_subtitle %}
+Proveedor: <strong>{{ proveedor.nombre }}</strong>
+{% if proveedor.rfc %} | RFC: {{ proveedor.rfc }}{% endif %}
+{% endblock %}
+
+{% block status_badge %}
+{{ comp.status_badge(orden.estado, {'borrador': 'Borrador', 'emitida': 'Emitida', 'parcial': 'Parcialmente Recibida',
+'recibida': 'Recibida', 'cancelada': 'Cancelada'}) }}
+{% endblock %}
+
+{% block items_title %}🛒 Partidas{% endblock %}
+
+{% block items_content %}
+<table class="table table-hover mb-0">
+    <thead class="table-light">
+        <tr>
+            <th>#</th>
+            <th>SKU</th>
+            <th>Descripción</th>
+            <th>Unidad</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-end">P. Unit</th>
+            <th class="text-end">Importe</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for d in detalles %}
+        <tr>
+            <td class="text-muted">{{ loop.index }}</td>
+            <td><code>{{ d.codigo_sku }}</code></td>
+            <td>{{ d.descripcion }}</td>
+            <td>{{ d.unidad }}</td>
+            <td class="text-center">{{ d.cantidad }}</td>
+            <td class="text-end">{{ comp.money(d.precio_unitario) }}</td>
+            <td class="text-end">{{ comp.money(d.importe) }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
+{% block totals_content %}
+<table class="table table-sm mb-0">
+    {{ comp.totals_row('Subtotal', orden.subtotal) }}
+    {{ comp.totals_row('IVA (16%)', orden.iva) }}
+    {{ comp.totals_row('Total', orden.total, is_total=True) }}
+</table>
+{% endblock %}
+
+{% block info_content %}
+{{ comp.info_row('Fecha Emisión', orden.fecha_emision.strftime('%d/%m/%Y')) }}
+{% if orden.fecha_entrega_estimada %}
+{{ comp.info_row('Fecha Entrega Estimada', orden.fecha_entrega_estimada.strftime('%d/%m/%Y')) }}
+{% endif %}
+
+{# Método de Pago con lógica custom para mostrar texto largo #}
+<tr>
+    <td class="text-muted">Método de Pago:</td>
+    <td><strong>
+            {% if orden.metodo_pago == 'PUE' %}PUE - Pago en Una Sola Exhibición
+            {% elif orden.metodo_pago == 'PPD' %}PPD - Pago en Parcialidades o Diferido
+            {% elif orden.metodo_pago == 'PIP' %}PIP - Pago Inicial y Parcialidades
+            {% else %}Por definir
+            {% endif %}
+        </strong></td>
+</tr>
+
+{# Forma de Pago con lógica custom #}
+<tr>
+    <td class="text-muted">Forma de Pago SAT:</td>
+    <td><strong>
+            {% if orden.forma_pago == '01' %}01 - Efectivo
+            {% elif orden.forma_pago == '02' %}02 - Cheque nominativo
+            {% elif orden.forma_pago == '03' %}03 - Transferencia electrónica
+            {% elif orden.forma_pago == '04' %}04 - Tarjeta de crédito
+            {% elif orden.forma_pago == '05' %}05 - Monedero electrónico
+            {% elif orden.forma_pago == '28' %}28 - Tarjeta de débito
+            {% else %}99 - Por definir
+            {% endif %}
+        </strong></td>
+</tr>
+{% endblock %}
+
+{% block extra_info %}
+{% if orden.notas %}
+<div class="mt-2 p-2 rounded" style="background-color: #fef3c7; border-left: 3px solid #f59e0b;">
+    <small class="text-muted"><strong>📝 Notas:</strong></small>
+    <p class="mb-0" style="color: #78350f;">{{ orden.notas }}</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block pdf_url %}/api/ordenes-compra/{{ orden.id }}/pdf{% endblock %}
+{% block pdf_url_download %}/api/ordenes-compra/{{ orden.id }}/pdf{% endblock %}
+
+{% block actions_content %}
+{% if orden.estado == 'borrador' %}
+<a href="/ui/ordenes-compra/wizard?id={{ orden.id }}" class="btn btn-warning">
+    ✏️ Editar Orden de Compra
+</a>
+{% endif %}
+{% endblock %}
+
+{% block back_button %}
+<a href="/ordenes-compra" class="btn btn-outline-secondary">
+    ← Volver a Órdenes de Compra
+</a>
+{% endblock %}

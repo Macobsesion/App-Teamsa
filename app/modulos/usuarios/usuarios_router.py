@@ -16,42 +16,6 @@ from app.modulos.usuarios.usuarios_esquemas import (
     UsuarioUpdatePartial,
 )
 from app.modulos.usuarios.usuarios_repositorio import RepositorioUsuario
-from app.nucleo.cls_autenticacion import obtener_gestor_autenticacion
-
-
-def _hashear_contrasena(contrasena: str) -> str:
-    return obtener_gestor_autenticacion().obtener_hash_contrasena(contrasena)
-
-
-def _extra_creacion(payload: UsuarioCreate, actor: UsuarioIdentity) -> dict[str, Any]:
-    """Genera campos adicionales al crear usuario (con hash de contraseña)."""
-    from app.base.descriptor_crud import _auditoria_creacion_default
-    
-    rol = payload.rol or 'funcionario'
-    extras = _auditoria_creacion_default(payload, actor)
-    extras.update({
-        'rol': rol,
-        'contrasena': _hashear_contrasena(payload.contrasena),
-    })
-    return extras
-
-
-def _extra_actualizacion(payload: UsuarioUpdatePartial, actor: UsuarioIdentity) -> dict[str, Any]:
-    """Actualiza auditoría y hashea contraseña si se proporciona."""
-    from app.base.descriptor_crud import _auditoria_actualizacion_default
-    
-    extras = _auditoria_actualizacion_default(payload, actor)
-    
-    # Si llega una contraseña no vacía, hashearla
-    try:
-        nueva_pass = getattr(payload, 'contrasena', None)
-        if nueva_pass:
-            extras['contrasena'] = _hashear_contrasena(nueva_pass)
-    except Exception:
-        pass
-    
-    return extras
-
 
 def _validar_unicidad(repo: RepositorioUsuario, payload: UsuarioCreate) -> str | None:
     """Valida que el usuario no exista."""
@@ -82,9 +46,11 @@ descriptor = DescriptorCRUD[
     schema_read=UsuarioRead,
     schema_create=UsuarioCreate,
     schema_update=UsuarioUpdatePartial,
-    campos_editables={"nombres", "correo", "area", "rol", "contrasena"},
-    campos_creacion_extra=_extra_creacion,
-    campos_actualizacion_extra=_extra_actualizacion,
+    campos_editables={
+        "nombres", "rol", "correo", "contrasena", "area"
+    },
+    columnas_incluir=["usuario", "rol", "correo", "area"],
+    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion", "contrasena"},
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"rol", "area"},
     campo_busqueda="nombres",

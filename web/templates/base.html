@@ -16,13 +16,14 @@
 </head>
 
 <body>
-  <header class="bg-light mb-4">
-    <div class="text-center mb-3">
-      <img src="/static/img/teamsa_logo.png" alt="Logo" class="login-logo">
-    </div>
-    {# Muestra la barra de navegación en páginas distintas al login #}
+  <header>
+    {# La barra de navegación ahora incluye el logo e identidad #}
     {% if request.url.path != '/' %}
     {% include 'partials/nav.html' %}
+    {% else %}
+    <div class="text-center py-4 bg-white shadow-sm mb-4">
+      <img src="/static/img/teamsa_logo.png" alt="Logo" class="login-logo mb-0">
+    </div>
     {% endif %}
   </header>
   <main class="container">
@@ -30,8 +31,11 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="bg-light p-3 mt-5 text-center">
-    <small>© 2025 TEAMSA</small>
+  <footer class="teamsa-footer text-center">
+    <div class="container">
+      <p class="mb-1">&copy; 2025 <strong>TEAMSA</strong> - Tecnología Ecologica Ambiental S.A. de C.V.</p>
+      <small class="text-muted">Sistema de Gestión Integral ver 1.1</small>
+    </div>
   </footer>
 
 </body>

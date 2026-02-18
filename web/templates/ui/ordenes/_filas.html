@@ -1,0 +1,39 @@
+{% for item in items %}
+<tr>
+    <td>
+        <strong>{{ item.numero_ot }}</strong>
+        <br><small class="text-muted">Ref. Cot: {{ item.cotizacion_id }}</small>
+    </td>
+    <td>
+        {{ item.fecha_programada.strftime('%d/%m/%Y') }}
+        <br><small class="text-muted">{{ item.hora_programada }}</small>
+    </td>
+    <td>
+        {{ item.cliente_nombre }}
+        <br><small class="text-muted">{{ item.domicilio|truncate(40) }}</small>
+    </td>
+    <td>
+        <span
+            class="badge bg-{{ 'primary' if item.estado == 'programada' else 'warning' if item.estado == 'en_curso' else 'success' if item.estado == 'cerrada' else 'danger' }}">
+            {{ item.estado|title }}
+        </span>
+    </td>
+    <td>
+        <div class="btn-group btn-group-sm">
+            <a href="/ui/ordenes/{{ item.id }}/detalle" class="btn btn-sm btn-info text-white" title="Ver Detalle">
+                👁️
+            </a>
+            <a href="/api/ordenes/{{ item.id }}/pdf" class="btn btn-sm btn-secondary" target="_blank" title="PDF">
+                📄
+            </a>
+        </div>
+    </td>
+</tr>
+{% endfor %}
+{% if not items %}
+<tr>
+    <td colspan="5" class="text-center py-3 text-muted">
+        No se encontraron ordenes de trabajo.
+    </td>
+</tr>
+{% endif %}

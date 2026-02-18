@@ -8,7 +8,7 @@ MESES_ESPAÑOL = {
 }
 
 
-def formatear_fecha_español(fecha: date) -> str:
+def formatear_fecha_español(fecha: date | None) -> str:
     """
     Formatea una fecha en español.
     
@@ -16,11 +16,8 @@ def formatear_fecha_español(fecha: date) -> str:
         fecha: Fecha a formatear
         
     Returns:
-        String con formato "5 de diciembre de 2025"
-        
-    Example:
-        >>> fecha = date(2025, 12, 5)
-        >>> formatear_fecha_español(fecha)
-        '5 de diciembre de 2025'
+        String con formato "5 de diciembre de 2025" o "N/A" si es None
     """
+    if not fecha:
+        return "N/A"
     return f"{fecha.day} de {MESES_ESPAÑOL[fecha.month]} de {fecha.year}"

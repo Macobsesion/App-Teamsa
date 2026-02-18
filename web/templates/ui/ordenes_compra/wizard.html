@@ -1,0 +1,525 @@
+{% extends 'base.html' %}
+
+{% block title %}Nueva Orden de Compra{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            {# Wizard Header #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h3 class="mb-4" id="wizard-titulo">📦 Nueva Orden de Compra</h3>
+
+                    {# Progress Steps #}
+                    <div class="d-flex justify-content-between mb-4">
+                        <div class="wizard-step active" data-step="1">
+                            <div class="step-number">1</div>
+                            <div class="step-label">Proveedor</div>
+                        </div>
+                        <div class="wizard-step-line"></div>
+                        <div class="wizard-step" data-step="2">
+                            <div class="step-number">2</div>
+                            <div class="step-label">Productos</div>
+                        </div>
+                        <div class="wizard-step-line"></div>
+                        <div class="wizard-step" data-step="3">
+                            <div class="step-number">3</div>
+                            <div class="step-label">Revisión</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Wizard Content #}
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {# Step 1: Proveedor #}
+                    <div class="wizard-content" id="step-1">
+                        <h5 class="mb-3">🏭 Información del Proveedor</h5>
+
+                        <div class="mb-3">
+                            <label class="form-label">Proveedor *</label>
+                            <select class="form-select" id="proveedor-select" required
+                                onchange="cargarServiciosProveedor()">
+                                <option value="">-- Seleccionar proveedor --</option>
+                            </select>
+                            <div class="form-text">Selecciona un proveedor para cargar su catálogo de productos.</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha Emisión</label>
+                                <input type="date" class="form-control" id="fecha-emision">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha Entrega (Estimada)</label>
+                                <input type="date" class="form-control" id="fecha-entrega">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Método de Pago SAT</label>
+                                <select class="form-select" id="metodo-pago">
+                                    <option value="POR_DEFINIR" selected>Por definir</option>
+                                    <option value="PUE">PUE - Pago en Una Sola Exhibición</option>
+                                    <option value="PPD">PPD - Pago en Parcialidades o Diferido</option>
+                                    <option value="PIP">PIP - Pago Inicial y Parcialidades</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Forma de Pago SAT</label>
+                                <select class="form-select" id="forma-pago">
+                                    <option value="99" selected>99 - Por definir</option>
+                                    <option value="01">01 - Efectivo</option>
+                                    <option value="02">02 - Cheque nominativo</option>
+                                    <option value="03">03 - Transferencia electrónica</option>
+                                    <option value="04">04 - Tarjeta de crédito</option>
+                                    <option value="05">05 - Monedero electrónico</option>
+                                    <option value="28">28 - Tarjeta de débito</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Notas</label>
+                            <textarea class="form-control" id="notas" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    {# Step 2: Productos #}
+                    <div class="wizard-content d-none" id="step-2">
+                        <h5 class="mb-3">🛒 Agregar Productos</h5>
+
+                        <div class="card bg-light mb-3">
+                            <div class="card-body">
+                                <div class="alert alert-warning d-none" id="alerta-proveedor">
+                                    Primero seleccione un proveedor en el paso 1.
+                                </div>
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label">Producto / Servicio</label>
+                                        <select class="form-select" id="servicio-select">
+                                            <option value="">-- Seleccionar del catálogo --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Cantidad</label>
+                                        <input type="number" class="form-control" id="cantidad-input" value="1" min="1"
+                                            step="1">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Precio Unit.</label>
+                                        <input type="number" class="form-control" id="precio-input" step="0.01">
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button type="button" class="btn btn-teamsa-primary w-100"
+                                            onclick="agregarItem()">+
+                                            Agregar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="items-lista">
+                            <p class="text-muted text-center py-4">No hay productos agregados</p>
+                        </div>
+
+                        <div class="mt-3 text-end">
+                            <h5>Total Estimado: <span id="total-step-2">$0.00</span></h5>
+                        </div>
+                    </div>
+
+                    {# Step 3: Resumen #}
+                    <div class="wizard-content d-none" id="step-3">
+                        <h5 class="mb-3">📝 Revisión Final</h5>
+
+                        <div class="card mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">Datos Generales</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p><strong>Proveedor:</strong> <span id="resumen-proveedor">-</span></p>
+                                        <p><strong>Fecha Emisión:</strong> <span id="resumen-fecha">-</span></p>
+                                        <p><strong>Fecha Estimada Entrega:</strong> <span
+                                                id="resumen-fecha-entrega">-</span></p>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <p><strong>Método de Pago:</strong> <span id="resumen-metodo-pago">-</span></p>
+                                        <p><strong>Condiciones de Pago:</strong> <span
+                                                id="resumen-condiciones-pago">-</span></p>
+                                    </div>
+                                </div>
+                                <p class="mb-0"><strong>Notas:</strong> <span id="resumen-notas">-</span></p>
+                            </div>
+                        </div>
+
+                        <div class="card mb-3">
+                            <div class="card-header bg-secondary text-white">
+                                <h6 class="mb-0">Partidas</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="resumen-items-tabla"></div>
+                            </div>
+                        </div>
+
+                        <div class="card bg-light">
+                            <div class="card-body text-end">
+                                <h3>Total: <span id="resumen-total">$0.00</span></h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Navigation Buttons #}
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-secondary" id="btn-prev" onclick="prevStep()" disabled>←
+                            Anterior</button>
+                        <div>
+                            <a href="/ordenes-compra" class="btn btn-outline-secondary me-2">Cancelar</a>
+                            <button type="button" class="btn btn-teamsa-primary" id="btn-next"
+                                onclick="nextStep()">Siguiente
+                                →</button>
+                            <button type="button" class="btn btn-success d-none" id="btn-submit"
+                                onclick="submitOrden()">
+                                <span id="btn-submit-text">✓ Generar Orden de Compra</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+    // Estado del Wizard
+    const state = {
+        step: 1,
+        proveedor_id: null,
+        fecha_emision: new Date().toISOString().split('T')[0],
+        fecha_entrega: '',
+        metodo_pago: 'POR_DEFINIR',
+        forma_pago: '99',
+        notas: '',
+        items: [] // { servicio_id, codigo, descripcion, cantidad, precio_unitario, unidad }
+    };
+
+    let proveedoresData = [];
+    let catalogoProductos = [];
+
+    // Variables para modo edición
+    let modoEdicion = false;
+    let ordenId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Detectar modo edición via ?id=X en URL
+        const urlParams = new URLSearchParams(window.location.search);
+        ordenId = urlParams.get('id');
+        modoEdicion = ordenId !== null;
+
+        if (modoEdicion) {
+            document.getElementById('wizard-titulo').textContent = '✏️ Editar Orden de Compra';
+            document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
+        }
+
+        document.getElementById('fecha-emision').value = state.fecha_emision;
+        cargarProveedores();
+
+        // Si es modo edición, cargar datos después de los catálogos
+        if (modoEdicion) {
+            setTimeout(() => cargarOrdenParaEditar(ordenId), 500);
+        }
+    });
+
+    async function cargarProveedores() {
+        try {
+            const resp = await fetch('/api/proveedores/select'); // Asumimos que existe o usaremos el endpoint de lista
+            // Si no existe endpoint select, usamos el de lista normal por ahora
+            // TODO: Crear endpoint select optimizado en provider router si falla
+            if (!resp.ok) throw new Error("Error cargando proveedores");
+            const data = await resp.json();
+            proveedoresData = data;
+
+            const sel = document.getElementById('proveedor-select');
+            data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.nombre;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async function cargarServiciosProveedor() {
+        const proveedorId = document.getElementById('proveedor-select').value;
+        state.proveedor_id = proveedorId;
+        catalogoProductos = [];
+
+        const sel = document.getElementById('servicio-select');
+        sel.innerHTML = '<option value="">Cargando...</option>';
+
+        if (!proveedorId) {
+            sel.innerHTML = '<option value="">-- Seleccionar del catálogo --</option>';
+            return;
+        }
+
+        try {
+            // Usar endpoint /select con filtro de proveedor_id (igual que cotizaciones usa /api/servicios/select)
+            const resp = await fetch(`/api/servicios-proveedores/select?proveedor_id=${proveedorId}`);
+            if (!resp.ok) {
+                throw new Error('Error al cargar catálogo');
+            }
+            const data = await resp.json();
+            catalogoProductos = data;
+
+            sel.innerHTML = '<option value="">-- Seleccionar producto --</option>';
+            catalogoProductos.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `[${p.codigo_sku}] ${p.descripcion} ($${p.costo_unitario})`;
+                sel.appendChild(opt);
+            });
+        } catch (e) {
+            sel.innerHTML = '<option value="">Error cargando catálogo</option>';
+            console.error(e);
+        }
+    }
+
+    // Listener para actualizar precio al elegir producto
+    document.getElementById('servicio-select').addEventListener('change', (e) => {
+        const id = parseInt(e.target.value);
+        const prod = catalogoProductos.find(p => p.id === id);
+        if (prod) {
+            document.getElementById('precio-input').value = prod.costo_unitario;
+        }
+    });
+
+    function nextStep() {
+        if (state.step === 1) {
+            const pid = document.getElementById('proveedor-select').value;
+            if (!pid) return alert("Selecciona un proveedor");
+            state.proveedor_id = parseInt(pid);
+            state.fecha_emision = document.getElementById('fecha-emision').value;
+            state.fecha_entrega = document.getElementById('fecha-entrega').value;
+            state.metodo_pago = document.getElementById('metodo-pago').value;
+            state.forma_pago = document.getElementById('forma-pago').value;
+            state.notas = document.getElementById('notas').value;
+        } else if (state.step === 2) {
+            if (state.items.length === 0) return alert("Agrega al menos un producto");
+            renderResumen();
+        }
+
+        state.step++;
+        updateUI();
+    }
+
+    function prevStep() {
+        state.step--;
+        updateUI();
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.wizard-content').forEach(el => el.classList.add('d-none'));
+        document.getElementById(`step-${state.step}`).classList.remove('d-none');
+
+        document.querySelectorAll('.wizard-step').forEach(el => {
+            const s = parseInt(el.dataset.step);
+            el.classList.remove('active', 'completed');
+            if (s === state.step) el.classList.add('active');
+            else if (s < state.step) el.classList.add('completed');
+        });
+
+        document.getElementById('btn-prev').disabled = state.step === 1;
+
+        const isLast = state.step === 3;
+        document.getElementById('btn-next').classList.toggle('d-none', isLast);
+        document.getElementById('btn-submit').classList.toggle('d-none', !isLast);
+    }
+
+    function agregarItem() {
+        const sid = document.getElementById('servicio-select').value;
+        const cant = parseFloat(document.getElementById('cantidad-input').value);
+        const precio = parseFloat(document.getElementById('precio-input').value);
+
+        if (!sid || cant <= 0 || isNaN(precio)) return alert("Datos inválidos");
+
+        const prod = catalogoProductos.find(p => p.id == sid);
+
+        state.items.push({
+            servicio_id: parseInt(sid),
+            codigo: prod ? prod.codigo_sku : 'MANUAL',
+            descripcion: prod ? prod.descripcion : 'Producto manual',
+            unidad: prod ? prod.unidad : 'Pieza',
+            cantidad: cant,
+            precio_unitario: precio
+        });
+
+        renderItems();
+        // Reset inputs
+        document.getElementById('servicio-select').value = "";
+        document.getElementById('cantidad-input').value = 1;
+        document.getElementById('precio-input').value = "";
+    }
+
+    function eliminarItem(idx) {
+        state.items.splice(idx, 1);
+        renderItems();
+    }
+
+    function renderItems() {
+        const container = document.getElementById('items-lista');
+        let html = '<table class="table table-sm table-striped"><thead><tr><th>SKU</th><th>Desc</th><th>Cant</th><th>Precio</th><th>Total</th><th></th></tr></thead><tbody>';
+        let total = 0;
+
+        state.items.forEach((item, i) => {
+            const sub = item.cantidad * item.precio_unitario;
+            total += sub;
+            html += `<tr>
+                <td>${item.codigo}</td>
+                <td>${item.descripcion}</td>
+                <td>${item.cantidad}</td>
+                <td>$${item.precio_unitario.toFixed(2)}</td>
+                <td>$${sub.toFixed(2)}</td>
+                <td><button class="btn btn-sm btn-danger py-0" onclick="eliminarItem(${i})">×</button></td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = state.items.length ? html : '<p class="text-center text-muted">Vacio</p>';
+        document.getElementById('total-step-2').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function renderResumen() {
+        const prov = proveedoresData.find(p => p.id == state.proveedor_id);
+        document.getElementById('resumen-proveedor').textContent = prov?.nombre || 'Error';
+        document.getElementById('resumen-fecha').textContent = state.fecha_emision || '-';
+        document.getElementById('resumen-fecha-entrega').textContent = state.fecha_entrega || '-';
+
+        // Método de Pago (SAT)
+        const metodosMap = {
+            'POR_DEFINIR': 'Por definir',
+            'PUE': 'PUE - Pago en Una Sola Exhibición',
+            'PPD': 'PPD - Pago en Parcialidades o Diferido',
+            'PIP': 'PIP - Pago Inicial y Parcialidades'
+        };
+        document.getElementById('resumen-metodo-pago').textContent = metodosMap[state.metodo_pago] || state.metodo_pago;
+
+        // Condiciones de Pago (Forma de Pago SAT)
+        const formasMap = {
+            '99': '99 - Por definir',
+            '01': '01 - Efectivo',
+            '02': '02 - Cheque nominativo',
+            '03': '03 - Transferencia electrónica',
+            '04': '04 - Tarjeta de crédito',
+            '05': '05 - Monedero electrónico',
+            '28': '28 - Tarjeta de débito'
+        };
+        document.getElementById('resumen-condiciones-pago').textContent = formasMap[state.forma_pago] || state.forma_pago;
+
+        document.getElementById('resumen-notas').textContent = state.notas || '-';
+
+        let html = '<table class="table table-bordered mb-0"><thead><tr class="table-light"><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit</th><th class="text-end">Importe</th></tr></thead><tbody>';
+        let total = 0;
+        state.items.forEach(item => {
+            const sub = item.cantidad * item.precio_unitario;
+            total += sub;
+            html += `<tr><td>${item.descripcion}</td><td class="text-center">${item.cantidad}</td><td class="text-end">$${item.precio_unitario.toFixed(2)}</td><td class="text-end">$${sub.toFixed(2)}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('resumen-items-tabla').innerHTML = html;
+        document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
+    }
+
+    async function submitOrden() {
+        const btn = document.getElementById('btn-submit');
+        btn.disabled = true;
+        btn.innerHTML = modoEdicion ? 'Guardando...' : 'Generando...';
+
+        try {
+            let url, method;
+            if (modoEdicion) {
+                url = `/api/ordenes-compra/${ordenId}/actualizar-completa`;
+                method = 'PUT';
+            } else {
+                url = '/api/ordenes-compra/completa';
+                method = 'POST';
+            }
+
+            const resp = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(state)
+            });
+
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || 'Error al guardar');
+            }
+
+            const data = await resp.json();
+            if (modoEdicion) {
+                alert('✅ Orden de Compra actualizada correctamente');
+                window.location.href = `/ui/ordenes-compra/${ordenId}/detalle`;
+            } else {
+                alert('✅ Orden de Compra generada exitosamente. Folio: ' + data.folio);
+                window.location.href = '/ordenes-compra';
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+            btn.disabled = false;
+            btn.innerHTML = `<span id="btn-submit-text">${modoEdicion ? '💾 Guardar Cambios' : '✓ Generar Orden de Compra'}</span>`;
+        }
+    }
+
+    async function cargarOrdenParaEditar(id) {
+        try {
+            const response = await fetch(`/api/ordenes-compra/${id}/completa`);
+            if (!response.ok) throw new Error('Orden no encontrada');
+
+            const orden = await response.json();
+
+            // Cargar paso 1
+            state.proveedor_id = orden.proveedor_id;
+            state.fecha_emision = orden.fecha_emision;
+            state.fecha_entrega = orden.fecha_entrega || '';
+            state.metodo_pago = orden.metodo_pago;
+            state.forma_pago = orden.forma_pago;
+            state.notas = orden.notas;
+
+            document.getElementById('proveedor-select').value = orden.proveedor_id;
+            document.getElementById('proveedor-select').disabled = true;  // Bloqueado en edición
+            document.getElementById('fecha-emision').value = orden.fecha_emision;
+            document.getElementById('fecha-entrega').value = orden.fecha_entrega || '';
+            document.getElementById('metodo-pago').value = orden.metodo_pago;
+            document.getElementById('forma-pago').value = orden.forma_pago;
+            document.getElementById('notas').value = orden.notas;
+
+            // Cargar servicios del proveedor para el catálogo
+            await cargarServiciosProveedor();
+
+            // Cargar items existentes
+            if (orden.items && orden.items.length > 0) {
+                state.items = orden.items.map(i => ({
+                    servicio_id: i.servicio_id,
+                    codigo: i.codigo,
+                    descripcion: i.descripcion,
+                    unidad: i.unidad,
+                    cantidad: i.cantidad,
+                    precio_unitario: i.precio_unitario
+                }));
+                renderItems();
+            }
+        } catch (error) {
+            console.error('Error cargando orden:', error);
+            alert('Error al cargar la orden para editar');
+            window.location.href = '/ordenes-compra';
+        }
+    }
+</script>
+{% endblock %}

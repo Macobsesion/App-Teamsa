@@ -1,11 +1,12 @@
-"""Repositorio para cotizaciones."""
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Any
 from sqlmodel import Session, select  # type: ignore
 
 from app.base.repositorio import RepositorioCRUD
 from app.base.constantes import IVA_PORCENTAJE, VIGENCIA_DIAS_DEFAULT, PREFIJO_NUMERO_COTIZACION
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
+from app.modulos.cotizaciones.enums import EstadoCotizacion
 
 
 class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
@@ -63,23 +64,46 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         """
         Genera el número de cotización basado en el ID y la fecha.
         
-        Formato: COT-YYMMID
-        Ejemplo: COT-26011623 (año 26, mes 01, día 16, ID 23)
+        Formato: COT-YYMMDD-ID
+        Ejemplo: COT-260116-23 (año 26, mes 01, día 16, ID 23)
         
         Args:
             cotizacion_id: ID de la cotización en la BD
             fecha_emision: Fecha de emisión de la cotización
             
         Returns:
-            Número en formato COT-YYMMID
+            Número en formato COT-YYMMDD-ID
         """
         from app.base.constantes import PREFIJO_NUMERO_COTIZACION
         
-        # Formato: COT-YYMMDD + ID
-        # Ejemplo: COT-260116 + 23 = COT-26011623
+        # Formato: COT-YYMMDD-ID
+        # Ejemplo: COT-260116 + 23 = COT-260116-23
         fecha_str = fecha_emision.strftime("%y%m%d")
-        return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}{cotizacion_id}"
+        return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}-{cotizacion_id}"
     
+    def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
+        """Calcula fecha de vigencia y número temporal por defecto."""
+        datos_procesados = datos.copy()
+        
+        # Fecha de emisión y vigencia
+        if "fecha_emision" not in datos_procesados:
+            datos_procesados["fecha_emision"] = date.today()
+            
+        if "fecha_vigencia" not in datos_procesados:
+            fecha_emision = datos_procesados["fecha_emision"]
+            if isinstance(fecha_emision, str):
+                 # Si viene como str por Pydantic/JSON
+                 fecha_emision = date.fromisoformat(fecha_emision)
+            datos_procesados["fecha_vigencia"] = fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
+
+        # Número temporal si no existe
+        if "numero" not in datos_procesados:
+            datos_procesados["numero"] = "TEMP-PENDING"
+        if "numero_version" not in datos_procesados:
+            datos_procesados["numero_version"] = "TEMP-PENDING"
+            
+        return datos_procesados
+
     def eliminar(self, entidad_id: int) -> None:
         """
         Elimina una cotización y todos sus conceptos relacionados.
@@ -100,18 +124,6 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         self.db.delete(cotizacion)
         self.db.commit()
     
-    def calcular_fecha_vigencia(self, fecha_emision: date) -> date:
-        """
-        Calcula la fecha de vigencia basada en la fecha de emisión.
-        
-        Args:
-            fecha_emision: Fecha de emisión de la cotización
-            
-        Returns:
-            Fecha de vigencia (emisión + 30 días por defecto)
-        """
-        return fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
-    
     def obtener_conceptos(self, cotizacion_id: int) -> list[ConceptoCotizacion]:
         """Obtiene todos los conceptos de una cotización."""
         return list(self.db.exec(
@@ -123,39 +135,14 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """
         Recalcula subtotal, descuento, IVA y total basándose en los conceptos.
-        
-        Fórmulas (con descuentos a nivel de concepto):
-        1. Para cada concepto:
-           - subtotal_concepto = cantidad × precio_unitario
-           - descuento_concepto = subtotal_concepto × (descuento_porcentaje / 100)
-           - importe_concepto = subtotal_concepto - descuento_concepto
-        
-        2. Para la cotización:
-           - subtotal = suma de (cantidad × precio_unitario) de todos los conceptos
-           - descuento_global = suma de descuentos de todos los conceptos
-           - base_iva = subtotal - descuento_global
-           - iva = base_iva × 0.16
-           - total = base_iva + iva
-        
-        Args:
-            cotizacion_id: ID de la cotización a recalcular
+        Delega la lógica al modelo (Encapsulamiento).
         """
-        conceptos = self.obtener_conceptos(cotizacion_id)
         cotizacion = self.db.get(Cotizacion, cotizacion_id)
-        
         if not cotizacion:
             return
         
-        # Delegar lógica de cálculo al servicio de dominio
-        from app.modulos.cotizaciones.servicios import ServicioCalculadoraCotizacion
-        
-        totales = ServicioCalculadoraCotizacion.calcular_totales(conceptos)
-        
-        # Actualizar cotización con resultados del servicio
-        cotizacion.subtotal = totales["subtotal"]
-        cotizacion.descuento_global = totales["descuento_global"]
-        cotizacion.iva = totales["iva"]
-        cotizacion.total = totales["total"]
+        # Lógica encapsulada en el modelo
+        cotizacion.recalcular_totales()
         
         self.db.add(cotizacion)
         self.db.commit()
@@ -183,57 +170,6 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         
         return [(c.id, c.version_letra) for c in results]
 
-    def crear_completa(self, data: dict, usuario_id: str) -> Cotizacion:
-        """
-        Crea una cotización completa con conceptos en una sola transacción.
-        Encapsula toda la lógica de negocio de creación.
-        """
-        from datetime import date
-        from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-        from app.modulos.clientes.clientes_repositorio import RepositorioCliente
-        
-        fecha_hoy = date.today()
-        
-        # 1. Crear cotización base
-        cotizacion = Cotizacion(
-            numero="TEMP",
-            numero_version="TEMP",
-            cliente_id=data['cliente_id'],
-            estado='borrador',
-            metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),
-            forma_pago=data.get('forma_pago', '99'),
-            notas=data.get('notas'),
-            fecha_emision=fecha_hoy,
-            fecha_vigencia=self.calcular_fecha_vigencia(fecha_hoy),
-            creado_por=usuario_id,
-            modificado_por=usuario_id,
-        )
-        
-        self.db.add(cotizacion)
-        self.db.flush()
-        
-        # 2. Generar número real usando el ID
-        numero_real = self.generar_numero_desde_id(cotizacion.id, fecha_hoy)
-        cotizacion.numero = numero_real
-        cotizacion.numero_version = numero_real
-        
-        # 3. Agregar conceptos
-        repo_concepto = RepositorioConcepto(self.db)
-        for servicio_data in data.get('servicios', []):
-            repo_concepto.crear(
-                cotizacion_id=cotizacion.id,
-                servicio_id=servicio_data['servicio_id'],
-                codigo_sat=servicio_data['codigo_sat'],
-                descripcion=servicio_data['descripcion'],
-                unidad=servicio_data['unidad'],
-                cantidad=Decimal(str(servicio_data['cantidad'])),
-                precio_unitario=Decimal(str(servicio_data['precio_unitario'])),
-                descuento_porcentaje=Decimal(str(servicio_data.get('descuento_porcentaje', 0))),
-            )
-        
-        self.db.commit()
-        self.db.refresh(cotizacion)
-        return cotizacion
 
     def actualizar_notas_privadas(self, cotizacion_id: int, notas: str | None, usuario_id: str) -> Cotizacion:
         """Actualiza las notas privadas de una cotización."""
@@ -271,24 +207,8 @@ class RepositorioConcepto:
         precio_unitario: Decimal,
         descuento_porcentaje: Decimal = Decimal("0.00"),
     ) -> ConceptoCotizacion:
-        """Crea un concepto y recalcula totales de la cotización.
-        
-        El importe se calcula como:
-        1. subtotal = cantidad × precio_unitario
-        2. descuento = subtotal × (descuento_porcentaje / 100)
-        3. importe = subtotal - descuento
-        """
-        # Calcular subtotal del concepto
-        subtotal_concepto = cantidad * precio_unitario
-        
-        # Calcular descuento del concepto
-        descuento_monto = subtotal_concepto * (descuento_porcentaje / Decimal("100"))
-        
-        # Calcular importe final del concepto
-        importe = subtotal_concepto - descuento_monto
-        
-        # Crear concepto
-        concepto = ConceptoCotizacion(
+        # Crear concepto usando Factory Method
+        concepto = ConceptoCotizacion.crear_desde_servicio(
             cotizacion_id=cotizacion_id,
             servicio_id=servicio_id,
             codigo_sat=codigo_sat,
@@ -296,8 +216,7 @@ class RepositorioConcepto:
             unidad=unidad,
             cantidad=cantidad,
             precio_unitario=precio_unitario,
-            descuento_porcentaje=descuento_porcentaje,
-            importe=importe
+            descuento_porcentaje=descuento_porcentaje
         )
         
         self.db.add(concepto)

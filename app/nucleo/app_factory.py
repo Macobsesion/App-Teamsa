@@ -24,12 +24,23 @@ from app.modulos.clientes.clientes_router import router as rt_clientes
 from app.modulos.servicios.servicios_router import router as rt_servicios
 from app.modulos.proveedores.proveedores_router import router as rt_proveedores
 from app.modulos.cotizaciones.cotizaciones_router import router as rt_cotizaciones
-from app.modulos.viaticos.viaticos_router import router as rt_viaticos
+from app.modulos.ordenes.ordenes_router import router as rt_ordenes
+from app.modulos.servicios_proveedores.servicios_proveedores_router import router as rt_servicios_proveedores
+from app.modulos.ordenes_compra.ordenes_compra_router import router as rt_ordenes_compra
+from app.modulos.ordenes_compra.wizard_router import router as rt_wizard_ordenes
+
 from app.nucleo.base_datos import crear_tablas
 from app.rutas import rt_autenticacion, rt_paginas
 from app.nucleo.configuracion import settings
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.web.jinja import get_templates
+
+# Eventos
+from app.base.eventos import BusEventos
+from app.modulos.ordenes.eventos import EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada
+
+# Excepciones
+from app.base.excepciones import AppError, RecursoNoEncontradoError, ReglaNegocioError, PermisoDenegadoError
 
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 STATIC_DIR = ROOT_DIR / "web" / "static"
@@ -54,6 +65,11 @@ def create_app() -> FastAPI:
             logger.info("La base de datos está lista.")
         except Exception as exc:
             logger.warning("Aviso al preparar la base de datos: %s", exc)
+            
+        # Registrar Handlers de Eventos
+        BusEventos.suscribir(EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada)
+        logger.info("Handlers de eventos registrados.")
+        
         yield
         # # Al finalizar el proceso
         logger.info("La aplicación se está apagando…")
@@ -141,6 +157,34 @@ def create_app() -> FastAPI:
         # Para solicitudes de API, usar el handler por defecto de FastAPI (devuelve JSON)
         return await default_http_exception_handler(request, exc)
 
+    # ---- Handlers de Excepciones de Dominio ----
+    
+    @app.exception_handler(RecursoNoEncontradoError)
+    async def manejador_no_encontrado(request: Request, exc: RecursoNoEncontradoError):
+        """Maneja errores de recurso no encontrado (404)."""
+        ruta = request.url.path or ""
+        if _es_solicitud_de_pagina_html(ruta):
+            return _renderizar_pagina_de_error(request, 404, exc.mensaje)
+        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=404)
+
+    @app.exception_handler(ReglaNegocioError)
+    async def manejador_regla_negocio(request: Request, exc: ReglaNegocioError):
+        """Maneja errores de reglas de negocio (409 Conflict o 422). Usamos 409 por defecto."""
+        ruta = request.url.path or ""
+        if _es_solicitud_de_pagina_html(ruta):
+            # En HTML, a veces es mejor mostrar un 200 con mensaje de error o redireccionar,
+            # pero por ahora mostramos página de error 400.
+            return _renderizar_pagina_de_error(request, 400, exc.mensaje)
+        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=409)
+
+    @app.exception_handler(PermisoDenegadoError)
+    async def manejador_permiso_denegado(request: Request, exc: PermisoDenegadoError):
+        """Maneja errores de permisos (403)."""
+        ruta = request.url.path or ""
+        if _es_solicitud_de_pagina_html(ruta):
+            return _renderizar_pagina_de_error(request, 403, exc.mensaje)
+        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=403)
+
     @app.exception_handler(RequestValidationError)
     async def manejador_errores_de_validacion(request: Request, exc: RequestValidationError):
         """
@@ -209,7 +253,11 @@ def create_app() -> FastAPI:
         rt_servicios,
         rt_proveedores,
         rt_cotizaciones,
-        rt_viaticos,
+        rt_ordenes,
+        rt_servicios_proveedores,
+        rt_ordenes_compra,
+        rt_wizard_ordenes,
+
     ]
     for router in routers:
         app.include_router(router)

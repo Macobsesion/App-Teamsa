@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 
+from app.base.valores import Direccion
+
 
 class Cliente(AuditMixin, SQLModel, table=True):
     """Cliente comercial."""
@@ -36,7 +38,21 @@ class Cliente(AuditMixin, SQLModel, table=True):
     # Relaciones
     from sqlmodel import Relationship
     cotizaciones: list["Cotizacion"] = Relationship(back_populates="cliente")
-
-    # Relaciones
-    from sqlmodel import Relationship
-    cotizaciones: list["Cotizacion"] = Relationship(back_populates="cliente")
+    
+    # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
+    
+    @property
+    def direccion_vo(self) -> Direccion:
+        """Devuelve la dirección como un Objeto de Valor."""
+        return Direccion(
+            calle=self.direccion,
+            ciudad=self.ciudad,
+            cp=self.cp
+        )
+    
+    @direccion_vo.setter
+    def direccion_vo(self, valor: Direccion) -> None:
+        """Asigna la dirección descomponiendo el Objeto de Valor en columnas planas."""
+        self.direccion = valor.calle
+        self.ciudad = valor.ciudad
+        self.cp = valor.cp

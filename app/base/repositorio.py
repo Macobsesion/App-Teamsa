@@ -16,6 +16,8 @@ from sqlalchemy import asc, desc  # type: ignore
 TModelo = TypeVar("TModelo", bound=SQLModel)
 
 
+from app.base.excepciones import RecursoNoEncontradoError
+
 class RepositorioCRUD(Generic[TModelo]):
     """Repositorio CRUD genérico con filtros y actualizaciones limitadas."""
 
@@ -53,6 +55,55 @@ class RepositorioCRUD(Generic[TModelo]):
         for campo, valor in cambios.items():
             setattr(entidad, campo, valor)
 
+    def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
+        """Hook para modificar datos crudos antes de crear la instancia."""
+        return datos
+
+    def _pre_procesar_cambios(self, cambios: Mapping[str, Any]) -> Mapping[str, Any]:
+        """Hook para modificar el diccionario de cambios antes de aplicarlos."""
+        return cambios
+
+    def _pre_guardar(self, entidad: TModelo, es_nuevo: bool) -> None:
+        """Hook para validaciones o cálculos sobre la entidad antes del commit."""
+        pass
+
+    def _post_guardar(self, entidad: TModelo, es_nuevo: bool) -> None:
+        """Hook para acciones posteriores al guardado (logs, notifiaciones)."""
+        pass
+
+    def _sanitizar_busqueda(self, valor: str) -> str:
+        """
+        Escapa caracteres especiales de SQL LIKE para prevenir inyección.
+        
+        Los wildcards SQL LIKE (%, _) permiten búsquedas amplias no autorizadas:
+        - '%' = cualquier cantidad de caracteres
+        - '_' = exactamente un carácter
+        
+        Un atacante podría buscar '%' para obtener todos los registros,
+        o usar '_%' para patrones amplios que revelan información.
+        
+        Escapamos también backslash para evitar bypass del escape.
+        
+        Args:
+            valor: String de búsqueda del usuario
+            
+        Returns:
+            String sanitizado seguro para ILIKE
+            
+        Example:
+            >>> _sanitizar_busqueda("a%b_c")
+            'a\\%b\\_c'  # Los wildcards ahora son literales
+        """
+        if not isinstance(valor, str):
+            valor = str(valor)
+        
+        # Escapar backslash primero para evitar bypass del escape
+        valor = valor.replace("\\", "\\\\")
+        # Escapar wildcards SQL LIKE
+        valor = valor.replace("%", "\\%")
+        valor = valor.replace("_", "\\_")
+        return valor
+
     # ---- operaciones públicas ----
     def listar(
         self,
@@ -75,23 +126,34 @@ class RepositorioCRUD(Generic[TModelo]):
 
     def crear(self, **datos: Any) -> TModelo:
         """Crea la entidad usando los datos recibidos."""
-        entidad = self.modelo(**datos)
-        return self._guardar(entidad)
+        datos_procesados = self._pre_procesar_datos_creacion(datos)
+        entidad = self.modelo(**datos_procesados)
+        self._pre_guardar(entidad, es_nuevo=True)
+        guardada = self._guardar(entidad)
+        self._post_guardar(guardada, es_nuevo=True)
+        return guardada
 
     def actualizar(self, entidad_id: int, cambios: Mapping[str, Any]) -> TModelo:
         entidad = self.db.get(self.modelo, entidad_id)
         if not entidad:
-            raise LookupError(f"{self.modelo.__name__} no encontrado")
+            raise RecursoNoEncontradoError(f"{self.modelo.__name__} con id {entidad_id} no encontrado")
+        
+        cambios_procesados = self._pre_procesar_cambios(cambios)
+        
         cambios_permitidos = {
-            campo: valor for campo, valor in cambios.items() if campo in self.campos_actualizables
+            campo: valor for campo, valor in cambios_procesados.items() if campo in self.campos_actualizables
         }
         self._aplicar_cambios(entidad, cambios_permitidos)
-        return self._guardar(entidad)
+        
+        self._pre_guardar(entidad, es_nuevo=False)
+        guardada = self._guardar(entidad)
+        self._post_guardar(guardada, es_nuevo=False)
+        return guardada
 
     def eliminar(self, entidad_id: int) -> None:
         entidad = self.db.get(self.modelo, entidad_id)
         if not entidad:
-            raise LookupError(f"{self.modelo.__name__} no encontrado")
+            raise RecursoNoEncontradoError(f"{self.modelo.__name__} con id {entidad_id} no encontrado")
         self._eliminar(entidad)
 
     def obtener_por_id(self, entidad_id: int) -> TModelo | None:
@@ -145,12 +207,16 @@ class RepositorioCRUD(Generic[TModelo]):
                     consulta = consulta.where(columna == valor)
             elif campo in self.campos_busqueda:
                 operador = self.campos_busqueda[campo]
+                # Sanitizar para prevenir inyección SQL vía wildcards
+                # Sin esto, un usuario podría buscar '%' y obtener todos los registros
+                valor_seguro = self._sanitizar_busqueda(str(valor))
+                
                 if operador == "icontains":
-                    consulta = consulta.where(columna.ilike(f"%{valor}%"))
+                    consulta = consulta.where(columna.ilike(f"%{valor_seguro}%"))
                 elif operador == "startswith":
-                    consulta = consulta.where(columna.ilike(f"{valor}%"))
+                    consulta = consulta.where(columna.ilike(f"{valor_seguro}%"))
                 elif operador == "endswith":
-                    consulta = consulta.where(columna.ilike(f"%{valor}"))
+                    consulta = consulta.where(columna.ilike(f"%{valor_seguro}"))
         return consulta
 
     def _aplicar_orden(self, consulta, orden: str | None, descendente: bool | None):

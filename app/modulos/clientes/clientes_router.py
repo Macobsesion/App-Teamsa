@@ -10,7 +10,7 @@ from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 def _validar_unicidad(repo: RepositorioCliente, payload: ClienteCreate) -> str | None:
     """Valida que no exista un cliente con el mismo nombre."""
-    if repo.obtener_por_nombre(payload.nombre):
+    if repo.obtener_por_campo("nombre", payload.nombre):
         return f"Ya existe un cliente con el nombre '{payload.nombre}'"
     return None
 
@@ -30,6 +30,8 @@ descriptor = DescriptorCRUD[RepositorioCliente, ClienteCreate, ClienteUpdate, Cl
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"activo"},
     campo_busqueda="nombre",
+    columnas_incluir=["nombre", "rfc", "contacto", "email", "activo"],
+    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
 

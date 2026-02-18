@@ -18,6 +18,4 @@ class RepositorioProveedor(RepositorioCRUD[Proveedor]):
     campos_busqueda = {"nombre": "icontains"}
     orden_por_defecto = ("nombre", False)
     
-    def obtener_por_nombre(self, nombre: str) -> Proveedor | None:
-        """Busca un proveedor por nombre exacto."""
-        return self.db.query(Proveedor).filter(Proveedor.nombre == nombre).first()
+

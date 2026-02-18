@@ -1,3 +1,4 @@
+{% from 'partials/actions.html' import acciones %}
 {% for u in items %}
 <tr>
   <td>
@@ -10,9 +11,6 @@
     {% else %}
     <span class="badge bg-info text-dark">{{ u.rol|title }}</span>
     {% endif %}
-    {% if u.area %}
-    <br><small class="text-muted">{{ u.area }}</small>
-    {% endif %}
   </td>
   <td>
     {% if u.correo %}
@@ -21,24 +19,13 @@
     <span class="text-muted small">-</span>
     {% endif %}
   </td>
-  <td>
-    <div class="btn-group btn-group-sm">
-      <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal"
-        hx-get="/ui/usuarios/form?id={{ u.id }}&modo=editar" hx-target="#modal-content" hx-swap="innerHTML"
-        title="Editar">
-        ✏️
-      </button>
-      <button class="btn btn-sm btn-outline-danger" hx-delete="/api/usuarios/{{ u.id }}" hx-target="closest tr"
-        hx-swap="delete" hx-confirm="¿Eliminar usuario {{ u.usuario }}?" title="Eliminar">
-        🗑️
-      </button>
-    </div>
-  </td>
+  <td>{{ u.area if u.area else '-' }}</td>
+  {{ acciones(ui_base, u.id, puede_editar, delete_confirm='¿Eliminar usuario ' ~ u.usuario ~ '?') }}
 </tr>
 {% endfor %}
 {% if not items %}
 <tr>
-  <td colspan="4" class="text-center py-3 text-muted">
+  <td colspan="100" class="text-center py-3 text-muted">
     No se encontraron usuarios.
   </td>
 </tr>

@@ -1,0 +1,38 @@
+{% from 'partials/forms.html' import render_field %}
+<form hx-put="/api/ordenes/{{ item.id }}" hx-target="#tbody-lista" hx-swap="innerHTML">
+    <div class="modal-header">
+        <h5 class="modal-title">Editar Orden de Trabajo</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+    <div class="modal-body">
+        <div class="row">
+            <div class="col-md-6">
+                {{ render_field('fecha_programada', item.fecha_programada, 'date', 'Fecha Programada', required=True) }}
+            </div>
+            <div class="col-md-6">
+                {{ render_field('hora_programada', item.hora_programada, 'time', 'Hora Programada', required=True) }}
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Estado</label>
+            <select name="estado" class="form-select">
+                <option value="programada" {% if item.estado=='programada' %}selected{% endif %}>Programada</option>
+                <option value="en_curso" {% if item.estado=='en_curso' %}selected{% endif %}>En Curso</option>
+                <option value="cerrada" {% if item.estado=='cerrada' %}selected{% endif %}>Cerrada</option>
+                <option value="cancelada" {% if item.estado=='cancelada' %}selected{% endif %}>Cancelada</option>
+            </select>
+        </div>
+
+        {{ render_field('notas_publicas', item.notas_publicas, 'textarea', 'Notas Públicas') }}
+        {{ render_field('notas_privadas', item.notas_privadas, 'textarea', 'Notas Privadas') }}
+
+        <div class="alert alert-warning py-2">
+            <small>⚠️ Datos del cliente (Snapshot) no son editables.</small>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-teamsa-primary">Guardar Cambios</button>
+    </div>
+</form>

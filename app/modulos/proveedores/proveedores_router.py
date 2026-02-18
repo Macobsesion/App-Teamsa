@@ -10,7 +10,7 @@ from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 def _validar_unicidad(repo: RepositorioProveedor, payload: ProveedorCreate) -> str | None:
     """Valida que no exista un proveedor con el mismo nombre."""
-    if repo.obtener_por_nombre(payload.nombre):
+    if repo.obtener_por_campo("nombre", payload.nombre):
         return f"Ya existe un proveedor con el nombre '{payload.nombre}'"
     return None
 
@@ -31,11 +31,13 @@ descriptor = DescriptorCRUD[RepositorioProveedor, ProveedorCreate, ProveedorUpda
     validar_unicidad=_validar_unicidad,
     filtros_permitidos={"activo", "categoria"},
     campo_busqueda="nombre",
+    columnas_incluir=["nombre", "rfc", "contacto", "categoria", "activo"],
+    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
 )
 
 
+
 # ---------- Router Combinado usando Factory ----------
-# Este módulo no tiene endpoints adicionales, puede usar el factory directamente
 router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
@@ -43,4 +45,7 @@ router = crear_modulo_crud(
     write_dependency=exigir_roles("admin"),
     tpl_filas="ui/proveedores/_filas.html",
     tpl_form="ui/proveedores/_form.html",
+    include_select_endpoint=True,
+    select_fields=["id", "nombre", "rfc", "categoria", "activo"],
 )
+

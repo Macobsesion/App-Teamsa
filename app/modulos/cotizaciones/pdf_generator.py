@@ -14,21 +14,15 @@ from sqlmodel import Session  # type: ignore
 
 
 def imagen_a_data_uri(ruta_imagen: Path) -> str:
-    """
-    Convierte una imagen a data URI base64 para embedding en PDF.
-    
-    Args:
-        ruta_imagen: Ruta a la imagen
-        
-    Returns:
-        Data URI en formato data:image/png;base64,{contenido} o string vacío si no existe
-    """
+    """Convierte imagen a data URI de forma robusta."""
     if not ruta_imagen.exists():
         return ""
-    
-    with open(ruta_imagen, 'rb') as f:
-        imagen_base64 = base64.b64encode(f.read()).decode('utf-8')
-        return f"data:image/png;base64,{imagen_base64}"
+    try:
+        with open(ruta_imagen, 'rb') as f:
+            imagen_base64 = base64.b64encode(f.read()).decode('utf-8')
+            return f"data:image/png;base64,{imagen_base64}"
+    except Exception:
+        return ""
 
 
 def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:

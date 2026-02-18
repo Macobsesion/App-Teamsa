@@ -3,7 +3,7 @@ from typing import Any
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Body, HTTPException, Response
 from sqlmodel import Session
 
 from app.base.descriptor_crud import DescriptorCRUD
@@ -12,37 +12,14 @@ from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
 from app.rutas.dependencias import exigir_roles, dp_usuario_actual
 from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
+from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 from app.modulos.cotizaciones.pdf_generator import generar_pdf_cotizacion
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 # Importar routers adicionales
 from app.modulos.cotizaciones import conceptos_router, wizard_router
 
-
-def _campos_creacion(payload: CotizacionCreate, actor: UsuarioIdentity) -> dict[str, Any]:
-    """Genera campos adicionales al crear una cotización."""
-    from app.base.descriptor_crud import _auditoria_creacion_default
-    
-    # Crear repo temporal para generar número y fecha de vigencia
-    with Session(obtener_motor()) as db:
-        repo_temp = RepositorioCotizacion(db)
-        numero = repo_temp.generar_siguiente_numero()
-        fecha_vigencia = repo_temp.calcular_fecha_vigencia(date.today())
-    
-    # Combinar auditoría automática con lógica de negocio
-    extras = _auditoria_creacion_default(payload, actor)
-    extras.update({
-        "numero": numero,
-        "fecha_emision": date.today(),
-        "fecha_vigencia": fecha_vigencia,
-    })
-    return extras
-
-
-def _campos_actualizacion(payload: CotizacionUpdate, actor: UsuarioIdentity) -> dict[str, Any]:
-    """Solo actualiza el campo modificado_por."""
-    from app.base.descriptor_crud import _auditoria_actualizacion_default
-    return _auditoria_actualizacion_default(payload, actor)
 
 
 # ---------- Router Extras (Funcionalidad avanzada) ----------
@@ -60,7 +37,7 @@ def obtener_completa(
     
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+        raise RecursoNoEncontradoError("Cotización no encontrada")
     
     # Obtener conceptos usando repository existente
     repo = RepositorioCotizacion(db)
@@ -95,9 +72,9 @@ def descargar_pdf(
             headers={"Content-Disposition": f'inline; filename="{filename}"'}
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise RecursoNoEncontradoError(str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+        raise ReglaNegocioError(f"Error generando PDF: {str(e)}")
 
 
 @router_extras.patch("/{cotizacion_id}/notas-privadas")
@@ -117,7 +94,7 @@ def actualizar_notas_privadas(
         )
         return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
     except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise RecursoNoEncontradoError(str(e))
 
 
 @router_extras.post("/crear-completa")
@@ -127,10 +104,11 @@ def crear_cotizacion_completa(
     usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
 ):
     """Crea una cotización completa con conceptos en una transacción."""
-    repo = RepositorioCotizacion(db)
+    from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCreacionCotizacion
     
-    # Delegar toda la lógica al repositorio
-    cotizacion = repo.crear_completa(data, usuario.usuario)
+    # Delegar al servicio de dominio (mejora POO previa)
+    servicio = ServicioCreacionCotizacion(db)
+    cotizacion = servicio.crear_cotizacion_completa(data, usuario.usuario)
     
     return {
         "id": cotizacion.id, 
@@ -163,6 +141,28 @@ def crear_version(
     return crear_version_fn(cotizacion_id, data, db, usuario)
 
 
+@router_extras.post("/{id}/cerrar")
+def cerrar_cotizacion(
+    id: int,
+    data: dict = Body(...),
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+):
+    cot = db.get(Cotizacion, id)
+    if not cot:
+        raise RecursoNoEncontradoError("Cotización no encontrada")
+    
+    # Obtener el estado del body (finalizada o cancelada)
+    estado = data.get('estado', 'finalizada')
+    if estado not in ['finalizada', 'cancelada']:
+        estado = 'finalizada'
+    
+    cot.estado = estado
+    db.add(cot)
+    db.commit()
+    return {"mensaje": f"Cotización cerrada como {estado}"}
+
+
 # ---------- Descriptor ----------
 descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionUpdate, CotizacionRead, UsuarioIdentity](
     label="Cotizaciones",
@@ -175,11 +175,11 @@ descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionU
         "cliente_id", "metodo_pago", "forma_pago", "notas",
         "atencion_a", "estado", "notas_privadas"
     },
-    campos_creacion_extra=_campos_creacion,
-    campos_actualizacion_extra=_campos_actualizacion,
     filtros_permitidos={"estado", "cliente_id"},
     campo_busqueda="numero",
+    columnas_incluir=["numero", "cliente_id", "fecha_emision", "total", "estado"],
     columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
+    boton_crear={"texto": "✨ Nueva Cotización", "url": "/ui/cotizaciones/wizard", "modal": False},
 )
 
 

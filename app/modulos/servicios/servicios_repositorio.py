@@ -20,7 +20,3 @@ class RepositorioServicio(RepositorioCRUD[Servicio]):
         "descripcion": "icontains"
     }
     orden_por_defecto = ("clave", False)
-    
-    def obtener_por_clave(self, clave: str) -> Servicio | None:
-        """Busca un servicio por clave exacta."""
-        return self.db.query(Servicio).filter(Servicio.clave == clave).first()

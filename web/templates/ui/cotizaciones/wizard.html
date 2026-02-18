@@ -100,7 +100,7 @@
                                             max="100" step="1">
                                     </div>
                                     <div class="col-md-3 d-flex align-items-end">
-                                        <button type="button" class="btn btn-primary w-100"
+                                        <button type="button" class="btn btn-teamsa-primary w-100"
                                             onclick="agregarServicio()">+ Agregar</button>
                                     </div>
                                 </div>
@@ -170,10 +170,11 @@
                             Anterior</button>
                         <div>
                             <a href="/cotizaciones" class="btn btn-outline-secondary me-2">Cancelar</a>
-                            <button type="button" class="btn btn-primary" id="btn-next" onclick="nextStep()">Siguiente
+                            <button type="button" class="btn btn-teamsa-primary" id="btn-next"
+                                onclick="nextStep()">Siguiente
                                 →</button>
                             <button type="button" class="btn btn-success d-none" id="btn-submit"
-                                onclick="submitCotizacion()">
+                                onclick="submitWizard()">
                                 <span id="btn-submit-text">✓ Crear Cotización</span>
                             </button>
                         </div>
@@ -213,52 +214,7 @@
     </div>
 </div>
 
-<style>
-    .wizard-step {
-        text-align: center;
-        flex: 1;
-    }
 
-    .wizard-step-line {
-        width: 100px;
-        height: 2px;
-        background: #dee2e6;
-        margin-top: 20px;
-    }
-
-    .wizard-step .step-number {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: #e9ecef;
-        color: #6c757d;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        margin-bottom: 8px;
-    }
-
-    .wizard-step.active .step-number {
-        background: #0d6efd;
-        color: white;
-    }
-
-    .wizard-step.completed .step-number {
-        background: #198754;
-        color: white;
-    }
-
-    .wizard-step .step-label {
-        font-size: 14px;
-        color: #6c757d;
-    }
-
-    .wizard-step.active .step-label {
-        color: #0d6efd;
-        font-weight: 500;
-    }
-</style>
 
 <script>
     // Estado global del wizard
@@ -276,17 +232,26 @@
 
     // Variables para modo edición
     let modoEdicion = false;
+    let modoVersion = false;
     let cotizacionId = null;
     let serviciosOriginales = [];  // Para comparar cambios
 
     // Cargar datos al iniciar
     document.addEventListener('DOMContentLoaded', () => {
-        // Detectar modo edición
+        // Detectar modo edición/versión
         const urlParams = new URLSearchParams(window.location.search);
         cotizacionId = urlParams.get('id');
-        modoEdicion = cotizacionId !== null;
+        const versionDe = urlParams.get('version_de');
 
-        if (modoEdicion) {
+        modoEdicion = cotizacionId !== null;
+        modoVersion = versionDe !== null;
+
+        // Si es modo versión, usar el ID de la cotización a versionar
+        if (modoVersion) {
+            cotizacionId = parseInt(versionDe);
+            document.getElementById('wizard-titulo').textContent = '📂 Nueva Versión de Cotización';
+            document.getElementById('btn-submit-text').textContent = '✨ Crear Nueva Versión';
+        } else if (modoEdicion) {
             document.getElementById('wizard-titulo').textContent = '✏️ Modificar Cotización';
             document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
         }
@@ -294,8 +259,8 @@
         cargarClientes();
         cargarServicios();
 
-        // Si es modo edición, cargar datos después de cargar catálogos
-        if (modoEdicion) {
+        // Si es modo edición o versión, cargar datos después de cargar catálogos
+        if (modoEdicion || modoVersion) {
             setTimeout(() => cargarCotizacionParaEditar(cotizacionId), 500);
         }
     });
@@ -616,22 +581,35 @@
         document.getElementById('resumen-total').textContent = total.toFixed(2);
     }
 
-    async function submitCotizacion() {
+    async function submitWizard() {
+        if (!wizardState.cliente_id) {
+            alert('Selecciona un cliente');
+            return;
+        }
+
+        if (wizardState.servicios.length === 0) {
+            alert('Agrega al menos un servicio');
+            return;
+        }
+
         const btn = document.getElementById('btn-submit');
         btn.disabled = true;
 
-        if (modoEdicion) {
-            // Modo edición: verificar si hay cambios en servicios
-            const hayCambiosServicios = detectarCambiosServicios();
+        if (modoVersion) {
+            // Modo versión: crear nueva versión
+            await confirmarVersionamiento();
+        } else if (modoEdicion) {
+            // Modo edición: verificar si hubo cambios en servicios
+            const serviciosCambiaron = JSON.stringify(wizardState.servicios) !== JSON.stringify(serviciosOriginales);
 
-            if (hayCambiosServicios) {
+            if (serviciosCambiaron) {
                 // Mostrar modal de confirmación
-                const modal = new bootstrap.Modal(document.getElementById('modalVersionamiento'));
+                const modalEl = document.getElementById('modalVersionamiento');
+                const modal = new bootstrap.Modal(modalEl);
                 modal.show();
-                btn.disabled = false;
-                return;  // Esperar confirmación del usuario
+                btn.disabled = false;  // Re-habilitar para que el usuario pueda confirmar
             } else {
-                // Sin cambios en servicios, actualizar sin versionar
+                // Solo cambios en metadatos, actualizar sin versionar
                 await actualizarSinVersionar();
             }
         } else {

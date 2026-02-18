@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% import 'partials/components.html' as comp %}
+
+{# Bloques que deben definir las vistas hijas #}
+{% block title %}{{ titulo_pagina }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {# Encabezado #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>{% block header_title %}{{ titulo_documento }}{% endblock %}</h2>
+            <p class="text-muted mb-0">
+                {% block header_subtitle %}
+                {# Ejemplo: Cliente: Nombre | RFC: ... #}
+                {% endblock %}
+            </p>
+        </div>
+        <div>
+            {% block status_badge %}
+            {# Usar macro comp.status_badge(...) #}
+            {% endblock %}
+        </div>
+    </div>
+
+    <div class="row">
+        {# Columna izquierda: Items Principal #}
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white d-flex justify-content-between align-items-center"
+                    style="background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);">
+                    <h5 class="mb-0">{% block items_title %}📦 Conceptos{% endblock %}</h5>
+                </div>
+                <div class="card-body p-0">
+                    {# Contenido de la lista de items (Tabla, HTMX, etc) #}
+                    {% block items_content %}{% endblock %}
+                </div>
+            </div>
+
+            {# Resumen de Totales #}
+            <div class="card shadow-sm">
+                <div class="card-body" id="totales-section">
+                    {% block totals_content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+
+        {# Columna derecha: Info + PDF + Acciones #}
+        <div class="col-lg-5">
+            {# Información del Documento #}
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="card-title" style="color: #4148C3;">📋 Información</h6>
+                    <table class="table table-sm">
+                        {% block info_content %}
+                        {# Usar macro comp.info_row(...) #}
+                        {% endblock %}
+                    </table>
+
+                    {% block extra_info %}
+                    {# Notas u otros bloques #}
+                    {% endblock %}
+                </div>
+            </div>
+
+            {# Visor de PDF #}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📄 Vista Previa del PDF</h6>
+                </div>
+                <div class="card-body p-0">
+                    <iframe src="{% block pdf_url %}{% endblock %}" style="width: 100%; height: 500px; border: none;"
+                        title="Vista Previa PDF">
+                    </iframe>
+                </div>
+            </div>
+
+            {# Acciones #}
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% block pdf_url_download %}{% endblock %}" target="_blank" class="btn text-white"
+                            style="background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);">
+                            📥 Descargar PDF
+                        </a>
+
+                        {% block actions_content %}
+                        {# Botones extra: Editar, Cancelar, Convertir #}
+                        {% endblock %}
+
+                        {% block back_button %}
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                            ← Volver
+                        </a>
+                        {% endblock %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modales o Scripts extra #}
+{% block extra_scripts %}{% endblock %}
+{% endblock %}

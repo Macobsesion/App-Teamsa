@@ -7,6 +7,9 @@ services:
     env_file:
       - .env
     volumes:
+      - ./app:/teamsa-app/app
+      - ./web:/teamsa-app/web
+      - ./tests:/teamsa-app/tests
       - uploads-data:/teamsa-app/uploads
     depends_on:
       db:

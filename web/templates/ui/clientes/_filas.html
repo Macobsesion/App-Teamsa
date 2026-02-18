@@ -1,3 +1,4 @@
+{% from 'partials/actions.html' import acciones %}
 {% for item in items %}
 <tr>
     <td>
@@ -9,10 +10,12 @@
     <td>
         <span class="font-monospace">{{ item.rfc if item.rfc else '-' }}</span>
     </td>
+    <td>{{ item.contacto if item.contacto else '-' }}</td>
     <td>
-        {% if item.contacto %}{{ item.contacto }}<br>{% endif %}
         {% if item.email %}
         <a href="mailto:{{ item.email }}" class="text-decoration-none small">{{ item.email }}</a>
+        {% else %}
+        -
         {% endif %}
     </td>
     <td class="text-center">
@@ -22,24 +25,12 @@
         <span class="badge bg-secondary">Inactivo</span>
         {% endif %}
     </td>
-    <td>
-        <div class="btn-group btn-group-sm">
-            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal"
-                hx-get="/ui/clientes/form?id={{ item.id }}&modo=editar" hx-target="#modal-content" hx-swap="innerHTML"
-                title="Editar">
-                ✏️
-            </button>
-            <button class="btn btn-sm btn-outline-danger" hx-delete="/api/clientes/{{ item.id }}" hx-target="closest tr"
-                hx-swap="delete" hx-confirm="¿Eliminar cliente {{ item.nombre }}?" title="Eliminar">
-                🗑️
-            </button>
-        </div>
-    </td>
+    {{ acciones(ui_base, item.id, puede_editar, delete_confirm='¿Eliminar cliente ' ~ item.nombre ~ '?') }}
 </tr>
 {% endfor %}
 {% if not items %}
 <tr>
-    <td colspan="5" class="text-center py-3 text-muted">
+    <td colspan="100" class="text-center py-3 text-muted">
         No se encontraron clientes.
     </td>
 </tr>

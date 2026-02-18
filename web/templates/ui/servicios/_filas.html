@@ -4,7 +4,7 @@
 {% for item in items %}
 <tr>
     {{ celdas(item, columnas) }}
-    {{ acciones(ui_base, item.id, True, None, 'Eliminar', '¿Eliminar servicio?') }}
+    {{ acciones(ui_base, item.id, True, None, '¿Eliminar servicio?') }}
 </tr>
 {% endfor %}
 {% else %}

@@ -1,0 +1,30 @@
+{% from 'partials/actions.html' import acciones %}
+{% for item in items %}
+<tr>
+    <td>
+        <strong>{{ item.codigo_sku }}</strong>
+        <br><small class="text-muted">{{ item.unidad }}</small>
+    </td>
+    <td>
+        {{ item.descripcion | truncate(80) }}
+    </td>
+    <td>
+        {% if item.proveedor %}
+        {{ item.proveedor.nombre }}
+        {% else %}
+        <span class="text-muted small">Sin Proveedor (ID: {{ item.proveedor_id }})</span>
+        {% endif %}
+    </td>
+    <td class="text-end font-monospace">
+        ${{ "%.2f"|format(item.costo_unitario) }} <small>{{ item.moneda }}</small>
+    </td>
+    {{ acciones(ui_base, item.id, puede_editar, delete_confirm='¿Eliminar servicio ' ~ item.codigo_sku ~ '?') }}
+</tr>
+{% endfor %}
+{% if not items %}
+<tr>
+    <td colspan="100" class="text-center py-3 text-muted">
+        No hay servicios registrados para proveedores.
+    </td>
+</tr>
+{% endif %}

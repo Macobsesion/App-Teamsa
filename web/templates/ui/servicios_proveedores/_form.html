@@ -1,0 +1,101 @@
+{% import 'partials/forms.html' as f %}
+
+{% call f.modal_wrapper('servicio de proveedor', modo, 'frmServicioProveedor', '/ui/servicios-proveedores', item) %}
+
+{# Selector de Proveedor dinámico #}
+<div class="mb-3">
+    <label class="form-label">Proveedor <span class="text-danger">*</span></label>
+    <select name="proveedor_id" id="proveedor_select" class="form-select" required>
+        <option value="">Cargando proveedores...</option>
+    </select>
+    <script>
+        (async function () {
+            const select = document.getElementById('proveedor_select');
+            const currentId = "{{ item.proveedor_id or '' }}";
+            try {
+                const resp = await fetch('/api/proveedores/select');
+                if (!resp.ok) throw new Error('Error al cargar proveedores');
+                const data = await resp.json();
+
+                select.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>';
+                data.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.nombre;
+                    if (currentId && p.id == currentId) {
+                        opt.selected = true;
+                    }
+                    select.appendChild(opt);
+                });
+            } catch (e) {
+                console.error(e);
+                select.innerHTML = '<option value="">Error cargando lista</option>';
+            }
+        })();
+    </script>
+</div>
+
+{# Identificación del Producto #}
+<div class="border-top pt-3 mb-3">
+    <h6 class="text-muted mb-3"><i class="bi bi-tag"></i> Identificación</h6>
+    <div class="row">
+        <div class="col-md-6">
+            {{ f.field_input('codigo_sku', 'Código SKU', item=item, required=True, attrs='placeholder="Ej:
+            CABLE-HDMI-2M"') }}
+            <small class="form-text text-muted">Código del proveedor</small>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Unidad <span class="text-danger">*</span></label>
+                <select name="unidad" class="form-select" required>
+                    <option value="Pieza" {{ 'selected' if (item.unidad or 'Pieza' )=='Pieza' else '' }}>Pieza</option>
+                    <option value="Caja" {{ 'selected' if item.unidad=='Caja' else '' }}>Caja</option>
+                    <option value="Kg" {{ 'selected' if item.unidad=='Kg' else '' }}>Kilogramo</option>
+                    <option value="Litro" {{ 'selected' if item.unidad=='Litro' else '' }}>Litro</option>
+                    <option value="Metro" {{ 'selected' if item.unidad=='Metro' else '' }}>Metro</option>
+                    <option value="Hora" {{ 'selected' if item.unidad=='Hora' else '' }}>Hora</option>
+                    <option value="Servicio" {{ 'selected' if item.unidad=='Servicio' else '' }}>Servicio</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Descripción #}
+<div class="border-top pt-3 mb-3">
+    <h6 class="text-muted mb-3"><i class="bi bi-file-text"></i> Descripción</h6>
+    {{ f.field_textarea('descripcion', 'Descripción Breve', item=item, required=True, rows=2) }}
+    <small class="form-text text-muted">Nombre corto para identificar el producto</small>
+
+    {{ f.field_textarea('descripcion_detallada', 'Descripción Detallada (Opcional)', item=item, rows=3) }}
+    <small class="form-text text-muted">Especificaciones técnicas, dimensiones, materiales, etc.</small>
+</div>
+
+{# Información Económica #}
+<div class="border-top pt-3 mb-3">
+    <h6 class="text-muted mb-3"><i class="bi bi-currency-dollar"></i> Precios</h6>
+    <div class="row">
+        <div class="col-md-6">
+            {{ f.field_input('costo_unitario', 'Costo Unitario', item=item, type='number', required=True,
+            attrs='step="0.01" placeholder="0.00"') }}
+            <small class="form-text text-muted">Precio de compra antes de impuestos</small>
+        </div>
+        <div class="col-md-6">
+            <div class="mb-3">
+                <label class="form-label">Moneda <span class="text-danger">*</span></label>
+                <select name="moneda" class="form-select">
+                    <option value="MXN" {{ 'selected' if (item.moneda or 'MXN' )=='MXN' else '' }}>MXN - Peso Mexicano
+                    </option>
+                    <option value="USD" {{ 'selected' if item.moneda=='USD' else '' }}>USD - Dólar Americano</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Estado #}
+<div class="border-top pt-3 mb-3">
+    {{ f.field_checkbox('activo', 'Activo - Desmarcar para ocultar este producto del catálogo', item=item) }}
+</div>
+
+{% endcall %}

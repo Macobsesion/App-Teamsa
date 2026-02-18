@@ -17,23 +17,26 @@
     <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
     <td>
         <span
-            class="badge bg-{{ 'secondary' if item.estado == 'borrador' else 'warning' if item.estado == 'modificada' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
+            class="badge bg-{{ 'warning text-dark' if item.estado == 'borrador' else 'secondary' if item.estado == 'modificada' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
             {{ item.estado|title }}
         </span>
     </td>
     <td>
         <div class="btn-group btn-group-sm">
-            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-sm btn-primary" title="Ver Detalle">
+            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-sm btn-teamsa-primary" title="Ver Detalle">
                 👁️
             </a>
 
-            {# Botón Notas Privadas - usa data attributes #}
-            <button class="btn btn-sm btn-info btn-notas-privadas" title="Notas Privadas"
-                data-cotizacion-id="{{ item.id }}" data-numero="{{ item.numero_version | default(item.numero, true) }}">
+            {# Botón Notas Privadas - Usa modal genérico en crud_page.html #}
+            <button class="btn btn-sm text-white btn-notas-privadas-generico"
+                style="background-color: var(--teamsa-primary); border-color: var(--teamsa-primary);"
+                title="Notas Privadas" data-modulo="cotizaciones" data-id="{{ item.id }}"
+                data-folio="{{ item.numero_version | default(item.numero, true) }}"
+                data-notas="{{ item.notas_privadas or '' }}">
                 📝
             </button>
 
-            {% if item.estado not in ['modificada', 'programada', 'finalizada'] %}
+            {% if item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada'] %}
             <a href="/ui/cotizaciones/{{ item.id }}/editar" class="btn btn-sm btn-warning" title="Editar">
                 ✏️
             </a>

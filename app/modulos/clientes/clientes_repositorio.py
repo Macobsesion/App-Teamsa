@@ -17,7 +17,3 @@ class RepositorioCliente(RepositorioCRUD[Cliente]):
     }
     campos_busqueda = {"nombre": "icontains"}
     orden_por_defecto = ("nombre", False)
-    
-    def obtener_por_nombre(self, nombre: str) -> Cliente | None:
-        """Busca un cliente por nombre exacto."""
-        return self.db.query(Cliente).filter(Cliente.nombre == nombre).first()

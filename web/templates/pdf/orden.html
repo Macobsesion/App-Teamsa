@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Orden de Trabajo {{ ot.numero_ot }}</title>
+    <style>
+        /* Reset y configuración base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            size: Letter;
+            margin: 1.5cm;
+        }
+
+        body {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-size: 10pt;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        /* Header con logo y título */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #4148C3;
+            /* Primary Color matched */
+        }
+
+        .logo-container {
+            flex: 0 0 90px;
+        }
+
+        .logo {
+            max-width: 90px;
+            height: auto;
+        }
+
+        .titulo-container {
+            text-align: right;
+            flex: 1;
+        }
+
+        .titulo-principal {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #4148C3;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .numero-ot {
+            font-size: 14pt;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        /* Sección de información */
+        .info-section {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .info-col {
+            flex: 1;
+        }
+
+        .info-label {
+            font-size: 8pt;
+            color: #64748b;
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .info-value {
+            font-size: 10pt;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .info-row {
+            margin-bottom: 10px;
+        }
+
+        .info-row:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Tabla de actividades/conceptos */
+        .conceptos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .conceptos-table thead {
+            background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);
+            color: white;
+        }
+
+        .conceptos-table th {
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 9pt;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .conceptos-table tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .conceptos-table tbody tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .conceptos-table td {
+            padding: 12px 10px;
+            font-size: 9.5pt;
+            vertical-align: top;
+        }
+
+        /* Notas e instrucciones */
+        .notas {
+            background-color: #f0f9ff;
+            padding: 15px;
+            border-left: 4px solid #0ea5e9;
+            margin-bottom: 20px;
+            border-radius: 3px;
+        }
+
+        .notas-titulo {
+            font-size: 9pt;
+            font-weight: 600;
+            color: #0369a1;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .notas-texto {
+            font-size: 9pt;
+            color: #0c4a6e;
+        }
+
+        /* Areas de firma */
+        .firmas {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 60px;
+            gap: 40px;
+        }
+
+        .firma-box {
+            text-align: center;
+            flex: 1;
+            margin: 0 10px;
+        }
+
+        .firma-linea {
+            border-top: 1px solid #333;
+            margin-bottom: 5px;
+            padding-top: 40px;
+        }
+
+        .firma-label {
+            font-size: 9pt;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .firma-sublabel {
+            font-size: 8pt;
+            color: #64748b;
+        }
+
+        .check-list {
+            list-style-type: none;
+        }
+
+        .check-item {
+            margin-bottom: 5px;
+        }
+
+        .check-box {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 1px solid #333;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-container">
+            <img src="{{ logo_path }}" alt="Logo TEAMSA" class="logo">
+        </div>
+        <div class="titulo-container">
+            <div class="titulo-principal">ORDEN DE TRABAJO</div>
+            <div class="numero-ot">{{ ot.numero_ot }}</div>
+        </div>
+    </div>
+
+    <!-- Datos del Cliente y Servicio -->
+    <div class="info-section">
+        <div class="info-col">
+            <div class="info-row">
+                <div class="info-label">Cliente</div>
+                <div class="info-value">{{ ot.cliente_nombre }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Contacto</div>
+                <div class="info-value">{{ ot.contacto or "Sin contacto" }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Domicilio del Servicio</div>
+                <div class="info-value">{{ ot.domicilio }}</div>
+            </div>
+        </div>
+        <div class="info-col" style="text-align: right;">
+            <div class="info-row">
+                <div class="info-label">Fecha Programada</div>
+                <div class="info-value" style="font-size: 11pt; font-weight: bold;">{{ fecha_programada_fmt }}</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Hora Programada</div>
+                <div class="info-value">{{ ot.hora_programada }} ({{ ot.duracion }}h est.)</div>
+            </div>
+            <div class="info-row">
+                <div class="info-label">Ref. Cotización</div>
+                <div class="info-value">#{{ cotizacion.numero }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de Conceptos (Trabajos a Realizar) -->
+    <h3 style="margin-bottom: 10px; font-size: 11pt; color: #444; border-bottom: 1px solid #ddd; padding-bottom: 5px;">
+        DESCRIPCIÓN DE TRABAJOS A REALIZAR
+    </h3>
+    <table class="conceptos-table">
+        <thead>
+            <tr>
+                <th style="width: 10%; text-align: center;">Cant.</th>
+                <th style="width: 15%;">Unidad</th>
+                <th style="width: 75%;">Descripción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for concepto in conceptos %}
+            <tr>
+                <td style="text-align: center;">{{ concepto.cantidad }}</td>
+                <td>{{ concepto.codigo_unidad }}</td>
+                <td>{{ concepto.descripcion }}</td>
+            </tr>
+            {% endfor %}
+            {% if not conceptos %}
+            <tr>
+                <td colspan="3" style="text-align: center; color: #666;">
+                    Sin conceptos detallados. Consultar cotización.
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <!-- Notas Públicas -->
+    {% if ot.notas_publicas %}
+    <div class="notas">
+        <div class="notas-titulo">NOTAS / OBSERVACIONES</div>
+        <div class="notas-texto">{{ ot.notas_publicas }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Espacio para reporte técnico manual -->
+    <div style="margin-top: 20px; border: 1px solid #ccc; border-radius: 5px; padding: 10px; min-height: 150px;">
+        <div class="notas-titulo" style="color: #444;">REPORTE TÉCNICO (Llenado Manual)</div>
+        <div style="font-size: 8pt; color: #999; margin-top: 5px;">
+            Describa hallazgos, trabajos realizados y materiales utilizados si difieren de lo programado.
+        </div>
+    </div>
+
+    <!-- Firmas -->
+    <div class="firmas">
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-label">TÉCNICO RESPONSABLE</div>
+            <div class="firma-sublabel">Nombre y Firma</div>
+        </div>
+        <div class="firma-box">
+            <div class="firma-linea"></div>
+            <div class="firma-label">CLIENTE</div>
+            <div class="firma-sublabel">Recibí trabajo a conformidad</div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="margin-top: 40px; text-align: center; font-size: 8pt; color: #aaa;">
+        Documento generado automáticamente por sistema TEAMSA.
+    </div>
+</body>
+
+</html>

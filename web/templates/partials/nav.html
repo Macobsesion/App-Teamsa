@@ -1,45 +1,67 @@
 {#
-Barra de navegación simple con Bootstrap.
-- Marca activo según el path actual
-- Mantiene enlaces básicos a páginas protegidas
-- Sin lógica de roles para conservar simplicidad
+Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
+- Estilos definidos en app.css (.navbar-teamsa)
+- Menús agrupados por área (Ventas, Compras)
 #}
-<nav class="navbar navbar-expand-lg navbar-light bg-light mb-3">
+<nav class="navbar navbar-expand-lg navbar-dark navbar-teamsa mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="/usuarios">TEAMSA</a>
+    <a class="navbar-brand" href="/usuarios">
+      <img src="/static/img/teamsa_logo.png" alt="TEAMSA" height="30" class="d-inline-block align-text-top me-2"
+        style="filter: brightness(0) invert(1);">
+      TEAMSA
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
       <ul class="navbar-nav me-auto">
+        <!-- Usuarios /  Inicio -->
         <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/usuarios') else '' }}"
-            href="/usuarios">Usuarios</a>
+          <a class="nav-link {{ 'active' if request.url.path == '/usuarios' else '' }}" href="/usuarios">Usuarios</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/clientes') else '' }}"
-            href="/clientes">Clientes</a>
+
+        <!-- Módulo Ventas -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/cotizaciones', '/clientes', '/servicios', '/ordenes')) else '' }}"
+            href="#" role="button" data-bs-toggle="dropdown">
+            Ventas
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/cotizaciones">📄 Cotizaciones</a></li>
+            <li><a class="dropdown-item" href="/ordenes">🛠️ Órdenes de Trabajo</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li><a class="dropdown-item" href="/clientes">👥 Clientes</a></li>
+            <li><a class="dropdown-item" href="/servicios">🔧 Servicios (Catálogo)</a></li>
+          </ul>
         </li>
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/servicios') else '' }}"
-            href="/servicios">Servicios</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/proveedores') else '' }}"
-            href="/proveedores">Proveedores</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/cotizaciones') else '' }}"
-            href="/cotizaciones">Cotizaciones</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path.startswith('/viaticos') else '' }}"
-            href="/viaticos">Viáticos</a>
+
+        <!-- Módulo Compras -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/ordenes-compra', '/proveedores', '/servicios-proveedores')) else '' }}"
+            href="#" role="button" data-bs-toggle="dropdown">
+            Compras
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/ordenes-compra">📦 Órdenes de Compra</a></li>
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            <li><a class="dropdown-item" href="/proveedores">🏭 Proveedores</a></li>
+            <li><a class="dropdown-item" href="/servicios-proveedores">📑 Productos/Servicios proveedores</a></li>
+          </ul>
         </li>
       </ul>
+
       <ul class="navbar-nav ms-auto">
-        <li class="nav-item">
-          <a class="nav-link" href="/auth/salir">Salir</a>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            👤 Usuario
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="/auth/salir">🚪 Cerrar Sesión</a></li>
+          </ul>
         </li>
       </ul>
     </div>

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Callable, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session
 
 from app.base.descriptor_crud import DescriptorCRUD
@@ -118,6 +118,7 @@ def crear_modulo_crud(
         
         @router_prioritario.get("/select", response_model=list[dict])
         def obtener_para_select(
+            request: Request,  # Request de FastAPI/Starlette
             db: Session = Depends(obtener_sesion),
             # El usuario ya viene validado por la dependencia del router
         ):
@@ -125,7 +126,37 @@ def crear_modulo_crud(
             from decimal import Decimal
             
             repo = descriptor.repo_factory(db)
-            items = repo.listar()
+            
+            # Construir filtros desde query params
+            filtros = {}
+            if hasattr(request, 'query_params'):
+                for key, value in request.query_params.items():
+                    # Solo aplicar filtros si el campo es filtrable en el repositorio
+                    if hasattr(repo, 'campos_filtrables') and key in repo.campos_filtrables:
+                        # Convertir el valor al tipo correcto según la columna del modelo
+                        columna = getattr(descriptor.repo_factory.modelo, key, None)
+                        if columna is not None:
+                            # Obtener el tipo Python de la columna
+                            try:
+                                python_type = columna.type.python_type
+                                # Convertir el string del query param al tipo correcto
+                                if python_type == int:
+                                    filtros[key] = int(value)
+                                elif python_type == bool:
+                                    filtros[key] = value.lower() in ('true', '1', 'yes')
+                                else:
+                                    filtros[key] = value
+                            except (AttributeError, ValueError):
+                                # Si no se puede determinar el tipo, usar el valor como string
+                                filtros[key] = value
+                        else:
+                            filtros[key] = value
+            
+            # Listar con filtros si los hay
+            if filtros:
+                items = repo.listar(filtros=filtros)
+            else:
+                items = repo.listar()
             
             resultado = []
             for item in items:
@@ -136,7 +167,13 @@ def crear_modulo_crud(
                 # Construir dict con campos solicitados
                 item_dict = {}
                 for campo in campos:
-                    valor = getattr(item, campo, None)
+                    # Soportar navegación por relaciones (ej: "proveedor.nombre")
+                    if "." in campo:
+                        partes = campo.split(".", 1)
+                        objeto_relacionado = getattr(item, partes[0], None)
+                        valor = getattr(objeto_relacionado, partes[1], None) if objeto_relacionado else None
+                    else:
+                        valor = getattr(item, campo, None)
                     
                     # Convertir Decimal a float para JSON
                     if isinstance(valor, Decimal):

@@ -2,9 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Optional, TypeVar
-
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Query  # type: ignore
+from typing import Any, Callable, Generic, Optional, TypeVar, Dict
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Query, Body  # type: ignore
 from fastapi import Request
 from pydantic import BaseModel  # type: ignore
 from sqlmodel import Session  # type: ignore
@@ -100,10 +99,16 @@ def construir_enrutador_crud(
 
     @router.post("/", response_model=schema_read)
     def crear(
-        payload: schema_create,
+        payload_dict: Dict[str, Any] = Body(...),
         db: Session = Depends(obtener_sesion),
         actor: ActorT = Depends(write_dependency) if write_dependency else None,
     ):
+        # Conversión manual para evitar problemas de introspección con tipos dinámicos
+        try:
+            payload = schema_create(**payload_dict)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         repo = _get_repo(db)
         if hooks.validar_unicidad:
             conflicto = hooks.validar_unicidad(repo, payload)
@@ -117,10 +122,16 @@ def construir_enrutador_crud(
     @router.patch("/{entidad_id}", response_model=schema_read)
     def actualizar(
         entidad_id: int,
-        payload: schema_update,
+        payload_dict: Dict[str, Any] = Body(...),
         db: Session = Depends(obtener_sesion),
         actor: ActorT = Depends(write_dependency) if write_dependency else None,
     ):
+        # Conversión manual
+        try:
+            payload = schema_update(**payload_dict)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
         repo = _get_repo(db)
         # Validación opcional de actualización (suave): devolver 400 con detalle
         if hooks.validar_actualizacion is not None:

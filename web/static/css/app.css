@@ -1,28 +1,283 @@
 /* Ajustes globales de UI de TEAMSA */
 
-/* Tamaño razonable del logotipo en encabezado */
+:root {
+  /* Paleta Corporativa */
+  /* 1. Enfasis y letras del navbar */
+  --teamsa-primary: #4148C3;
+  /* 2. Hover / Darker */
+  --teamsa-primary-dark: #3F48CB;
+  /* 3. Info / Secondary */
+  --teamsa-secondary: #027DC0;
+  /* 4. Accent / Light Blue */
+  --teamsa-accent: #97DBE6;
+  /* 5. Background / Lightest */
+  --teamsa-light-bg: #C6EBF1;
+
+  --teamsa-success: #198754;
+  --teamsa-warning: #ffc107;
+  --teamsa-danger: #dc3545;
+  --teamsa-text-dark: #212529;
+
+  /* Gradiente sutil usando los tonos medios */
+  --teamsa-gradient: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+}
+
+body {
+  background-color: #f5f7fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: var(--teamsa-text-dark);
+}
+
+/* Navbar Premium - Fondo Claro, Letras #4148C3 */
+.navbar-teamsa {
+  background: white;
+  /*Fondo limpio para resaltar letras*/
+  border-bottom: 3px solid var(--teamsa-light-bg);
+  /* Detalle sutil color #5 */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.navbar-teamsa .navbar-brand {
+  color: var(--teamsa-primary) !important;
+  /* Color #1 */
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: 0.5px;
+}
+
+.navbar-teamsa .nav-link {
+  color: var(--teamsa-primary) !important;
+  /* Color #1 */
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.navbar-teamsa .nav-link:hover,
+.navbar-teamsa .nav-link.active {
+  color: var(--teamsa-primary-dark) !important;
+  /* Color #2 */
+  font-weight: 700;
+  background-color: var(--teamsa-light-bg);
+  /* Color #5 sutil en hover */
+  border-radius: 5px;
+}
+
+.navbar-teamsa .dropdown-menu {
+  border: none;
+  border-top: 3px solid var(--teamsa-primary);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 0 0 8px 8px;
+}
+
+.navbar-teamsa .dropdown-item {
+  color: var(--teamsa-text-dark);
+  padding: 0.5rem 1.5rem;
+}
+
+.navbar-teamsa .dropdown-item:active,
+.navbar-teamsa .dropdown-item:hover {
+  background-color: var(--teamsa-light-bg);
+  /* Color #5 */
+  color: var(--teamsa-primary);
+}
+
+/* Login Logo */
 .login-logo {
   max-width: 180px;
   height: auto;
+  margin-bottom: 20px;
 }
 
-/* Fallback simple para modales si no carga JS de Bootstrap */
+/* Cards & Containers */
+.card {
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+  background-color: white;
+}
+
+.card:hover {
+  /* box-shadow: 0 5px 15px rgba(0,0,0,0.1); */
+}
+
+.card-header {
+  background-color: white;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+  color: var(--teamsa-primary);
+}
+
+.card-header-primary {
+  background: var(--teamsa-primary);
+  color: white;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+/* Wizard Styles (Unificado) */
+.wizard-step {
+  text-align: center;
+  flex: 1;
+  position: relative;
+  opacity: 0.6;
+  transition: all 0.3s ease;
+}
+
+.wizard-step.active {
+  opacity: 1;
+  font-weight: bold;
+}
+
+.wizard-step.active .step-number {
+  background: var(--teamsa-primary);
+  /* Color #1 */
+  color: white;
+  box-shadow: 0 0 0 4px var(--teamsa-light-bg);
+  /* Color #5 como anillo */
+}
+
+.wizard-step.completed .step-number {
+  background: var(--teamsa-secondary);
+  /* Color #3 */
+  color: white;
+}
+
+.wizard-step.completed .step-label {
+  color: var(--teamsa-secondary);
+}
+
+.wizard-step.active .step-label {
+  color: var(--teamsa-primary);
+}
+
+.wizard-step-line {
+  flex: 1;
+  height: 3px;
+  background: var(--teamsa-light-bg);
+  /* Color #5 para línea inactiva */
+  margin-top: 20px;
+  margin-left: 10px;
+  margin-right: 10px;
+}
+
+.wizard-step .step-number {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: var(--teamsa-text-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
+}
+
+.wizard-step .step-label {
+  font-size: 0.9rem;
+  color: var(--teamsa-text-dark);
+  font-weight: 500;
+}
+
+.wizard-content {
+  animation: fadeIn 0.4s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Tablas */
+.table-responsive {
+  overflow-x: auto;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #eee;
+}
+
+.table thead th {
+  background-color: var(--teamsa-primary);
+  /* Color #5 para headers de tabla */
+  border-bottom: 2px solid var(--teamsa-accent);
+  /* Color #4 para borde */
+  color: white;
+  /* Color #1 */
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 1rem;
+}
+
+.table td {
+  vertical-align: middle;
+  padding: 0.75rem 1rem;
+}
+
+.table-striped>tbody>tr:nth-of-type(odd)>* {
+  --bs-table-accent-bg: rgba(198, 235, 241, 0.15);
+  /* Color #5 muy transparente */
+  color: var(--teamsa-text-dark);
+}
+
+/* Botones */
+.btn-teamsa-primary {
+  background-color: var(--teamsa-primary);
+  border-color: var(--teamsa-primary);
+  color: white;
+}
+
+.btn-teamsa-primary:hover {
+  background-color: var(--teamsa-primary-dark);
+  /* Color #2 */
+  border-color: var(--teamsa-primary-dark);
+  color: white;
+}
+
+/* Modales */
+.modal-header {
+  background-color: white;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header.bg-primary-gradient {
+  background: var(--teamsa-primary);
+  color: white;
+}
+
+.modal-title {
+  font-weight: 600;
+}
+
+/* Fallback simple para modales */
 .modal {
   display: none;
 }
+
 .modal.show {
   display: block;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
-/* Mejoras de tabla responsive y legibilidad */
-.table-responsive {
-  overflow-x: auto;
+/* Footer UI */
+footer.teamsa-footer {
+  background: white;
+  /* Footer limpio */
+  border-top: 3px solid var(--teamsa-accent);
+  /* Color #4 */
+  padding: 3rem 0;
+  margin-top: 8rem;
+  /* Mayor espacio vertical */
+  color: var(--teamsa-text-dark);
 }
-.table td, .table th {
-  vertical-align: middle;
-}
-.table td.text-break {
-  word-break: break-word;
-}
-
-/* (sencillo) comportamiento responsive por defecto: scroll horizontal si es necesario */

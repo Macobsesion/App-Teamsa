@@ -1,8 +1,10 @@
 """Endpoints para wizard y vistas HTML de cotizaciones."""
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
+
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 from app.nucleo.base_datos import obtener_sesion_bd
 from app.rutas.dependencias import exigir_roles, dp_usuario_actual
@@ -40,7 +42,7 @@ def ver_detalle_cotizacion(
     repo = RepositorioCotizacion(db)
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotizacion no encontrada")
+        raise RecursoNoEncontradoError("Cotizacion no encontrada")
     
     cliente = db.get(Cliente, cotizacion.cliente_id)
     conceptos = repo.obtener_conceptos(cotizacion_id)
@@ -69,12 +71,12 @@ def editar_cotizacion(
     
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+        raise RecursoNoEncontradoError("Cotización no encontrada")
     
-    if cotizacion.estado == "modificada":
-        raise HTTPException(
-            status_code=403,
-            detail="No se puede editar una cotización modificada. Use la versión más reciente."
+    if cotizacion.estado in ["modificada", "cerrada"]:
+        raise ReglaNegocioError(
+            "No se puede editar una cotización modificada. Use la versión más reciente." 
+            # (Nota: ReglaNegocioError mapea a 409, que es adecuado para conflicto)
         )
     
     return RedirectResponse(url=f"/ui/cotizaciones/wizard?id={cotizacion_id}", status_code=302)
@@ -92,7 +94,7 @@ def cargar_modal_notas_privadas(
     
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
-        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+        raise RecursoNoEncontradoError("Cotización no encontrada")
     
     return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/_notas_privadas_modal.html",

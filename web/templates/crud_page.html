@@ -13,10 +13,20 @@
 </div>
 {% if puede_editar %}
 <div class="d-flex justify-content-end mb-3">
-  {% if 'cotizaciones' in ui_base %}
-  <a href="/ui/cotizaciones/wizard" class="btn btn-primary">✨ Nueva Cotización</a>
+  {% if crud_config.botonCrear %}
+  {% if crud_config.botonCrear.modal %}
+  <button type="button" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}" data-bs-toggle="modal"
+    data-bs-target="#editModal" hx-get="{{ crud_config.botonCrear.url or (ui_base + '/form?modo=crear') }}"
+    hx-target="#modal-content" hx-swap="innerHTML">
+    {{ crud_config.botonCrear.texto or 'Agregar' }}
+  </button>
   {% else %}
-  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#editModal"
+  <a href="{{ crud_config.botonCrear.url }}" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}">
+    {{ crud_config.botonCrear.texto }}
+  </a>
+  {% endif %}
+  {% else %}
+  <button type="button" class="btn btn-teamsa-primary" data-bs-toggle="modal" data-bs-target="#editModal"
     hx-get="{{ ui_base }}/form?modo=crear" hx-target="#modal-content" hx-swap="innerHTML">Agregar</button>
   {% endif %}
 </div>
@@ -51,26 +61,27 @@
 </div>
 
 {# Modal de Notas Privadas - compartido para todas las cotizaciones #}
-{% if 'cotizaciones' in ui_base %}
+{# Modal de Notas Privadas - Genérico para cualquier módulo #}
+{% if 'cotizaciones' in ui_base or 'ordenes-compra' in ui_base %}
 <div class="modal fade" id="modalNotasPrivadas" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="modalNotasPrivadasTitulo">📝 Notas Privadas</h5>
+      <div class="modal-header bg-primary-gradient">
+        <h5 class="modal-title text-white" id="modalNotasPrivadasTitulo">📝 Notas Privadas</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <div class="alert alert-info alert-sm">
-          <small><strong>ℹ️ Nota:</strong> Estas notas son solo para uso interno y no aparecen en el PDF del
-            cliente.</small>
+          <small><strong>ℹ️ Nota:</strong> Estas notas son solo para uso interno y no aparecen en el PDF.</small>
         </div>
         <textarea class="form-control" id="notasPrivadasTexto" rows="5"
           placeholder="Escribe notas internas aquí..."></textarea>
-        <input type="hidden" id="notasPrivadasCotizacionId">
+        <input type="hidden" id="notasPrivadasId">
+        <input type="hidden" id="notasPrivadasModulo">
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-primary" onclick="guardarNotasPrivadas()">
+        <button type="button" class="btn btn-teamsa-primary" onclick="guardarNotasPrivadas()">
           💾 Guardar
         </button>
       </div>
@@ -79,33 +90,47 @@
 </div>
 
 <script>
-  // Función para abrir modal de notas privadas
-  function abrirNotasPrivadas(cotizacionId, numero, notasActuales) {
-    document.getElementById('modalNotasPrivadasTitulo').textContent = `📝 Notas Privadas - ${numero}`;
+  // Configuración de endpoints por módulo
+  const MODULOS_NOTAS = {
+    'cotizaciones': { endpoint: '/api/cotizaciones', label: 'Cotización' },
+    'ordenes-compra': { endpoint: '/api/ordenes-compra', label: 'Orden' }
+  };
+
+  function abrirNotasPrivadas(modulo, id, folio, notasActuales) {
+    if (!MODULOS_NOTAS[modulo]) return;
+
+    document.getElementById('modalNotasPrivadasTitulo').textContent = `📝 Notas Privadas - ${folio}`;
     document.getElementById('notasPrivadasTexto').value = notasActuales || '';
-    document.getElementById('notasPrivadasCotizacionId').value = cotizacionId;
+    document.getElementById('notasPrivadasId').value = id;
+    document.getElementById('notasPrivadasModulo').value = modulo;
 
     const modal = new bootstrap.Modal(document.getElementById('modalNotasPrivadas'));
     modal.show();
   }
 
-  // Event delegation para botones de notas privadas (evita problemas de sintaxis con onclick)
+  // Event delegation genérico
   document.addEventListener('click', function (e) {
-    if (e.target.closest('.btn-notas-privadas')) {
-      const btn = e.target.closest('.btn-notas-privadas');
-      const cotizacionId = btn.getAttribute('data-cotizacion-id');
-      const numero = btn.getAttribute('data-numero');
+    const btn = e.target.closest('.btn-notas-privadas-generico');
+    if (btn) {
+      const modulo = btn.getAttribute('data-modulo'); // 'cotizaciones' o 'ordenes-compra'
+      const id = btn.getAttribute('data-id');
+      const folio = btn.getAttribute('data-folio');
       const notas = btn.getAttribute('data-notas');
-      abrirNotasPrivadas(cotizacionId, numero, notas);
+      abrirNotasPrivadas(modulo, id, folio, notas);
     }
   });
 
-  // Función para guardar notas privadas
   function guardarNotasPrivadas() {
-    const cotizacionId = document.getElementById('notasPrivadasCotizacionId').value;
+    const modulo = document.getElementById('notasPrivadasModulo').value;
+    const id = document.getElementById('notasPrivadasId').value;
     const notas = document.getElementById('notasPrivadasTexto').value;
 
-    fetch(`/api/cotizaciones/${cotizacionId}/notas-privadas`, {
+    const config = MODULOS_NOTAS[modulo];
+    if (!config) return;
+
+    const url = `${config.endpoint}/${id}/notas-privadas`;
+
+    fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notas_privadas: notas })
@@ -114,9 +139,13 @@
         if (response.ok) {
           const modal = bootstrap.Modal.getInstance(document.getElementById('modalNotasPrivadas'));
           modal.hide();
-          alert('✅ Notas privadas guardadas correctamente');
 
-          // Recargar filas para actualizar
+          // Dispara un evento flash para notificar
+          document.body.dispatchEvent(new CustomEvent('flash', {
+            detail: { texto: '✅ Notas privadas guardadas correctamente', tipo: 'success' }
+          }));
+
+          // Recargar filas para actualizar el data-notas del botón
           htmx.trigger('#tbody-lista', 'load');
         } else {
           alert('❌ Error al guardar las notas');

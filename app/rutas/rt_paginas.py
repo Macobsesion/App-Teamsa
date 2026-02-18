@@ -16,7 +16,8 @@ from app.modulos.clientes.clientes_router import descriptor as clientes_descript
 from app.modulos.servicios.servicios_router import descriptor as servicios_descriptor
 from app.modulos.proveedores.proveedores_router import descriptor as proveedores_descriptor
 from app.modulos.cotizaciones.cotizaciones_router import descriptor as cotizaciones_descriptor
-from app.modulos.viaticos.viaticos_router import descriptor as viaticos_descriptor
+from app.modulos.ordenes.ordenes_router import descriptor as ordenes_descriptor
+
 from app.rutas.dependencias import exigir_roles
 
 router = APIRouter()
@@ -66,7 +67,7 @@ def pagina_error(request: Request, status: int = 401, detail: str = "No autentic
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_usuarios(request: Request):
-    return render_crud_page(request, template="usuarios_lista.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", puede_editar=True)
+    return render_crud_page(request, template="crud_page.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", puede_editar=True)
 
 
 @router.get(
@@ -75,7 +76,7 @@ def pagina_listado_usuarios(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_clientes(request: Request):
-    return render_crud_page(request, template="clientes_lista.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", puede_editar=True)
+    return render_crud_page(request, template="crud_page.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", puede_editar=True)
 
 
 @router.get(
@@ -93,7 +94,7 @@ def pagina_listado_servicios(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_proveedores(request: Request):
-    return render_crud_page(request, template="proveedores_lista.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", puede_editar=True)
+    return render_crud_page(request, template="crud_page.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", puede_editar=True)
 
 
 @router.get(
@@ -102,13 +103,34 @@ def pagina_listado_proveedores(request: Request):
     dependencies=[Depends(exigir_roles("admin"))],
 )
 def pagina_listado_cotizaciones(request: Request):
-    return render_crud_page(request, template="cotizaciones_lista.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", puede_editar=True)
+    return render_crud_page(request, template="crud_page.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", puede_editar=True)
 
 
 @router.get(
-    "/viaticos",
+    "/ordenes",
     response_class=HTMLResponse,
     dependencies=[Depends(exigir_roles("admin"))],
 )
-def pagina_listado_viaticos(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=viaticos_descriptor, ui_base="/ui/viaticos", puede_editar=True)
+def pagina_listado_ordenes(request: Request):
+    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_descriptor, ui_base="/ui/ordenes", puede_editar=True)
+
+
+
+from app.modulos.servicios_proveedores.servicios_proveedores_router import descriptor as servicios_proveedores_descriptor
+from app.modulos.ordenes_compra.ordenes_compra_router import descriptor as ordenes_compra_descriptor
+
+@router.get(
+    "/servicios-proveedores",
+    response_class=HTMLResponse,
+    dependencies=[Depends(exigir_roles("admin", "compras"))],
+)
+def pagina_servicios_proveedores(request: Request):
+    return render_crud_page(request, template="crud_page.html", descriptor=servicios_proveedores_descriptor, ui_base="/ui/servicios-proveedores", puede_editar=True)
+
+@router.get(
+    "/ordenes-compra",
+    response_class=HTMLResponse,
+    dependencies=[Depends(exigir_roles("admin", "compras"))],
+)
+def pagina_ordenes_compra(request: Request):
+    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_compra_descriptor, ui_base="/ui/ordenes-compra", puede_editar=True)

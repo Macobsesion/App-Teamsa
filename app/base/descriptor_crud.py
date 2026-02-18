@@ -69,6 +69,7 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
     columnas_excluir: Iterable[str] | None = None
     selectores: dict[str, Any] = field(default_factory=dict)
     form: list[dict[str, Any]] | None = None
+    boton_crear: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Configura auditoría automática si no se proporcionaron funciones."""
@@ -182,6 +183,7 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
             'creables': obtener_campos_creables(self.schema_create),
             'required': obtener_campos_requeridos(self.schema_create),
             'propTypes': obtener_tipos_propiedades(self.schema_create),
+            'botonCrear': self.boton_crear,
         }
 
 __all__ = ["DescriptorCRUD"]

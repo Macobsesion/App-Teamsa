@@ -42,7 +42,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     Funciona correctamente incluso si se versiona una versión (ej: COT-00001-B -> COT-00001-C).
     Siempre encuentra la cotización madre y todas sus versiones hermanas.
     """
-    from app.modulos.cotizaciones.servicios import ServicioCalculadoraCotizacion
+    from app.modulos.cotizaciones.calculadora import ServicioCalculadoraCotizacion
     
     repo = RepositorioCotizacion(db)
     cotizacion_actual = db.get(Cotizacion, cotizacion_id)
@@ -80,7 +80,9 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     db.add(cotizacion_actual)
     
     # 6. CREAR NUEVA VERSIÓN
+    import uuid
     nueva_cotizacion = Cotizacion(
+        folio=str(uuid.uuid4()),  # Temporal UUID para folio
         numero=nuevo_numero,  # COT-00001-C
         numero_version=nuevo_numero,  # Alias
         version_letra=nueva_letra,  # "C"
@@ -92,10 +94,13 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
         notas=data.get('notas'),
         notas_privadas=data.get('notas_privadas'),
         fecha_emision=date.today(),
-        fecha_vigencia=repo.calcular_fecha_vigencia(date.today()),
+        fecha_vigencia=date.today(), # Placeholder, se recalcula abajo
         creado_por=usuario.usuario,
         modificado_por=usuario.usuario,
     )
+    
+    # Recalcular vigencia con lógica encapsulada
+    nueva_cotizacion.actualizar_vigencia()
     
     db.add(nueva_cotizacion)
     db.flush()  # Para obtener el ID

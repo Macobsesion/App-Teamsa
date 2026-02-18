@@ -27,7 +27,7 @@ def crear_tablas() -> None:
     from app.modulos.servicios.servicios_modelo import Servicio  # noqa: F401
     from app.modulos.proveedores.proveedores_modelo import Proveedor  # noqa: F401
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion  # noqa: F401
-    from app.modulos.viaticos.viaticos_modelo import Viatico, GastoViatico  # noqa: F401
+    from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo  # noqa: F401
 
 
     engine = obtener_motor()

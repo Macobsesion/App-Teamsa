@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}OT {{ ot.numero_ot }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {# Encabezado #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Orden de Trabajo {{ ot.numero_ot }}</h2>
+            <p class="text-muted mb-0">
+                Cliente: <strong>{{ ot.cliente_nombre }}</strong>
+                <br>
+                <small>Ref. Cotización: {{ ot.cotizacion_id }}</small>
+            </p>
+        </div>
+        <div>
+            <span
+                class="badge bg-{{ 'primary' if ot.estado == 'programada' else 'warning' if ot.estado == 'en_curso' else 'success' if ot.estado == 'cerrada' else 'danger' }} fs-5">
+                {{ ot.estado|title }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        {# Columna izquierda: Información del Servicio #}
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white" style="background-color: #4148C3;">
+                    <h5 class="mb-0">📍 Datos del Servicio</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td class="text-muted">Estado Actual:</td>
+                            <td>
+                                <span
+                                    class="badge bg-{{ 'primary' if ot.estado == 'programada' else 'warning' if ot.estado == 'en_curso' else 'success' if ot.estado == 'finalizada' else 'danger' }}">
+                                    {{ ot.estado|title }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Fecha Programada:</td>
+                            <td><strong>{{ ot.fecha_programada.strftime('%d/%m/%Y') }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Horario:</td>
+                            <td><strong>{{ ot.hora_programada }}</strong> ({{ ot.duracion }}h
+                                estimadas)</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📝 Notas</h6>
+                </div>
+                <div class="card-body">
+                    {{ ot.notas_publicas or "Sin notas registradas." }}
+                </div>
+            </div>
+        </div>
+
+        {# Columna derecha: PDF y Acciones #}
+        <div class="col-lg-6">
+            {# Visor de PDF #}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📄 Documento OT</h6>
+                </div>
+                <div class="card-body p-0">
+                    <!-- TODO: Implementar endpoint PDF real, por ahora placeholder -->
+                    <iframe src="/api/ordenes/{{ ot.id }}/pdf" style="width: 100%; height: 500px; border: none;"
+                        title="PDF Orden {{ ot.numero_ot }}">
+                    </iframe>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="/api/ordenes/{{ ot.id }}/pdf" target="_blank" class="btn btn-outline-primary">
+                            📥 Descargar PDF
+                        </a>
+                        <a href="/ordenes" class="btn btn-outline-secondary">
+                            ← Volver a Ordenes
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

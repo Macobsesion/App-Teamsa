@@ -1,0 +1,62 @@
+<form hx-post="{{ '/api/ordenes-compra' if modo == 'crear' else '/api/ordenes-compra/' ~ item.id }}"
+    hx-target="#main-table-body" hx-swap="innerHTML"
+    hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('editModal')).hide()">
+
+    <div class="modal-header">
+        <h5 class="modal-title">{{ 'Nueva Orden de Compra' if modo == 'crear' else 'Editar Orden: ' ~ item.folio }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    </div>
+
+    <div class="modal-body">
+        {% if modo == 'crear' %}
+        <div class="alert alert-info">
+            <small>Para crear una orden completa con productos, use el botón "Nueva Orden Completa" en el panel
+                principal (Pendiente de Implementar UI).</small>
+        </div>
+        {% endif %}
+
+        <div class="mb-3">
+            <label class="form-label">ID Proveedor</label>
+            <input type="number" name="proveedor_id" class="form-control" value="{{ item.proveedor_id or '' }}" required
+                {{ 'readonly' if modo !='crear' else '' }}>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Emisión</label>
+                <input type="date" name="fecha_emision" class="form-control" value="{{ item.fecha_emision or '' }}"
+                    required>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Fecha Entrega (Estimada)</label>
+                <input type="date" name="fecha_entrega_estimada" class="form-control"
+                    value="{{ item.fecha_entrega_estimada or '' }}">
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Moneda</label>
+                <select name="moneda" class="form-select">
+                    <option value="MXN" {{ 'selected' if item.moneda=='MXN' else '' }}>MXN</option>
+                    <option value="USD" {{ 'selected' if item.moneda=='USD' else '' }}>USD</option>
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Términos de Pago</label>
+                <input type="text" name="terminos_pago" class="form-control"
+                    value="{{ item.terminos_pago or 'Contado' }}">
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Notas</label>
+            <textarea name="notas" class="form-control" rows="2">{{ item.notas or '' }}</textarea>
+        </div>
+    </div>
+
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-teamsa-primary">Guardar Encabezado</button>
+    </div>
+</form>

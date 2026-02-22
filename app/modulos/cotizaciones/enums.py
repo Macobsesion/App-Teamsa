@@ -6,6 +6,7 @@ class EstadoCotizacion(str, Enum):
     """
     BORRADOR = "borrador"
     ENVIADA = "enviada"
+    ACEPTADA = "aceptada"  # <--- Nuevo: cuando tiene OTs activas
     MODIFICADA = "modificada"
     PROGRAMADA = "programada"
     FINALIZADA = "finalizada"
@@ -24,9 +25,16 @@ class EstadoCotizacion(str, Enum):
     @property
     def permite_crear_ot(self) -> bool:
         """Determina si la cotización puede generar una Orden de Trabajo."""
-        return self == EstadoCotizacion.ENVIADA
+        # Se permite cuando recién fue enviada o ya está aceptada y queremos más OTs
+        return self in (EstadoCotizacion.ENVIADA, EstadoCotizacion.ACEPTADA)
 
     @property
     def esta_bloqueada(self) -> bool:
         """Determina si la cotización está bloqueada para cambios."""
-        return self in (EstadoCotizacion.MODIFICADA, EstadoCotizacion.PROGRAMADA, EstadoCotizacion.FINALIZADA, EstadoCotizacion.CANCELADA)
+        return self in (
+            EstadoCotizacion.ACEPTADA,
+            EstadoCotizacion.MODIFICADA,
+            EstadoCotizacion.PROGRAMADA,
+            EstadoCotizacion.FINALIZADA,
+            EstadoCotizacion.CANCELADA
+        )

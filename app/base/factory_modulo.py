@@ -28,6 +28,7 @@ def crear_modulo_crud(
     extra_context_provider: Optional[Callable[[Session], dict[str, Any]]] = None,
     file_fields: Optional[dict[str, dict[str, Any]]] = None,
     routers_adicionales: Optional[list[APIRouter]] = None,
+    routers_prioritarios: Optional[list[APIRouter]] = None,
     include_select_endpoint: bool = False,
     select_fields: Optional[list[str]] = None,
     select_filter_activo: bool = True,
@@ -215,6 +216,9 @@ def crear_modulo_crud(
     
     # Combinar routers: PRIORITARIOS -> API -> UI -> ADICIONALES
     router_combinado = APIRouter()
+    if routers_prioritarios:
+        for router_p in routers_prioritarios:
+            router_combinado.include_router(router_p)
     if include_select_endpoint:
         router_combinado.include_router(router_prioritario)
     router_combinado.include_router(router_api)

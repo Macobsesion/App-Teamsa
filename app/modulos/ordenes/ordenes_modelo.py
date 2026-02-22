@@ -1,12 +1,14 @@
 """Modelo SQLModel para Ordenes de Trabajo (OT)."""
-from datetime import date, time
-from sqlmodel import Field, SQLModel  # type: ignore
+from datetime import date, datetime
+from decimal import Decimal
+from sqlmodel import Field, SQLModel, Relationship  # type: ignore
 from app.base.auditoria import AuditMixin
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
     from app.base.folios import GeneradorFolio
-from app.modulos.ordenes.enums import EstadoOrden
+from app.modulos.ordenes.enums import EstadoOrden, EstadoConceptoOT
+
 
 class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     """Orden de trabajo generada a partir de una cotización."""
@@ -29,15 +31,21 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     hora_programada: str = Field(description="Hora de inicio programada (HH:MM)")
     duracion: int = Field(default=1, description="Duración estimada en horas")
     
-    # Estado (programada, en_curso, cancelada, cerrada)
+    # Estado (programada, en_curso, cancelada, finalizada)
     estado: str = Field(default=EstadoOrden.PROGRAMADA.value, index=True, description="Estado del ciclo de vida de la orden")
+    
+    # Técnico asignado (opcional) — FK + snapshot para historial fidedigno
+    tecnico_id: int | None = Field(default=None, foreign_key="usuario.id", index=True,
+                                    description="ID del técnico asignado")
+    tecnico_nombre: str | None = Field(default=None,
+                                        description="Nombre del técnico al momento de asignar (snapshot)")
     
     # Información adicional
     notas_publicas: str | None = Field(default=None, description="Notas visibles en el PDF")
     notas_privadas: str | None = Field(default=None, description="Notas internas")
     
-    # Relaciones
-    # cotizacion: "Cotizacion" = Relationship(back_populates="orden_trabajo")
+    # Relación con conceptos seleccionados
+    conceptos: List["ConceptoOrdenTrabajo"] = Relationship(back_populates="orden")
 
     # ---- PROPIEDADES DE ESTADO (POLIMORFISMO) ----
     @property
@@ -52,7 +60,6 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     def es_cancelable(self) -> bool:
         return self.estado_enum.es_cancelable
 
-    # ---- FACTORY METHOD (SNAPSHOT PATTERN) ----
     @classmethod
     def crear_desde_cotizacion(
         cls,
@@ -61,25 +68,17 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
         hora_programada: str,
         duracion: int,
         usuario_id: str,
-        generador_folio: "GeneradorFolio"
+        generador_folio: "GeneradorFolio",
+        tecnico_id: int | None = None,
+        tecnico_nombre: str | None = None,
     ) -> "OrdenTrabajo":
         """
         Crea una Orden de Trabajo capturando una instantánea (snapshot) de los datos del cliente
         al momento de la creación.
         
-        Args:
-            generador_folio: Estrategia para generar el número de la OT (Strategy Pattern).
+        NOTA: el numero_ot se asigna con folio temporal y debe actualizarse con
+        `asignar_folio(generador_folio)` DESPUÉS de que la BD asigne el ID (post-flush).
         """
-        from datetime import date
-        
-        # Generar número de OT usando la estrategia inyectada
-        numero_ot = generador_folio.generar(
-            prefijo="OT", 
-            id_entidad=cotizacion.id, # Usamos ID cotización como base por ahora, idealmente sería secuencia propia
-            fecha=date.today()
-        )
-        
-        # Obtener datos del cliente (Snapshot)
         cliente_nombre = "Cliente no encontrado"
         domicilio = "Sin domicilio"
         contacto = "Sin contacto"
@@ -90,8 +89,8 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
             contacto = cotizacion.cliente.contacto or contacto
             
         return cls(
-            numero_ot=numero_ot,
-            cotizacion_id=cotizacion.id, # type: ignore
+            numero_ot="OT-PENDIENTE",   # folio temporal; se actualiza post-flush con asignar_folio()
+            cotizacion_id=cotizacion.id,  # type: ignore
             cliente_nombre=cliente_nombre,
             domicilio=domicilio,
             contacto=contacto,
@@ -99,6 +98,66 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
             hora_programada=hora_programada,
             duracion=duracion,
             estado=EstadoOrden.PROGRAMADA.value,
+            tecnico_id=tecnico_id,
+            tecnico_nombre=tecnico_nombre,
             creado_por=usuario_id,
             modificado_por=usuario_id
         )
+
+    def asignar_folio(self, generador_folio: "GeneradorFolio") -> None:
+        """
+        Asigna el numero_ot definitivo usando el ID de BD de la OT.
+        Debe llamarse DESPUÉS del flush() para que self.id esté disponible.
+        El folio queda como: OT-{AAMMDD}-{ID_OT}
+        """
+        from datetime import date as date_type
+        self.numero_ot = generador_folio.generar(
+            prefijo="OT",
+            id_entidad=self.id,
+            fecha=date_type.today()
+        )
+
+
+class ConceptoOrdenTrabajo(SQLModel, table=True):
+    """
+    Concepto de cotización seleccionado para ejecutar en una OT.
+    
+    Snapshot Pattern: copia los datos del concepto al momento de crear la OT
+    para mantener historial fidedigno aunque el concepto original cambie.
+    
+    Estado: solo avanza de pendiente → completado (irreversible).
+    """
+    __tablename__ = "concepto_orden_trabajo"
+    
+    id: int | None = Field(default=None, primary_key=True)
+    
+    # Relación con la OT
+    orden_id: int = Field(foreign_key="ordentrabajo.id", index=True)
+    
+    # Referencia al concepto original (unique: un concepto solo puede estar en una OT)
+    concepto_cotizacion_id: int = Field(
+        foreign_key="conceptocotizacion.id",
+        index=True,
+        unique=True,
+        description="Un concepto solo puede pertenecer a una OT activa"
+    )
+    
+    # Snapshot de datos al momento de crear la OT
+    descripcion: str = Field(description="Descripción del servicio")
+    cantidad: Decimal = Field(decimal_places=2, description="Cantidad solicitada")
+    precio_unitario: Decimal = Field(decimal_places=2, description="Precio unitario al momento de crear la OT")
+    importe: Decimal = Field(decimal_places=2, description="Importe total (cantidad × precio)")
+    unidad: str = Field(description="Unidad de medida")
+    
+    # Estado irreversible: pendiente → completado
+    estado: str = Field(
+        default=EstadoConceptoOT.PENDIENTE.value,
+        index=True,
+        description="Estado del concepto: pendiente o completado (irreversible)"
+    )
+    fecha_completado: datetime | None = Field(default=None, description="Cuándo se completó")
+    completado_por: str | None = Field(default=None, description="Usuario que marcó como completado")
+    
+    # Relación
+    orden: OrdenTrabajo = Relationship(back_populates="conceptos")
+

@@ -23,3 +23,14 @@ class EstadoOrden(str, Enum):
     def esta_activa(self) -> bool:
         """Determina si la orden está en curso o programada (no finalizada/cancelada)."""
         return self in (EstadoOrden.PROGRAMADA, EstadoOrden.EN_CURSO)
+
+
+class EstadoConceptoOT(str, Enum):
+    """
+    Estados de un concepto dentro de una Orden de Trabajo.
+    
+    El flujo es unidireccional: pendiente → completado (irreversible).
+    Un concepto completado no puede volver a pendiente.
+    """
+    PENDIENTE = "pendiente"
+    COMPLETADO = "completado"

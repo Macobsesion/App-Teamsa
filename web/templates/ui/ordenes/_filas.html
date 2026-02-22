@@ -6,16 +6,28 @@
     </td>
     <td>
         {{ item.fecha_programada.strftime('%d/%m/%Y') }}
-        <br><small class="text-muted">{{ item.hora_programada }}</small>
+        <br><small class="text-muted">{{ item.hora_programada }} · {{ item.duracion }}h</small>
     </td>
     <td>
         {{ item.cliente_nombre }}
         <br><small class="text-muted">{{ item.domicilio|truncate(40) }}</small>
     </td>
     <td>
-        <span
-            class="badge bg-{{ 'primary' if item.estado == 'programada' else 'warning' if item.estado == 'en_curso' else 'success' if item.estado == 'cerrada' else 'danger' }}">
-            {{ item.estado|title }}
+        {% if item.tecnico_nombre %}
+        <span class="badge bg-info text-dark">🔧 {{ item.tecnico_nombre }}</span>
+        {% else %}
+        <span class="badge bg-light text-secondary border">Sin asignar</span>
+        {% endif %}
+    </td>
+    <td>
+        {% set estado_color = {
+        'programada': 'warning text-dark',
+        'en_curso': 'primary',
+        'finalizada': 'success',
+        'cancelada': 'danger'
+        } %}
+        <span class="badge bg-{{ estado_color.get(item.estado, 'secondary') }}">
+            {{ item.estado|replace('_', ' ')|title }}
         </span>
     </td>
     <td>
@@ -32,7 +44,7 @@
 {% endfor %}
 {% if not items %}
 <tr>
-    <td colspan="5" class="text-center py-3 text-muted">
+    <td colspan="6" class="text-center py-3 text-muted">
         No se encontraron ordenes de trabajo.
     </td>
 </tr>

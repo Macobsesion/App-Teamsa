@@ -37,7 +37,11 @@ from app.web.jinja import get_templates
 
 # Eventos
 from app.base.eventos import BusEventos
-from app.modulos.ordenes.eventos import EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada
+from app.modulos.ordenes.eventos import (
+    EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada,
+    EVENTO_ORDEN_FINALIZADA, handler_cotizacion_finalizada,
+    EVENTO_ORDEN_CANCELADA, handler_cotizacion_revertir_a_enviada
+)
 
 # Excepciones
 from app.base.excepciones import AppError, RecursoNoEncontradoError, ReglaNegocioError, PermisoDenegadoError
@@ -48,6 +52,15 @@ TEMPLATES_DIR = ROOT_DIR / "web" / "templates"
 
 
 def create_app() -> FastAPI:
+    # Registrar Handlers de Eventos garantizando su disponibilidad desde la creación
+    from app.modulos.ordenes.eventos import (
+        EVENTO_ORDEN_CREADA, EVENTO_ORDEN_FINALIZADA, EVENTO_ORDEN_CANCELADA,
+        handler_actualizar_cotizacion_aceptada, handler_cotizacion_finalizada, handler_cotizacion_revertir_a_enviada
+    )
+    BusEventos.suscribir(EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada)
+    BusEventos.suscribir(EVENTO_ORDEN_FINALIZADA, handler_cotizacion_finalizada)
+    BusEventos.suscribir(EVENTO_ORDEN_CANCELADA, handler_cotizacion_revertir_a_enviada)
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # # Al iniciar la aplicación
@@ -66,10 +79,6 @@ def create_app() -> FastAPI:
         except Exception as exc:
             logger.warning("Aviso al preparar la base de datos: %s", exc)
             
-        # Registrar Handlers de Eventos
-        BusEventos.suscribir(EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada)
-        logger.info("Handlers de eventos registrados.")
-        
         yield
         # # Al finalizar el proceso
         logger.info("La aplicación se está apagando…")

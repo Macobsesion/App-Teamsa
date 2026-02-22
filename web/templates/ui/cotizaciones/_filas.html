@@ -16,9 +16,18 @@
     <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
     <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
     <td>
-        <span
-            class="badge bg-{{ 'warning text-dark' if item.estado == 'borrador' else 'secondary' if item.estado == 'modificada' else 'primary' if item.estado == 'enviada' else 'success' if item.estado == 'aceptada' else 'danger' if item.estado == 'rechazada' else 'info' }}">
-            {{ item.estado|title }}
+        {% set estado_color = {
+        'borrador': 'secondary',
+        'enviada': 'info text-dark',
+        'aceptada': 'primary',
+        'modificada': 'secondary',
+        'programada': 'warning text-dark',
+        'finalizada': 'success',
+        'cancelada': 'danger',
+        'rechazada': 'danger'
+        } %}
+        <span class="badge bg-{{ estado_color.get(item.estado, 'secondary') }}">
+            {{ item.estado|replace('_', ' ')|title }}
         </span>
     </td>
     <td>
@@ -36,7 +45,7 @@
                 📝
             </button>
 
-            {% if item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada'] %}
+            {% if item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
             <a href="/ui/cotizaciones/{{ item.id }}/editar" class="btn btn-sm btn-warning" title="Editar">
                 ✏️
             </a>
@@ -45,11 +54,6 @@
                 🔒
             </button>
             {% endif %}
-            <button class="btn btn-sm btn-outline-danger" hx-delete="/api/cotizaciones/{{ item.id }}"
-                hx-target="closest tr" hx-swap="delete" hx-confirm="¿Eliminar cotización {{ item.numero }}?"
-                title="Eliminar">
-                🗑️
-            </button>
         </div>
     </td>
 </tr>

@@ -13,6 +13,7 @@ from app.modulos.servicios_proveedores.servicios_proveedores_modelo import Servi
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.cotizaciones.enums import EstadoCotizacion
+from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
 
 class ClienteFactory(factory.Factory):
     class Meta:
@@ -139,12 +140,21 @@ class DetalleOrdenCompraFactory(factory.Factory):
 
 class OrdenTrabajoFactory(factory.Factory):
     class Meta:
-        model = "app.modulos.ordenes.ordenes_modelo.OrdenTrabajo" # String reference para evitar circular imports si es necesario
+        model = OrdenTrabajo
 
-    cotizacion = SubFactory(CotizacionFactory)
-    descripcion = Faker("sentence")
-    fecha_inicio = date.today()
-    estado = "borrador"
+    numero_ot = Faker("bothify", text="OT-####-##")
+    cotizacion_id = None          # se asigna en el test
+    cliente_nombre = Faker("company")
+    domicilio = Faker("address")
+    contacto = Faker("name")
+    fecha_programada = date.today()
+    hora_programada = "09:00"
+    duracion = 2
+    estado = "programada"
+    notas_publicas = None
+    notas_privadas = None
+    tecnico_id = None
+    tecnico_nombre = None
     # Auditoría
     creado_por = "TEST_FACTORY"
     modificado_por = "TEST_FACTORY"

@@ -106,23 +106,9 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
 
     def eliminar(self, entidad_id: int) -> None:
         """
-        Elimina una cotización y todos sus conceptos relacionados.
-        
-        Args:
-            entidad_id: ID de la cotización a eliminar
+        La eliminación física está desactivada para preservar historial.
         """
-        # Primero eliminar todos los conceptos asociados
-        conceptos = self.obtener_conceptos(entidad_id)
-        for concepto in conceptos:
-            self.db.delete(concepto)
-        
-        # Ahora eliminar la cotización
-        cotizacion = self.db.get(Cotizacion, entidad_id)
-        if not cotizacion:
-            raise LookupError("Cotizacion no encontrada")
-        
-        self.db.delete(cotizacion)
-        self.db.commit()
+        raise ValueError("La eliminación física está deshabilitada. Por favor, cambie el estado a 'Cancelada'.")
     
     def obtener_conceptos(self, cotizacion_id: int) -> list[ConceptoCotizacion]:
         """Obtiene todos los conceptos de una cotización."""

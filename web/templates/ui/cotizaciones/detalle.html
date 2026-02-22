@@ -108,8 +108,8 @@ Por ahora reescribimos con macros para máxima consistencia #}
 </button>
 {% endif %}
 
-{# Botón Crear OT #}
-{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+{# Botón Crear OT — disponible en estados activos (incluyendo 'programada') #}
+{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'cerrada', 'cancelada'] %}
 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearOT">
     🛠️ Crear Orden de Trabajo
 </button>
@@ -132,7 +132,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
 {% block extra_scripts %}
 <!-- Modal Crear OT -->
 <div class="modal fade" id="modalCrearOT" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">🛠️ Generar Orden de Trabajo</h5>
@@ -141,18 +141,50 @@ Por ahora reescribimos con macros para máxima consistencia #}
             <div class="modal-body">
                 <form id="formCrearOT">
                     <input type="hidden" name="cotizacion_id" value="{{ cotizacion.id }}">
-                    <div class="mb-3">
-                        <label class="form-label">Fecha Programada</label>
-                        <input type="date" class="form-control" name="fecha_programada" required>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold">Fecha Programada <span
+                                    class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="fecha_programada" required>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold">Hora Inicio <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" name="hora_programada" required>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold">Duración (horas)</label>
+                            <input type="number" class="form-control" name="duracion" value="1" min="1" max="24">
+                        </div>
                     </div>
+
+                    {# Técnico asignado #}
                     <div class="mb-3">
-                        <label class="form-label">Hora Programada</label>
-                        <input type="time" class="form-control" name="hora_programada" required>
+                        <label class="form-label fw-semibold">🔧 Técnico Asignado</label>
+                        <select class="form-select" name="tecnico_id" id="select-tecnico-modal">
+                            <option value="">— Sin asignar (opcional) —</option>
+                        </select>
+                        <div id="alerta-empalme" class="alert alert-warning d-none mt-2 py-2">
+                            <small>⚠️ <span id="alerta-empalme-msg"></span></small>
+                        </div>
                     </div>
+
+                    {# Conceptos seleccionados #}
                     <div class="mb-3">
-                        <label class="form-label">Duración Estimada (Horas)</label>
-                        <input type="number" class="form-control" name="duracion" value="1" min="1" required>
+                        <label class="form-label fw-semibold">📋 Servicios a incluir en la OT</label>
+                        <div id="conceptos-modal-resumen" class="border rounded p-2 bg-light"
+                            style="max-height:200px;overflow-y:auto;">
+                            <p class="text-muted text-center mb-0 py-2" id="no-conceptos-warning">
+                                Selecciona conceptos en la tabla para incluirlos en la OT.
+                            </p>
+                            {# Se rellena con JS al abrir el modal #}
+                        </div>
+                        <small class="text-muted">
+                            Conceptos marcados como ✅ en la tabla de izquierda. Solo los conceptos
+                            <strong>Libres</strong> pueden incluirse.
+                        </small>
                     </div>
+
                     <div class="alert alert-info py-2">
                         <small>ℹ️ Al generar la OT, esta cotización pasará a estado <strong>Aceptada</strong>.</small>
                     </div>
@@ -160,71 +192,146 @@ Por ahora reescribimos con macros para máxima consistencia #}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="crearOrdenTrabajo()">✨ Confirmar y Crear</button>
+                <button type="button" class="btn btn-success" onclick="crearOrdenTrabajo()" id="btn-confirmar-ot">
+                    ✨ Confirmar y Crear OT
+                </button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
+    // ---- Cerrar cotización ----
     function cerrarCotizacion(estado) {
-        // Cerrar modal
         const modalEl = document.getElementById('modalCerrarCotizacion');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
         const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
-        if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) {
-            return;
-        }
+        if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) return;
 
         fetch('/api/cotizaciones/{{ cotizacion.id }}/cerrar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ estado: estado })
-        })
-            .then(async res => {
-                if (res.ok) {
-                    location.reload();
-                } else {
-                }
-            });
+        }).then(async res => {
+            if (res.ok) location.reload();
+        });
     }
 
+    // ---- Nueva versión ----
     function crearNuevaVersion() {
-        if (!confirm('¿Crear nueva versión de esta cotización? La cotización actual se marcará como "modificada".')) {
-            return;
-        }
-        // Redirigir al wizard con el ID de la cotización a versionar
+        if (!confirm('¿Crear nueva versión de esta cotización? La cotización actual se marcará como "modificada".')) return;
         window.location.href = `/ui/cotizaciones/wizard?version_de={{ cotizacion.id }}`;
     }
 
-    function crearOrdenTrabajo() {
+    // ---- Seleccionar todos los libres ----
+    function toggleSeleccionarTodos(master) {
+        document.querySelectorAll('.concepto-check').forEach(cb => { cb.checked = master.checked; });
+    }
+
+    // ---- Cargar técnicos y resumen al abrir el modal ----
+    document.getElementById('modalCrearOT').addEventListener('show.bs.modal', async function () {
+        // Cargar técnicos
+        const select = document.getElementById('select-tecnico-modal');
+        if (select.children.length === 1) {  // solo la opción vacía
+            try {
+                const resp = await fetch('/api/ordenes/tecnicos');
+                const tecnicos = await resp.json();
+                tecnicos.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nombres;
+                    select.appendChild(opt);
+                });
+            } catch (e) { console.error('Error cargando técnicos', e); }
+        }
+
+        // Mostrar resumen de conceptos seleccionados
+        actualizarResumenConceptos();
+    });
+
+    function actualizarResumenConceptos() {
+        const checks = document.querySelectorAll('.concepto-check:checked');
+        const container = document.getElementById('conceptos-modal-resumen');
+        const noWarning = document.getElementById('no-conceptos-warning');
+        const btnConfirmar = document.getElementById('btn-confirmar-ot');
+
+        if (checks.length === 0) {
+            container.innerHTML = '<p class="text-warning text-center mb-0 py-2">⚠️ No hay conceptos seleccionados. Se creará la OT sin servicios específicos.</p>';
+            btnConfirmar.classList.remove('btn-success');
+            btnConfirmar.classList.add('btn-warning');
+        } else {
+            let html = '<ul class="list-unstyled mb-0">';
+            checks.forEach(cb => {
+                const fila = cb.closest('tr');
+                const desc = fila.querySelector('td:nth-child(2) strong')?.textContent?.trim() || '—';
+                html += `<li>✅ <small>${desc}</small></li>`;
+            });
+            html += '</ul>';
+            container.innerHTML = html;
+            btnConfirmar.classList.add('btn-success');
+            btnConfirmar.classList.remove('btn-warning');
+        }
+    }
+
+    // Actualizar resumen en tiempo real al marcar/desmarcar
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('concepto-check') || e.target.id === 'seleccionar-todos') {
+            actualizarResumenConceptos();
+        }
+    });
+
+    // ---- Crear OT ----
+    async function crearOrdenTrabajo() {
         const form = document.getElementById('formCrearOT');
         if (!form.reportValidity()) return;
+
+        // Recoger IDs de conceptos seleccionados
+        const conceptoIds = Array.from(
+            document.querySelectorAll('.concepto-check:checked')
+        ).map(cb => parseInt(cb.value));
+
+        const tecnicoId = document.getElementById('select-tecnico-modal').value;
 
         const data = {
             cotizacion_id: parseInt(form.cotizacion_id.value),
             fecha_programada: form.fecha_programada.value,
-            hora_programada: form.hora_programada.value,
-            duracion: parseInt(form.duracion.value)
+            hora_programada: form.hora_programada.value.substring(0, 5),  // "HH:MM"
+            duracion: parseInt(form.duracion.value),
+            concepto_ids: conceptoIds,
+            tecnico_id: tecnicoId ? parseInt(tecnicoId) : null,
         };
 
-        fetch('/api/ordenes/crear-desde-cotizacion', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-            .then(async res => {
-                if (res.ok) {
-                    const json = await res.json();
-                    window.location.href = `/ui/ordenes/${json.id}/detalle`;
-                } else {
-                    const err = await res.json();
-                    alert('Error: ' + (err.detail || 'No se pudo crear la OT'));
-                }
-            })
-            .catch(console.error);
+        const btn = document.getElementById('btn-confirmar-ot');
+        btn.disabled = true;
+        btn.textContent = '⏳ Creando...';
+
+        try {
+            const resp = await fetch('/api/ordenes/crear-desde-cotizacion', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (resp.ok) {
+                const json = await resp.json();
+                window.location.href = `/ui/ordenes/${json.id}/detalle`;
+            } else {
+                const err = await resp.json();
+                const alertaEmpalme = document.getElementById('alerta-empalme');
+                const alertaMsg = document.getElementById('alerta-empalme-msg');
+
+                alertaEmpalme.classList.remove('d-none');
+                alertaMsg.textContent = err.detail || 'No se pudo crear la OT';
+                btn.disabled = false;
+                btn.textContent = '✨ Confirmar y Crear OT';
+            }
+        } catch (e) {
+            alert('Error de conexión al crear la OT');
+            btn.disabled = false;
+            btn.textContent = '✨ Confirmar y Crear OT';
+        }
     }
 </script>
 {% endblock %}

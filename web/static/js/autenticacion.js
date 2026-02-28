@@ -15,8 +15,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 if (response.ok) {
-                    // Login exitoso, redirigir a /usuarios
-                    window.location.href = '/usuarios';
+                    const data = await response.json();
+                    // Redirigir según el rol del usuario.
+                    if (data.rol && data.rol.toLowerCase() === 'tecnico') {
+                        window.location.href = '/ordenes';
+                    } else {
+                        // Comportamiento por defecto
+                        window.location.href = '/usuarios';
+                    }
                 } else {
                     const error = await response.json();
                     alert(error.detail || 'Error al iniciar sesión');

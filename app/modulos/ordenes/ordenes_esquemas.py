@@ -5,19 +5,23 @@ from pydantic import BaseModel
 
 
 class ConceptoOTRead(BaseModel):
-    """Lectura de un concepto de OT con su estado."""
+    """Lectura pública de un concepto de OT — sin precios (uso en API general)."""
     id: int
     concepto_cotizacion_id: int
     descripcion: str
     cantidad: Decimal
-    precio_unitario: Decimal
-    importe: Decimal
     unidad: str
     estado: str  # "pendiente" | "completado"
     fecha_completado: datetime | None = None
     completado_por: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ConceptoOTReadInterno(ConceptoOTRead):
+    """Lectura interna de un concepto de OT — incluye campos monetarios (uso admin)."""
+    precio_unitario: Decimal
+    importe: Decimal
 
 
 class OrdenTrabajoBase(BaseModel):
@@ -58,6 +62,7 @@ class OrdenTrabajoRead(OrdenTrabajoBase):
     estado: str
     tecnico_id: int | None = None
     tecnico_nombre: str | None = None
+    # ✅ Usa el esquema público (sin precios) para proteger información financiera
     conceptos: list[ConceptoOTRead] = []
 
     # Auditoría
@@ -67,3 +72,4 @@ class OrdenTrabajoRead(OrdenTrabajoBase):
     fecha_modificacion: datetime | None = None
 
     model_config = {"from_attributes": True}
+

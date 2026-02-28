@@ -9,9 +9,9 @@ from app.modulos.clientes.clientes_modelo import Cliente
 from app.modulos.clientes.clientes_repositorio import RepositorioCliente
 
 
-def test_sanitizar_busqueda_escapa_wildcards(db_session):
+def test_sanitizar_busqueda_escapa_wildcards(session):
     """Verifica que los wildcards SQL sean escapados correctamente."""
-    repo = RepositorioCliente(db_session)
+    repo = RepositorioCliente(session)
     
     # Crear cliente de prueba
     cliente = repo.crear(
@@ -32,9 +32,9 @@ def test_sanitizar_busqueda_escapa_wildcards(db_session):
     assert resultados[0].nombre == "Acme Corporation"
 
 
-def test_sanitizar_busqueda_previene_dump_completo(db_session):
+def test_sanitizar_busqueda_previene_dump_completo(session):
     """Verifica que '%' no devuelva todos los registros (ataque común)."""
-    repo = RepositorioCliente(db_session)
+    repo = RepositorioCliente(session)
     
     # Crear varios clientes
     for i in range(5):
@@ -51,9 +51,9 @@ def test_sanitizar_busqueda_previene_dump_completo(db_session):
     assert len(resultados) == 0, "El wildcard % solo debe buscar todos los registros cuando no está escapado"
 
 
-def test_sanitizar_busqueda_escapa_underscore(db_session):
+def test_sanitizar_busqueda_escapa_underscore(session):
     """Verifica que el wildcard _ sea escapado."""
-    repo = RepositorioCliente(db_session)
+    repo = RepositorioCliente(session)
     
     # Crear clientes con nombres similares
     repo.crear(nombre="Test_A", activo=True, creado_por="test", modificado_por="test")
@@ -68,9 +68,9 @@ def test_sanitizar_busqueda_escapa_underscore(db_session):
     assert resultados[0].nombre == "Test_A"
 
 
-def test_sanitizar_busqueda_escapa_backslash(db_session):
+def test_sanitizar_busqueda_escapa_backslash(session):
     """Verifica que backslash sea escapado para prevenir bypass."""
-    repo = RepositorioCliente(db_session)
+    repo = RepositorioCliente(session)
     
     # Crear cliente con nombre que contiene backslash
     repo.crear(
@@ -88,9 +88,9 @@ def test_sanitizar_busqueda_escapa_backslash(db_session):
     assert resultados[0].nombre == "Test\\Company"
 
 
-def test_busqueda_normal_sigue_funcionando(db_session):
+def test_busqueda_normal_sigue_funcionando(session):
     """Verifica que las búsquedas normales no se vean afectadas."""
-    repo = RepositorioCliente(db_session)
+    repo = RepositorioCliente(session)
     
     # Crear varios clientes
     repo.crear(nombre="Acme Corp", activo=True, creado_por="test", modificado_por="test")

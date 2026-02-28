@@ -1,7 +1,0 @@
-El template wizard.html tiene HTML roto. La sección del resumen (step-3) está mal formada.
-
-Verificar líneas 117-133 del archivo wizard.html
-
-Problema: Faltan elementos de apertura de cards y tables, solo hay fragmentos de cierre.
-
-Necesita reconstrucción completa de la sección de resumen.

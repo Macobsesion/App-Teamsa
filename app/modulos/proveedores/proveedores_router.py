@@ -2,7 +2,8 @@
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.proveedores.proveedores_esquemas import ProveedorRead, ProveedorCreate, ProveedorUpdate
 from app.modulos.proveedores.proveedores_repositorio import RepositorioProveedor
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
@@ -42,7 +43,7 @@ router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    write_dependency=exigir_roles("admin"),
+    write_dependency=para_modulo("proveedores"),
     tpl_filas="ui/proveedores/_filas.html",
     tpl_form="ui/proveedores/_form.html",
     include_select_endpoint=True,

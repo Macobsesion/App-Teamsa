@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import traceback
 from typing import Any, Callable, Optional, TypeVar
 
 from fastapi import APIRouter, Depends, Request, Response, status, UploadFile  # type: ignore
@@ -40,6 +41,29 @@ RepoT = TypeVar("RepoT")
 CreateSchemaT = TypeVar("CreateSchemaT", bound=BaseModel)
 UpdateSchemaT = TypeVar("UpdateSchemaT", bound=BaseModel)
 ActorT = TypeVar("ActorT")
+
+
+def _es_nullable_o_numerico(k: str, v: Any, defn: dict[str, Any]) -> bool:
+    """Determina si un campo vacío debe convertirse a None.
+
+    Los campos numéricos (integer/number) y de email no aceptan string vacío;
+    deben recibir None para evitar errores de validación de Pydantic.
+    También aplica a campos que declararon `null` como tipo posible (Optional).
+    """
+    if not (isinstance(v, str) and v.strip() == ""):
+        return False
+    fmt = defn.get("format")
+    t = defn.get("type")
+    if t in ("integer", "number") or fmt == "email":
+        return True
+    for key in ("anyOf", "oneOf", "allOf"):
+        lst = defn.get(key) or []
+        if isinstance(lst, list) and any(
+            isinstance(d, dict) and d.get("type") in ("null", "integer", "number")
+            for d in lst
+        ):
+            return True
+    return False
 
 
 @dataclass
@@ -121,13 +145,13 @@ def construir_enrutador_ui(
         # type: ignore[attr-defined]
         items = repo.listar(filtros)
         puede_editar = bool(actor and getattr(actor, "rol", None) == "admin")
-        return templates.TemplateResponse(ui.tpl_filas, {
-            "request": request,
+        return templates.TemplateResponse(request, ui.tpl_filas, {
             "items": items,
             "puede_editar": puede_editar,
             "ui_base": prefix,
             "columnas": columnas or [],
         })
+
 
     @router.get("/form", response_class=HTMLResponse)
     def ui_form(
@@ -144,7 +168,7 @@ def construir_enrutador_ui(
         extra_ctx = extra_context_provider(db) if extra_context_provider else {}
         ctx = {"request": request, "item": item, "modo": modo, "puede_editar": puede_editar}
         ctx.update(extra_ctx)
-        return templates.TemplateResponse(ui.tpl_form, ctx)
+        return templates.TemplateResponse(request, ui.tpl_form, ctx)
 
     @router.post("/crear")
     async def ui_crear(
@@ -160,9 +184,7 @@ def construir_enrutador_ui(
         if validar_form_creacion:
             error = validar_form_creacion(dict(form))
             if error:
-                return templates.TemplateResponse(
-                    ui.tpl_form,
-                    {"request": request, "item": None, "modo": "crear", "error": error},
+                return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": error},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -198,9 +220,7 @@ def construir_enrutador_ui(
                         try:
                             rutas.append(save_pdf_temp(f))
                         except Exception as e:  # pragma: no cover
-                            return templates.TemplateResponse(
-                                ui.tpl_form,
-                                {"request": request, "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
+                            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
                                 status_code=200,
                             )
                     if rutas:
@@ -217,9 +237,7 @@ def construir_enrutador_ui(
                 try:
                     temp_rel = save_pdf_temp(val)
                 except Exception as e:  # pragma: no cover
-                    return templates.TemplateResponse(
-                        ui.tpl_form,
-                        {"request": request, "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
+                    return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
                         status_code=200,
                     )
                 archivos_temp.setdefault(k, [])
@@ -227,44 +245,36 @@ def construir_enrutador_ui(
                 datos_filtrados[k] = temp_rel
             else:
                 datos_filtrados[k] = val
-        # Coerción KISS: vacíos a None para campos numéricos opcionales
-        def _is_numeric(defn: dict[str, Any]) -> bool:
-            t = defn.get("type")
-            if t in ("integer", "number"):
-                return True
-            for key in ("anyOf", "oneOf", "allOf"):
-                lst = defn.get(key) or []
-                if isinstance(lst, list) and any(isinstance(d, dict) and d.get("type") in ("integer", "number") for d in lst):
-                    return True
-            return False
+        # Coerción KISS: vacíos a None para campos que Pydantic puede rechazar como vacíos
         for k, v in list(datos_filtrados.items()):
             defn = props.get(k, {}) if isinstance(props, dict) else {}
-            if _is_numeric(defn) and isinstance(v, str) and v.strip() == "":
+            if _es_nullable_o_numerico(k, v, defn):
                 datos_filtrados[k] = None
 
         try:
             payload = schema_create(**datos_filtrados)
         except ValidationError as e:  # pragma: no cover
-            return templates.TemplateResponse(
-                ui.tpl_form,
-                {"request": request, "item": None, "modo": "crear", "error": str(e)},
+            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": str(e)},
                 status_code=200,
             )
         # Validación de unicidad (si existe)
         if hooks.validar_unicidad:
             conflicto = hooks.validar_unicidad(repo, payload)  # type: ignore[arg-type]
             if conflicto:
-                return templates.TemplateResponse(
-                    ui.tpl_form,
-                    {"request": request, "item": None, "modo": "crear", "error": conflicto},
+                return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": conflicto},
                     status_code=200,
                 )
 
         base = hooks.preparar_creacion(payload, actor)  # type: ignore[arg-type]
         extras = hooks.extra_kwargs_creacion(payload, actor)  # type: ignore[arg-type]
         combinado: dict[str, Any] = {**base, **(extras or {})}
-        # type: ignore[attr-defined]
-        entidad = repo.crear(**combinado)
+        try:
+            entidad = repo.crear(**combinado)
+        except Exception as exc:
+            traceback.print_exc()
+            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Error interno: {str(exc)}"},
+                status_code=200,
+            )
 
         if archivos_temp:
             cambios: dict[str, Any] = {}
@@ -281,9 +291,7 @@ def construir_enrutador_ui(
                         # Validar máximo de archivos si se indicó
                         if cfg and cfg.get("multiple") and cfg.get("max"):
                             if len(finales) > int(cfg["max"]):
-                                return templates.TemplateResponse(
-                                    ui.tpl_form,
-                                    {"request": request, "item": entidad, "modo": "editar", "error": f"Máximo {int(cfg['max'])} archivos"},
+                                return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(cfg['max'])} archivos"},
                                     status_code=200,
                                 )
                         # Si el campo es múltiple, asignamos lista; si no, el primero
@@ -344,9 +352,7 @@ def construir_enrutador_ui(
                     combinado_lista = current + finales
                     max_files = (file_fields or {}).get(k, {}).get("max")
                     if max_files and len(combinado_lista) > int(max_files):
-                        return templates.TemplateResponse(
-                            ui.tpl_form,
-                            {"request": request, "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
+                        return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
                             status_code=200,
                         )
                     archivos_update[k] = combinado_lista
@@ -360,9 +366,7 @@ def construir_enrutador_ui(
                 try:
                     final_rel = save_pdf_for_entity(val, entity_plural=label.strip().lower(), entity_id=int(id))
                 except Exception as e:  # pragma: no cover
-                    return templates.TemplateResponse(
-                        ui.tpl_form,
-                        {"request": request, "item": None, "modo": "editar", "error": f"Archivo inválido: {e}"},
+                    return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "editar", "error": f"Archivo inválido: {e}"},
                         status_code=200,
                     )
                 if file_fields and file_fields.get(k, {}).get("multiple"):
@@ -375,9 +379,7 @@ def construir_enrutador_ui(
                     combinado_lista = current + [final_rel]
                     max_files = (file_fields or {}).get(k, {}).get("max")
                     if max_files and len(combinado_lista) > int(max_files):
-                        return templates.TemplateResponse(
-                            ui.tpl_form,
-                            {"request": request, "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
+                        return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
                             status_code=200,
                         )
                     archivos_update[k] = combinado_lista
@@ -385,45 +387,36 @@ def construir_enrutador_ui(
                     archivos_update[k] = final_rel
             else:
                 datos_u[k] = val
-        # Coerción KISS: vacíos a None para campos numéricos opcionales en update
-        props_u = schema_update.model_json_schema().get("properties", {})
-        def _is_numeric_u(defn: dict[str, Any]) -> bool:
-            t = defn.get("type")
-            if t in ("integer", "number"):
-                return True
-            for key in ("anyOf", "oneOf", "allOf"):
-                lst = defn.get(key) or []
-                if isinstance(lst, list) and any(isinstance(d, dict) and d.get("type") in ("integer", "number") for d in lst):
-                    return True
-            return False
+        # Coerción KISS: vacíos a None para campos numéricos/emails opcionales en update
         for k, v in list(datos_u.items()):
             defn = props_u.get(k, {}) if isinstance(props_u, dict) else {}
-            if _is_numeric_u(defn) and isinstance(v, str) and v.strip() == "":
+            if _es_nullable_o_numerico(k, v, defn):
                 datos_u[k] = None
 
         # Validación de formulario de actualización (suave, UI)
         if validar_form_actualizacion is not None:
             msg = validar_form_actualizacion(datos_u, entidad_actual)
             if msg:
-                return templates.TemplateResponse(
-                    ui.tpl_form,
-                    {"request": request, "item": entidad_actual, "modo": "editar", "error": msg},
+                return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad_actual, "modo": "editar", "error": msg},
                     status_code=200,
                 )
 
         try:
             payload = schema_update(**datos_u)
         except ValidationError as e:  # pragma: no cover
-            return templates.TemplateResponse(
-                ui.tpl_form,
-                {"request": request, "item": None, "modo": "editar", "error": str(e)},
+            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "editar", "error": str(e)},
                 status_code=200,
             )
         base = hooks.preparar_actualizacion(payload, actor)  # type: ignore[arg-type]
         extras = hooks.extra_kwargs_actualizacion(payload, actor)  # type: ignore[arg-type]
         combinado: dict[str, Any] = {**base, **(extras or {}), **archivos_update}
-        # type: ignore[attr-defined]
-        repo.actualizar(id, combinado)
+        try:
+            repo.actualizar(id, combinado)
+        except Exception as exc:
+            traceback.print_exc()
+            return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad_actual, "modo": "editar", "error": f"Error interno: {str(exc)}"},
+                status_code=200,
+            )
 
         response.headers["HX-Trigger"] = json.dumps({
             "refrescarLista": True,

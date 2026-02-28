@@ -5,7 +5,8 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.cotizaciones.cotizaciones_esquemas import ConceptoCreate, ConceptoRead
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
@@ -43,7 +44,7 @@ def agregar_concepto_htmx(
     precio_unitario: float,
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    _usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
     descuento_porcentaje: float = 0.0,
 ):
     """Agrega concepto y devuelve lista actualizada (HTMX)."""
@@ -79,7 +80,7 @@ def eliminar_concepto_htmx(
     concepto_id: int,
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    _usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Elimina concepto y devuelve lista actualizada (HTMX)."""
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
@@ -104,7 +105,7 @@ def agregar_concepto_api(
     cotizacion_id: int,
     concepto: ConceptoCreate,
     db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    _usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Agrega un concepto a una cotización (API JSON)."""
     repo = RepositorioConcepto(db)
@@ -124,7 +125,7 @@ def eliminar_concepto_api(
     cotizacion_id: int,
     concepto_id: int,
     db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    _usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Elimina un concepto (API JSON)."""
     repo = RepositorioConcepto(db)

@@ -4,7 +4,7 @@ from typing import Any
 from app.base.repositorio import RepositorioCRUD
 from app.base.eventos import BusEventos
 from app.base.folios import EstrategiaFolioFechaId, GeneradorFolio
-from app.base.excepciones import RecursoNoEncontradoError
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo, ConceptoOrdenTrabajo
 from app.modulos.ordenes.enums import EstadoConceptoOT
@@ -14,19 +14,22 @@ from app.modulos.ordenes.eventos import EVENTO_ORDEN_CREADA, EVENTO_ORDEN_FINALI
 from app.nucleo.base_datos import obtener_motor
 
 
-class EmpalmeError(Exception):
-    """Se lanza cuando un técnico tiene un empalme de horario."""
-    pass
+class EmpalmeError(ReglaNegocioError):
+    """Se lanza cuando un técnico tiene un empalme de horario (409)."""
+    def __init__(self, mensaje: str):
+        super().__init__(mensaje, codigo="EMPALME_HORARIO")
 
 
-class ConceptoYaAsignadoError(Exception):
-    """Se lanza cuando un concepto ya está asignado a otra OT."""
-    pass
+class ConceptoYaAsignadoError(ReglaNegocioError):
+    """Se lanza cuando un concepto ya está asignado a otra OT (409)."""
+    def __init__(self, mensaje: str):
+        super().__init__(mensaje, codigo="CONCEPTO_YA_ASIGNADO")
 
 
-class ConceptoCompletadoError(Exception):
-    """Se lanza al intentar modificar un concepto ya completado."""
-    pass
+class ConceptoCompletadoError(ReglaNegocioError):
+    """Se lanza al intentar modificar un concepto ya completado (409)."""
+    def __init__(self, mensaje: str):
+        super().__init__(mensaje, codigo="CONCEPTO_COMPLETADO")
 
 
 class RepositorioOrden(RepositorioCRUD[OrdenTrabajo]):
@@ -209,8 +212,10 @@ class RepositorioOrden(RepositorioCRUD[OrdenTrabajo]):
                 precio_unitario=concepto.precio_unitario,
                 importe=concepto.importe,
                 unidad=concepto.unidad,
+                creado_por=usuario,  # ✅ Auditoría completa del snapshot
             )
             self.db.add(snapshot)
+
 
         self.db.commit()
         self.db.refresh(orden)

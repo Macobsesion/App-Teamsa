@@ -52,18 +52,13 @@ TEMPLATES_DIR = ROOT_DIR / "web" / "templates"
 
 
 def create_app() -> FastAPI:
-    # Registrar Handlers de Eventos garantizando su disponibilidad desde la creación
-    from app.modulos.ordenes.eventos import (
-        EVENTO_ORDEN_CREADA, EVENTO_ORDEN_FINALIZADA, EVENTO_ORDEN_CANCELADA,
-        handler_actualizar_cotizacion_aceptada, handler_cotizacion_finalizada, handler_cotizacion_revertir_a_enviada
-    )
+    # Registrar handlers de eventos al instanciar la app (idempotente gracias a BusEventos)
     BusEventos.suscribir(EVENTO_ORDEN_CREADA, handler_actualizar_cotizacion_aceptada)
     BusEventos.suscribir(EVENTO_ORDEN_FINALIZADA, handler_cotizacion_finalizada)
     BusEventos.suscribir(EVENTO_ORDEN_CANCELADA, handler_cotizacion_revertir_a_enviada)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        # # Al iniciar la aplicación
         logger = logging.getLogger("teamsa")
         logger.setLevel(logging.INFO)
         if not logger.handlers:
@@ -73,19 +68,15 @@ def create_app() -> FastAPI:
             logger.addHandler(h)
         logger.info("La aplicación está iniciando…")
         try:
-            # # Sincroniza los modelos con la base de datos (crea tablas que no existan)
             crear_tablas()
             logger.info("La base de datos está lista.")
         except Exception as exc:
             logger.warning("Aviso al preparar la base de datos: %s", exc)
-            
         yield
-        # # Al finalizar el proceso
         logger.info("La aplicación se está apagando…")
 
     app = FastAPI(lifespan=lifespan)
 
-    # # CORS abierto por defecto (puede restringirse desde settings si se desea)
     # CORS configurable desde variables de entorno
     allow_origins = (
         ["*"]
@@ -99,7 +90,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    # # Servir activos estáticos (CSS/JS/Imagenes) usados por las vistas Jinja
+    # Servir activos estáticos (CSS/JS/Imagenes) usados por las vistas Jinja
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
     # Directorio de subidas (PDFs): se monta si existe, o se creará al primer upload
     from app.nucleo.archivos import get_upload_root
@@ -137,15 +128,16 @@ def create_app() -> FastAPI:
             TemplateResponse con la página de error formateada
         """
         contexto_template = {
-            "request": request,
             "status": codigo_estado_http,
             "detail": mensaje_error
         }
         return templates.TemplateResponse(
+            request,
             "error.html",
             contexto_template,
             status_code=codigo_estado_http
         )
+
     
     @app.exception_handler(HTTPException)
     async def manejador_excepciones_http(request: Request, exc: HTTPException):  # type: ignore[override]
@@ -244,8 +236,9 @@ def create_app() -> FastAPI:
                     tpls = get_templates()
                     ruta = path or "/"
                     return tpls.TemplateResponse(
+                        request,
                         "error.html",
-                        {"request": request, "status": 404, "detail": f"La pagina {ruta} no existe"},
+                        {"status": 404, "detail": f"La pagina {ruta} no existe"},
                         status_code=404,
                     )
             except Exception:

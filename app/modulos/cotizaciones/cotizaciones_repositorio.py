@@ -7,6 +7,7 @@ from app.base.repositorio import RepositorioCRUD
 from app.base.constantes import IVA_PORCENTAJE, VIGENCIA_DIAS_DEFAULT, PREFIJO_NUMERO_COTIZACION
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.cotizaciones.enums import EstadoCotizacion
+from app.base.excepciones import RecursoNoEncontradoError
 
 
 class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
@@ -20,46 +21,57 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     }
     campos_busqueda = {"numero": "icontains"}
     orden_por_defecto = ("numero", True)  # Descendente (más reciente primero)
-    
-    def listar(self, filtros: dict | None = None) -> list[Cotizacion]:
-        """Lista cotizaciones incluyendo datos del cliente (Eager Loading)."""
-        from sqlmodel import select
-        from sqlalchemy.orm import selectinload
-        
-        # Iniciar query base
-        statement = select(self.modelo)
-        
-        # Aplicar filtros (logica copiada/reusada de RepositorioCRUD o simple)
-        if filtros:
-            for campo, valor in filtros.items():
-                if hasattr(self.modelo, campo):
-                    statement = statement.where(getattr(self.modelo, campo) == valor)
-        
-        # Ordenamiento default
-        col_orden = getattr(self.modelo, self.orden_por_defecto[0])
-        if self.orden_por_defecto[1]:
-            statement = statement.order_by(col_orden.desc())
-        else:
-            statement = statement.order_by(col_orden.asc())
-            
-        # Eager loading CLAVE
-        statement = statement.options(selectinload(Cotizacion.cliente))
-        
-        return list(self.db.exec(statement).all())
 
-    def generar_siguiente_numero(self) -> str:
+    def listar(
+        self,
+        filtros: dict | None = None,
+        *,
+        limite: int | None = None,
+        desplazamiento: int | None = None,
+        orden: str | None = None,
+        descendente: bool = False,
+    ) -> list[Cotizacion]:
+        """Lista cotizaciones con eager loading del cliente.
+
+        Delega filtros y ordenamiento al RepositorioCRUD base y solo
+        agrega el selectinload necesario para evitar N+1 queries.
         """
-        DEPRECATED: Este método ya no se usa para generar números.
-        Los números ahora se generan después de insertar en la BD usando el ID.
-        
-        Se mantiene por compatibilidad pero devuelve una cadena temporal.
-        El número real se asigna en generar_numero_desde_id().
-        
-        Returns:
-            String temporal que será reemplazado
-        """
-        return "TEMP-PENDING"
-    
+        from sqlalchemy.orm import selectinload
+
+        # Construir query base con los helpers del padre
+        consulta = self._construir_consulta_base(
+            filtros=filtros,
+            orden=orden,
+            descendente=descendente,
+            limite=limite,
+            desplazamiento=desplazamiento,
+        )
+        # Eager loading: carga el cliente en la misma query
+        consulta = consulta.options(selectinload(Cotizacion.cliente))
+        return list(self.db.exec(consulta).all())
+
+    def _construir_consulta_base(
+        self,
+        filtros: dict | None,
+        orden: str | None,
+        descendente: bool,
+        limite: int | None,
+        desplazamiento: int | None,
+    ):
+        """Construye la consulta base reutilizando los helpers del padre."""
+        from sqlmodel import select
+
+        consulta = select(self.modelo)
+        if filtros:
+            consulta = self._aplicar_filtros(consulta, filtros)
+        consulta = self._aplicar_orden(consulta, orden, descendente)
+        if limite is not None:
+            consulta = consulta.limit(limite)
+        if desplazamiento is not None:
+            consulta = consulta.offset(desplazamiento)
+        return consulta
+
+
     def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
         """
         Genera el número de cotización basado en el ID y la fecha.
@@ -82,26 +94,24 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}-{cotizacion_id}"
     
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
-        """Calcula fecha de vigencia y número temporal por defecto."""
+        """Calcula fecha de vigencia y asigna número provisional vacío."""
         datos_procesados = datos.copy()
-        
-        # Fecha de emisión y vigencia
+
         if "fecha_emision" not in datos_procesados:
             datos_procesados["fecha_emision"] = date.today()
-            
+
         if "fecha_vigencia" not in datos_procesados:
             fecha_emision = datos_procesados["fecha_emision"]
             if isinstance(fecha_emision, str):
-                 # Si viene como str por Pydantic/JSON
-                 fecha_emision = date.fromisoformat(fecha_emision)
+                fecha_emision = date.fromisoformat(fecha_emision)
             datos_procesados["fecha_vigencia"] = fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
 
-        # Número temporal si no existe
+        # Número provisional: se sobreescribe en _post_guardar con el ID real
         if "numero" not in datos_procesados:
-            datos_procesados["numero"] = "TEMP-PENDING"
+            datos_procesados["numero"] = ""
         if "numero_version" not in datos_procesados:
-            datos_procesados["numero_version"] = "TEMP-PENDING"
-            
+            datos_procesados["numero_version"] = ""
+
         return datos_procesados
 
     def eliminar(self, entidad_id: int) -> None:
@@ -117,6 +127,32 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
             .where(ConceptoCotizacion.cotizacion_id == cotizacion_id)
             .order_by(ConceptoCotizacion.id)
         ).all())
+
+    def obtener_estado_conceptos(self, cotizacion_id: int) -> dict[int, dict]:
+        """
+        Obtiene el estado de OT para cada concepto de una cotización.
+        Retorna: {concepto_id: {"estado": "pendiente"|"completado", "numero_ot": ..., "orden_id": ...}}
+        """
+        from app.modulos.ordenes.ordenes_modelo import ConceptoOrdenTrabajo, OrdenTrabajo
+        
+        conceptos = self.obtener_conceptos(cotizacion_id)
+        concepto_ids = [c.id for c in conceptos]
+        
+        estado_conceptos: dict[int, dict] = {}
+        if concepto_ids:
+            filas = self.db.exec(
+                select(ConceptoOrdenTrabajo, OrdenTrabajo)
+                .join(OrdenTrabajo, ConceptoOrdenTrabajo.orden_id == OrdenTrabajo.id)
+                .where(ConceptoOrdenTrabajo.concepto_cotizacion_id.in_(concepto_ids))
+            ).all()
+
+            for c_ot, ot in filas:
+                estado_conceptos[c_ot.concepto_cotizacion_id] = {
+                    "estado": c_ot.estado,
+                    "numero_ot": ot.numero_ot,
+                    "orden_id": ot.id,
+                }
+        return estado_conceptos
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """
@@ -159,15 +195,11 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
 
     def actualizar_notas_privadas(self, cotizacion_id: int, notas: str | None, usuario_id: str) -> Cotizacion:
         """Actualiza las notas privadas de una cotización."""
-        from datetime import datetime
-        
         cotizacion = self.db.get(Cotizacion, cotizacion_id)
         if not cotizacion:
-            raise LookupError("Cotización no encontrada")
+            raise RecursoNoEncontradoError("Cotización no encontrada")
         
-        cotizacion.notas_privadas = notas
-        cotizacion.modificado_por = usuario_id
-        cotizacion.fecha_modificacion = datetime.now()
+        cotizacion.actualizar_notas_privadas(notas, usuario_id)
         
         self.db.add(cotizacion)
         self.db.commit()

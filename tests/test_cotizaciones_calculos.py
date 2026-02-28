@@ -1,6 +1,6 @@
 from decimal import Decimal
 import pytest
-from app.modulos.cotizaciones.servicios import ServicioCalculadoraCotizacion
+from app.modulos.cotizaciones.calculadora import ServicioCalculadoraCotizacion
 
 class MockItem:
     def __init__(self, cantidad, precio, descuento=0):

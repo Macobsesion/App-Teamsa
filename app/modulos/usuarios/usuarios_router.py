@@ -8,7 +8,8 @@ from typing import Any
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import dp_usuario_actual, exigir_roles
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.usuarios.usuarios_esquemas import (
     UsuarioCreate,
     UsuarioIdentity,
@@ -62,7 +63,7 @@ router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    write_dependency=exigir_roles("admin"),
+    write_dependency=para_modulo("usuarios"),
     tpl_filas="ui/usuarios/_filas.html",
     tpl_form="ui/usuarios/_form.html",
     validar_form_creacion=_validar_form_creacion,

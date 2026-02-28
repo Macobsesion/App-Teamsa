@@ -3,13 +3,14 @@ from typing import Any
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Body, HTTPException, Response
+from fastapi import APIRouter, Depends, Body, HTTPException, Response, Query
 from sqlmodel import Session
 
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
@@ -82,26 +83,26 @@ def actualizar_notas_privadas(
     cotizacion_id: int,
     data: dict,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Actualiza únicamente las notas privadas de una cotización."""
     repo = RepositorioCotizacion(db)
     try:
         cotizacion = repo.actualizar_notas_privadas(
-            cotizacion_id, 
-            data.get('notas_privadas'), 
+            cotizacion_id,
+            data.get('notas_privadas'),
             usuario.usuario
         )
         return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
-    except LookupError as e:
-        raise RecursoNoEncontradoError(str(e))
+    except RecursoNoEncontradoError:
+        raise
 
 
 @router_extras.post("/crear-completa")
 def crear_cotizacion_completa(
     data: dict,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Crea una cotización completa con conceptos en una transacción."""
     from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCreacionCotizacion
@@ -122,7 +123,7 @@ def actualizar_sin_versionar(
     cotizacion_id: int,
     data: dict,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Actualiza cotización SIN crear versión."""
     from app.modulos.cotizaciones.versionamiento import actualizar_sin_versionar as actualizar_fn
@@ -134,7 +135,7 @@ def crear_version(
     cotizacion_id: int,
     data: dict,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Crea nueva VERSIÓN de cotización."""
     from app.modulos.cotizaciones.versionamiento import crear_nueva_version as crear_version_fn
@@ -146,7 +147,7 @@ def cerrar_cotizacion(
     id: int,
     data: dict = Body(...),
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     cot = db.get(Cotizacion, id)
     if not cot:
@@ -188,7 +189,7 @@ router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    write_dependency=exigir_roles("admin"),
+    write_dependency=para_modulo("cotizaciones"),
     tpl_filas="ui/cotizaciones/_filas.html",
     tpl_form="ui/cotizaciones/_form.html",
     routers_adicionales=[

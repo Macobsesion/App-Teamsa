@@ -111,7 +111,6 @@
                             <tr>
                                 <th>Descripción</th>
                                 <th class="text-center">Cant.</th>
-                                <th class="text-end">Importe</th>
                                 <th class="text-center">Estado</th>
                                 <th></th>
                             </tr>
@@ -124,9 +123,6 @@
                                     <br><small class="text-muted">{{ concepto.unidad }}</small>
                                 </td>
                                 <td class="text-center">{{ concepto.cantidad }}</td>
-                                <td class="text-end">
-                                    ${{ "%.2f"|format(concepto.importe) }}
-                                </td>
                                 <td class="text-center">
                                     {% if concepto.estado == 'completado' %}
                                     <span class="badge bg-success">✅ Completado</span>

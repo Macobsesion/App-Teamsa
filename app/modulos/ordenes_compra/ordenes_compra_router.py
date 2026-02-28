@@ -6,7 +6,8 @@ from typing import Any
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
@@ -24,7 +25,7 @@ router_extras = APIRouter(prefix="/api/ordenes-compra", tags=["Ordenes Compra - 
 def crear_orden_completa(
     datos: dict = Body(...),
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin", "compras"))
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra"))
 ):
     """Crea una orden de compra completa con detalles."""
     servicio = ServicioCreacionOrdenCompra(db)
@@ -74,7 +75,7 @@ def actualizar_orden_completa(
     orden_id: int,
     datos: dict = Body(...),
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin", "compras"))
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra"))
 ):
     """Actualiza una orden de compra existente con todos sus detalles."""
     servicio = ServicioCreacionOrdenCompra(db)
@@ -87,7 +88,7 @@ def actualizar_notas_privadas_oc(
     orden_id: int,
     data: dict,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin", "compras")),
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra")),
 ):
     """Actualiza las notas privadas de una orden de compra."""
     from app.base.excepciones import RecursoNoEncontradoError
@@ -154,7 +155,7 @@ router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    write_dependency=exigir_roles("admin", "compras"),
+    write_dependency=para_modulo("ordenes_compra"),
     tpl_filas="ui/ordenes_compra/_filas.html",
     tpl_form="ui/ordenes_compra/_form.html",
     routers_adicionales=[router_extras]

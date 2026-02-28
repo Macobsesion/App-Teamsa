@@ -51,7 +51,7 @@ def login(
     max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     establecer_cookie_sesion(response, token, max_age)
     logger.info("Login exitoso de '%s' (rol=%s)", usuario.usuario, usuario.rol)
-    return {"token_type": "cookie", "expires_in": max_age}  # type: ignore[return-value]
+    return {"token_type": "cookie", "expires_in": max_age, "rol": usuario.rol}  # type: ignore[return-value]
 
 
 @router.get("/salir", include_in_schema=False)

@@ -7,7 +7,8 @@ from sqlmodel import Session
 from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
@@ -19,7 +20,7 @@ TEMPLATES = Jinja2Templates(directory="web/templates")
 def mostrar_wizard_cotizacion(
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin")),
+    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
     """Wizard para crear/editar cotización completa."""
     return TEMPLATES.TemplateResponse(
@@ -50,22 +51,7 @@ def ver_detalle_cotizacion(
     conceptos = repo.obtener_conceptos(cotizacion_id)
 
     # Estado de OT por concepto: {concepto_id: {"estado": "libre"|"en_ot"|"completado", "numero_ot": ...}}
-    concepto_ids = [c.id for c in conceptos]
-    estado_conceptos: dict[int, dict] = {}
-
-    if concepto_ids:
-        filas = db.exec(
-            select(ConceptoOrdenTrabajo, OrdenTrabajo)
-            .join(OrdenTrabajo, ConceptoOrdenTrabajo.orden_id == OrdenTrabajo.id)
-            .where(ConceptoOrdenTrabajo.concepto_cotizacion_id.in_(concepto_ids))
-        ).all()
-
-        for c_ot, ot in filas:
-            estado_conceptos[c_ot.concepto_cotizacion_id] = {
-                "estado": c_ot.estado,        # "pendiente" o "completado"
-                "numero_ot": ot.numero_ot,
-                "orden_id": ot.id,
-            }
+    estado_conceptos = repo.obtener_estado_conceptos(cotizacion_id)
 
     return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/detalle.html",

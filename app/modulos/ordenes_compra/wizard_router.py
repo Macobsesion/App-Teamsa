@@ -6,7 +6,8 @@ from sqlmodel import Session
 
 from app.base.excepciones import RecursoNoEncontradoError
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 from app.modulos.proveedores.proveedores_modelo import Proveedor
@@ -20,7 +21,7 @@ TEMPLATES = Jinja2Templates(directory="web/templates")
 def mostrar_wizard_orden_compra(
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(exigir_roles("admin", "compras")),
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra")),
 ):
     """Wizard para crear/editar orden de compra completa con proveedores."""
     return TEMPLATES.TemplateResponse(

@@ -1,5 +1,5 @@
 import pytest
-from app.modulos.cotizaciones.servicios import ServicioCalculadoraCotizacion
+from app.modulos.cotizaciones.calculadora import ServicioCalculadoraCotizacion
 
 @pytest.mark.parametrize("letras, esperado", [
     ([], "B"),

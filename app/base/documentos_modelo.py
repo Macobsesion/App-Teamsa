@@ -1,7 +1,7 @@
 """Modelo base para Documentos Financieros (Cotizaciones, Órdenes de Compra)."""
 from datetime import date
 from sqlmodel import Field, SQLModel
-from typing import Optional
+from typing import Optional, Any
 
 from app.base.auditoria import AuditMixin
 from app.base.mixins_financieros import MixinDocumentoFinanciero
@@ -30,3 +30,23 @@ class BaseDocumento(MixinDocumentoFinanciero, AuditMixin, SQLModel):
         """Wrapper para calcular totales usando el mixin."""
         # Se puede sobreescribir si se requiere lógica extra antes/después
         self.calcular_totales(detalles)
+
+    # ---- PROPIEDADES DE ESTADO ABSTRACTAS (POLIMORFISMO) ----
+    @property
+    def estado_enum(self) -> Any:
+        """Devuelve el estado como objeto Enum correspondiente (a implementar por la subclase)."""
+        raise NotImplementedError("Subclases deben implementar estado_enum")
+
+    @property
+    def es_editable(self) -> bool:
+        """Delega la verificación al enum subyacente de forma polimórfica."""
+        if hasattr(self.estado_enum, "es_editable"):
+            return self.estado_enum.es_editable
+        return False
+
+    @property
+    def es_cancelable(self) -> bool:
+        """Delega la verificación al enum subyacente de forma polimórfica."""
+        if hasattr(self.estado_enum, "es_cancelable"):
+            return self.estado_enum.es_cancelable
+        return False

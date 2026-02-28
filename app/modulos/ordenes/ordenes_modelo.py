@@ -157,7 +157,10 @@ class ConceptoOrdenTrabajo(SQLModel, table=True):
     )
     fecha_completado: datetime | None = Field(default=None, description="Cuándo se completó")
     completado_por: str | None = Field(default=None, description="Usuario que marcó como completado")
-    
+
+    # Auditoría del snapshot
+    creado_por: str = Field(description="Usuario que creó este concepto en la OT")
+    fecha_creacion: datetime = Field(default_factory=datetime.utcnow, description="Cuándo se creó el snapshot")
+
     # Relación
     orden: OrdenTrabajo = Relationship(back_populates="conceptos")
-

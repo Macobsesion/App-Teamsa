@@ -57,6 +57,10 @@ def test_factory_method_snapshot():
         generador_folio=generador_folio
     )
 
+    # Simular persistencia
+    orden.id = 10
+    orden.asignar_folio(generador_folio)
+
     # Verificar Snapshot
     assert orden.cliente_nombre == "Empresa ABC"
     assert orden.domicilio == "Calle Falsa 123"

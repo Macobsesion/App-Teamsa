@@ -6,6 +6,7 @@ al centralizar la creación de routers API y UI con configuración estandarizada
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any, Callable, Optional
 
 from fastapi import APIRouter, Depends, Request
@@ -124,7 +125,6 @@ def crear_modulo_crud(
             # El usuario ya viene validado por la dependencia del router
         ):
             """Endpoint automático para poblar selects/dropdowns."""
-            from decimal import Decimal
             
             repo = descriptor.repo_factory(db)
             

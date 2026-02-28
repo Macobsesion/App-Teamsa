@@ -48,10 +48,6 @@ class Cotizacion(BaseDocumento, table=True):
         return EstadoCotizacion(self.estado)
 
     @property
-    def es_editable(self) -> bool:
-        return self.estado_enum.es_editable
-
-    @property
     def puede_crear_ot(self) -> bool:
         return self.estado_enum.permite_crear_ot
 
@@ -72,6 +68,13 @@ class Cotizacion(BaseDocumento, table=True):
         
         if self.fecha_emision:
             self.fecha_vigencia = self.fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
+
+    def actualizar_notas_privadas(self, notas: str | None, usuario_id: str) -> None:
+        """Encapsula la mutación de notas privadas."""
+        from datetime import datetime
+        self.notas_privadas = notas
+        self.modificado_por = usuario_id
+        self.fecha_modificacion = datetime.now()
 
 
 class ConceptoCotizacion(MixinDetalleFinanciero, SQLModel, table=True):

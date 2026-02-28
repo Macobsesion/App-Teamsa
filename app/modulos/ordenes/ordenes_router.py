@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from app.base.descriptor_crud import DescriptorCRUD
 from app.base.factory_modulo import crear_modulo_crud
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import dp_usuario_actual, exigir_roles
+from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.permisos import para_modulo
 from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
 from app.modulos.ordenes.ordenes_esquemas import (
     OrdenTrabajoRead, OrdenTrabajoCreate, OrdenTrabajoUpdate, ConceptoOTRead
@@ -90,14 +91,13 @@ def crear_desde_cotizacion(
             tecnico_id=payload.tecnico_id,
         )
         return ot
-    except RecursoNoEncontradoError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EmpalmeError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except ConceptoYaAsignadoError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    except (RecursoNoEncontradoError, EmpalmeError, ConceptoYaAsignadoError):
+        # ReglaNegocioError y RecursoNoEncontradoError son capturadas por el app_factory
+        # Se re-lanzan para que el handler global las convierta a 409/404 correctamente
+        raise
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
+
 
 
 # ---------- Completar concepto (irreversible) ----------
@@ -220,7 +220,7 @@ router = crear_modulo_crud(
     descriptor=descriptor,
     obtener_sesion=obtener_sesion_bd,
     actor_dependency=dp_usuario_actual,
-    write_dependency=exigir_roles("admin"),
+    write_dependency=para_modulo("ordenes"),
     tpl_filas="ui/ordenes/_filas.html",
     tpl_form="ui/ordenes/_form.html",
     routers_prioritarios=[router_tecnicos],          # /tecnicos ANTES de /{entidad_id}

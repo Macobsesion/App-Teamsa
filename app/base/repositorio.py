@@ -185,11 +185,8 @@ class RepositorioCRUD(Generic[TModelo]):
         if columna is None:
             raise ValueError(f"Campo '{campo}' no existe en {self.modelo.__name__}")
         
-        from sqlmodel import select
         consulta = select(self.modelo).where(columna == valor)
         return self.db.exec(consulta).first()
-
-
 
     # ---- helpers internos ----
     def _aplicar_filtros(self, consulta, filtros: Mapping[str, Any]):

@@ -98,7 +98,7 @@
                                     Primero seleccione un proveedor en el paso 1.
                                 </div>
                                 <div class="row g-2">
-                                    <div class="col-md-5">
+                                    <div class="col-md-4">
                                         <label class="form-label">Producto / Servicio</label>
                                         <select class="form-select" id="servicio-select">
                                             <option value="">-- Seleccionar del catálogo --</option>
@@ -113,7 +113,12 @@
                                         <label class="form-label">Precio Unit.</label>
                                         <input type="number" class="form-control" id="precio-input" step="0.01">
                                     </div>
-                                    <div class="col-md-3 d-flex align-items-end">
+                                    <div class="col-md-2">
+                                        <label class="form-label">Descuento %</label>
+                                        <input type="number" class="form-control" id="descuento-input" value="0" min="0"
+                                            max="100" step="1">
+                                    </div>
+                                    <div class="col-md-2 d-flex align-items-end">
                                         <button type="button" class="btn btn-teamsa-primary w-100"
                                             onclick="agregarItem()">+
                                             Agregar</button>
@@ -167,8 +172,28 @@
                         </div>
 
                         <div class="card bg-light">
-                            <div class="card-body text-end">
-                                <h3>Total: <span id="resumen-total">$0.00</span></h3>
+                            <div class="card-body">
+                                <table class="table table-sm mb-0">
+                                    <tr>
+                                        <td>Subtotal:</td>
+                                        <td class="text-end"><strong>$<span id="resumen-subtotal">0.00</span></strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>Descuentos:</td>
+                                        <td class="text-end text-danger">-$<span id="resumen-descuento">0.00</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>IVA (16%):</td>
+                                        <td class="text-end">$<span id="resumen-iva">0.00</span></td>
+                                    </tr>
+                                    <tr class="table-primary">
+                                        <td><strong>TOTAL:</strong></td>
+                                        <td class="text-end">
+                                            <h5 class="mb-0">$<span id="resumen-total">0.00</span></h5>
+                                        </td>
+                                    </tr>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -198,7 +223,7 @@
 
 <script>
     // Estado del Wizard
-    const state = {
+    const wizardState = {
         step: 1,
         proveedor_id: null,
         fecha_emision: new Date().toISOString().split('T')[0],
@@ -206,7 +231,7 @@
         metodo_pago: 'POR_DEFINIR',
         forma_pago: '99',
         notas: '',
-        items: [] // { servicio_id, codigo, descripcion, cantidad, precio_unitario, unidad }
+        items: [] // { servicio_id, codigo, descripcion, cantidad, precio_unitario, descuento_porcentaje, unidad }
     };
 
     let proveedoresData = [];
@@ -227,7 +252,7 @@
             document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
         }
 
-        document.getElementById('fecha-emision').value = state.fecha_emision;
+        document.getElementById('fecha-emision').value = wizardState.fecha_emision;
         cargarProveedores();
 
         // Si es modo edición, cargar datos después de los catálogos
@@ -259,7 +284,7 @@
 
     async function cargarServiciosProveedor() {
         const proveedorId = document.getElementById('proveedor-select').value;
-        state.proveedor_id = proveedorId;
+        wizardState.proveedor_id = proveedorId;
         catalogoProductos = [];
 
         const sel = document.getElementById('servicio-select');
@@ -302,43 +327,43 @@
     });
 
     function nextStep() {
-        if (state.step === 1) {
+        if (wizardState.step === 1) {
             const pid = document.getElementById('proveedor-select').value;
             if (!pid) return alert("Selecciona un proveedor");
-            state.proveedor_id = parseInt(pid);
-            state.fecha_emision = document.getElementById('fecha-emision').value;
-            state.fecha_entrega = document.getElementById('fecha-entrega').value;
-            state.metodo_pago = document.getElementById('metodo-pago').value;
-            state.forma_pago = document.getElementById('forma-pago').value;
-            state.notas = document.getElementById('notas').value;
-        } else if (state.step === 2) {
-            if (state.items.length === 0) return alert("Agrega al menos un producto");
+            wizardState.proveedor_id = parseInt(pid);
+            wizardState.fecha_emision = document.getElementById('fecha-emision').value;
+            wizardState.fecha_entrega = document.getElementById('fecha-entrega').value;
+            wizardState.metodo_pago = document.getElementById('metodo-pago').value;
+            wizardState.forma_pago = document.getElementById('forma-pago').value;
+            wizardState.notas = document.getElementById('notas').value;
+        } else if (wizardState.step === 2) {
+            if (wizardState.items.length === 0) return alert("Agrega al menos un producto");
             renderResumen();
         }
 
-        state.step++;
+        wizardState.step++;
         updateUI();
     }
 
     function prevStep() {
-        state.step--;
+        wizardState.step--;
         updateUI();
     }
 
     function updateUI() {
         document.querySelectorAll('.wizard-content').forEach(el => el.classList.add('d-none'));
-        document.getElementById(`step-${state.step}`).classList.remove('d-none');
+        document.getElementById(`step-${wizardState.step}`).classList.remove('d-none');
 
         document.querySelectorAll('.wizard-step').forEach(el => {
             const s = parseInt(el.dataset.step);
             el.classList.remove('active', 'completed');
-            if (s === state.step) el.classList.add('active');
-            else if (s < state.step) el.classList.add('completed');
+            if (s === wizardState.step) el.classList.add('active');
+            else if (s < wizardState.step) el.classList.add('completed');
         });
 
-        document.getElementById('btn-prev').disabled = state.step === 1;
+        document.getElementById('btn-prev').disabled = wizardState.step === 1;
 
-        const isLast = state.step === 3;
+        const isLast = wizardState.step === 3;
         document.getElementById('btn-next').classList.toggle('d-none', isLast);
         document.getElementById('btn-submit').classList.toggle('d-none', !isLast);
     }
@@ -347,18 +372,20 @@
         const sid = document.getElementById('servicio-select').value;
         const cant = parseFloat(document.getElementById('cantidad-input').value);
         const precio = parseFloat(document.getElementById('precio-input').value);
+        const desc = parseFloat(document.getElementById('descuento-input').value) || 0;
 
         if (!sid || cant <= 0 || isNaN(precio)) return alert("Datos inválidos");
 
         const prod = catalogoProductos.find(p => p.id == sid);
 
-        state.items.push({
+        wizardState.items.push({
             servicio_id: parseInt(sid),
             codigo: prod ? prod.codigo_sku : 'MANUAL',
             descripcion: prod ? prod.descripcion : 'Producto manual',
             unidad: prod ? prod.unidad : 'Pieza',
             cantidad: cant,
-            precio_unitario: precio
+            precio_unitario: precio,
+            descuento_porcentaje: desc
         });
 
         renderItems();
@@ -366,40 +393,98 @@
         document.getElementById('servicio-select').value = "";
         document.getElementById('cantidad-input').value = 1;
         document.getElementById('precio-input').value = "";
+        document.getElementById('descuento-input').value = 0;
     }
 
     function eliminarItem(idx) {
-        state.items.splice(idx, 1);
+        wizardState.items.splice(idx, 1);
         renderItems();
     }
 
     function renderItems() {
         const container = document.getElementById('items-lista');
-        let html = '<table class="table table-sm table-striped"><thead><tr><th>SKU</th><th>Desc</th><th>Cant</th><th>Precio</th><th>Total</th><th></th></tr></thead><tbody>';
+        let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th style="width:10%">SKU</th><th>Desc</th><th class="text-center" style="width:10%">Cant</th><th class="text-end" style="width:15%">Precio</th><th class="text-center" style="width:12%">Desc. %</th><th class="text-end" style="width:15%">Total</th><th></th></tr></thead><tbody>';
         let total = 0;
 
-        state.items.forEach((item, i) => {
+        wizardState.items.forEach((item, i) => {
             const sub = item.cantidad * item.precio_unitario;
-            total += sub;
+            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
+            const filaTotal = sub - desc;
+            total += filaTotal;
             html += `<tr>
-                <td>${item.codigo}</td>
-                <td>${item.descripcion}</td>
-                <td>${item.cantidad}</td>
-                <td>$${item.precio_unitario.toFixed(2)}</td>
-                <td>$${sub.toFixed(2)}</td>
-                <td><button class="btn btn-sm btn-danger py-0" onclick="eliminarItem(${i})">×</button></td>
+                <td class="align-middle">${item.codigo}</td>
+                <td>
+                    <input type="text" class="form-control form-control-sm" value="${item.descripcion}" 
+                        onchange="actualizarItem(${i}, 'descripcion', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm text-center" value="${item.cantidad}" 
+                        min="1" step="1"
+                        oninput="actualizarItemNumerico(${i}, 'cantidad', this.value)">
+                </td>
+                <td>
+                    <input type="number" class="form-control form-control-sm text-end" value="${item.precio_unitario}" 
+                        min="0" step="0.01"
+                        oninput="actualizarItemNumerico(${i}, 'precio_unitario', this.value)">
+                </td>
+                <td>
+                    <div class="input-group input-group-sm">
+                        <input type="number" class="form-control form-control-sm text-center" value="${item.descuento_porcentaje || 0}" 
+                            min="0" max="100" step="1"
+                            oninput="actualizarItemNumerico(${i}, 'descuento_porcentaje', this.value)">
+                        <span class="input-group-text">%</span>
+                    </div>
+                </td>
+                <td class="align-middle text-end fw-bold" id="total-item-${i}">$${filaTotal.toFixed(2)}</td>
+                <td class="align-middle text-center"><button class="btn btn-sm btn-outline-danger py-0" onclick="eliminarItem(${i})">×</button></td>
             </tr>`;
         });
-        html += '</tbody></table>';
-        container.innerHTML = state.items.length ? html : '<p class="text-center text-muted">Vacio</p>';
+        html += '</tbody></table></div>';
+        container.innerHTML = wizardState.items.length ? html : '<p class="text-center text-muted">Vacio</p>';
+        document.getElementById('total-step-2').textContent = `$${total.toFixed(2)}`;
+    }
+
+    function actualizarItem(index, campo, valor) {
+        wizardState.items[index][campo] = valor;
+    }
+
+    function actualizarItemNumerico(index, campo, valor) {
+        const numValor = parseFloat(valor);
+        if (isNaN(numValor) || numValor < 0) return;
+
+        if (campo === 'cantidad' && numValor < 1) return;
+        if (campo === 'descuento_porcentaje' && numValor > 100) return;
+
+        wizardState.items[index][campo] = numValor;
+
+        const item = wizardState.items[index];
+        const sub = item.cantidad * item.precio_unitario;
+        const desc = sub * ((item.descuento_porcentaje || 0) / 100);
+        const filaTotal = sub - desc;
+
+        const totalElement = document.getElementById(`total-item-${index}`);
+        if (totalElement) {
+            totalElement.textContent = `$${filaTotal.toFixed(2)}`;
+        }
+
+        recalcularTotalTotal();
+    }
+
+    function recalcularTotalTotal() {
+        let total = 0;
+        wizardState.items.forEach(item => {
+            const sub = item.cantidad * item.precio_unitario;
+            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
+            total += (sub - desc);
+        });
         document.getElementById('total-step-2').textContent = `$${total.toFixed(2)}`;
     }
 
     function renderResumen() {
-        const prov = proveedoresData.find(p => p.id == state.proveedor_id);
+        const prov = proveedoresData.find(p => p.id == wizardState.proveedor_id);
         document.getElementById('resumen-proveedor').textContent = prov?.nombre || 'Error';
-        document.getElementById('resumen-fecha').textContent = state.fecha_emision || '-';
-        document.getElementById('resumen-fecha-entrega').textContent = state.fecha_entrega || '-';
+        document.getElementById('resumen-fecha').textContent = wizardState.fecha_emision || '-';
+        document.getElementById('resumen-fecha-entrega').textContent = wizardState.fecha_entrega || '-';
 
         // Método de Pago (SAT)
         const metodosMap = {
@@ -408,7 +493,7 @@
             'PPD': 'PPD - Pago en Parcialidades o Diferido',
             'PIP': 'PIP - Pago Inicial y Parcialidades'
         };
-        document.getElementById('resumen-metodo-pago').textContent = metodosMap[state.metodo_pago] || state.metodo_pago;
+        document.getElementById('resumen-metodo-pago').textContent = metodosMap[wizardState.metodo_pago] || wizardState.metodo_pago;
 
         // Condiciones de Pago (Forma de Pago SAT)
         const formasMap = {
@@ -420,20 +505,34 @@
             '05': '05 - Monedero electrónico',
             '28': '28 - Tarjeta de débito'
         };
-        document.getElementById('resumen-condiciones-pago').textContent = formasMap[state.forma_pago] || state.forma_pago;
+        document.getElementById('resumen-condiciones-pago').textContent = formasMap[wizardState.forma_pago] || wizardState.forma_pago;
 
-        document.getElementById('resumen-notas').textContent = state.notas || '-';
+        document.getElementById('resumen-notas').textContent = wizardState.notas || '-';
 
-        let html = '<table class="table table-bordered mb-0"><thead><tr class="table-light"><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit</th><th class="text-end">Importe</th></tr></thead><tbody>';
-        let total = 0;
-        state.items.forEach(item => {
+        let html = '<table class="table table-bordered mb-0"><thead><tr class="table-light"><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit</th><th class="text-center">Desc %</th><th class="text-end">Importe</th></tr></thead><tbody>';
+        let subtotalGlobal = 0;
+        let descuentoGlobal = 0;
+        wizardState.items.forEach(item => {
             const sub = item.cantidad * item.precio_unitario;
-            total += sub;
-            html += `<tr><td>${item.descripcion}</td><td class="text-center">${item.cantidad}</td><td class="text-end">$${item.precio_unitario.toFixed(2)}</td><td class="text-end">$${sub.toFixed(2)}</td></tr>`;
+            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
+            const filaTotal = sub - desc;
+
+            subtotalGlobal += sub;
+            descuentoGlobal += desc;
+
+            html += `<tr><td>${item.descripcion}</td><td class="text-center">${item.cantidad}</td><td class="text-end">$${item.precio_unitario.toFixed(2)}</td><td class="text-center">${item.descuento_porcentaje || 0}%</td><td class="text-end">$${filaTotal.toFixed(2)}</td></tr>`;
         });
         html += '</tbody></table>';
         document.getElementById('resumen-items-tabla').innerHTML = html;
-        document.getElementById('resumen-total').textContent = `$${total.toFixed(2)}`;
+
+        const baseIva = subtotalGlobal - descuentoGlobal;
+        const iva = baseIva * 0.16;
+        const totalGlobal = baseIva + iva;
+
+        document.getElementById('resumen-subtotal').textContent = subtotalGlobal.toFixed(2);
+        document.getElementById('resumen-descuento').textContent = descuentoGlobal.toFixed(2);
+        document.getElementById('resumen-iva').textContent = iva.toFixed(2);
+        document.getElementById('resumen-total').textContent = totalGlobal.toFixed(2);
     }
 
     async function submitOrden() {
@@ -454,7 +553,7 @@
             const resp = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(state)
+                body: JSON.stringify(wizardState)
             });
 
             if (!resp.ok) {
@@ -485,12 +584,12 @@
             const orden = await response.json();
 
             // Cargar paso 1
-            state.proveedor_id = orden.proveedor_id;
-            state.fecha_emision = orden.fecha_emision;
-            state.fecha_entrega = orden.fecha_entrega || '';
-            state.metodo_pago = orden.metodo_pago;
-            state.forma_pago = orden.forma_pago;
-            state.notas = orden.notas;
+            wizardState.proveedor_id = orden.proveedor_id;
+            wizardState.fecha_emision = orden.fecha_emision;
+            wizardState.fecha_entrega = orden.fecha_entrega || '';
+            wizardState.metodo_pago = orden.metodo_pago;
+            wizardState.forma_pago = orden.forma_pago;
+            wizardState.notas = orden.notas;
 
             document.getElementById('proveedor-select').value = orden.proveedor_id;
             document.getElementById('proveedor-select').disabled = true;  // Bloqueado en edición
@@ -505,13 +604,14 @@
 
             // Cargar items existentes
             if (orden.items && orden.items.length > 0) {
-                state.items = orden.items.map(i => ({
+                wizardState.items = orden.items.map(i => ({
                     servicio_id: i.servicio_id,
                     codigo: i.codigo,
                     descripcion: i.descripcion,
                     unidad: i.unidad,
                     cantidad: i.cantidad,
-                    precio_unitario: i.precio_unitario
+                    precio_unitario: i.precio_unitario,
+                    descuento_porcentaje: i.descuento_porcentaje || 0
                 }));
                 renderItems();
             }

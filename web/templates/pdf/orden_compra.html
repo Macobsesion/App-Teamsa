@@ -292,7 +292,7 @@
         <div class="info-col">
             <div class="info-row">
                 <div class="info-label">Proveedor</div>
-                <div class="info-value negrita">{{ proveedor.nombre }}</div>
+                <div class="info-value negrita">{{ orden.proveedor_nombre or proveedor.nombre }}</div>
             </div>
             {% if proveedor.razon_social %}
             <div class="info-row">
@@ -302,12 +302,12 @@
             {% endif %}
             <div class="info-row">
                 <div class="info-label">RFC</div>
-                <div class="info-value">{{ proveedor.rfc or 'N/A' }}</div>
+                <div class="info-value">{{ orden.proveedor_rfc or proveedor.rfc or 'N/A' }}</div>
             </div>
-            {% if proveedor.direccion %}
+            {% if orden.proveedor_direccion or proveedor.direccion %}
             <div class="info-row">
                 <div class="info-label">Domicilio</div>
-                <div class="info-value">{{ proveedor.direccion }}</div>
+                <div class="info-value">{{ orden.proveedor_direccion or proveedor.direccion }}</div>
             </div>
             {% endif %}
         </div>
@@ -320,10 +320,10 @@
                 <div class="info-label">Fecha Entrega Estimada</div>
                 <div class="info-value">{{ fecha_entrega_formateada }}</div>
             </div>
-            {% if proveedor.telefono %}
+            {% if orden.proveedor_telefono or proveedor.telefono %}
             <div class="info-row">
                 <div class="info-label">Teléfono</div>
-                <div class="info-value">{{ proveedor.telefono }}</div>
+                <div class="info-value">{{ orden.proveedor_telefono or proveedor.telefono }}</div>
             </div>
             {% endif %}
             {% if proveedor.contacto %}
@@ -427,7 +427,7 @@
             </div>
             <div class="firma-box">
                 <div class="firma-linea"></div>
-                <div class="firma-label">Aceptado Por - {{ proveedor.nombre }}</div>
+                <div class="firma-label">Aceptado Por - {{ orden.proveedor_nombre or proveedor.nombre }}</div>
             </div>
         </div>
 

@@ -13,7 +13,7 @@ from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuario: UsuarioIdentity):
     """
     Actualiza una cotización existente SIN crear nueva versión.
-    Solo actualiza campos permitidos: metodo_pago, forma_pago, notas, notas_privadas.
+    Solo actualiza campos permitidos o descripciones de servicios sin alterar el monto global en caso del frontend.
     """
     repo = RepositorioCotizacion(db)
     cotizacion = db.get(Cotizacion, cotizacion_id)
@@ -21,14 +21,49 @@ def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuari
     if not cotizacion:
         raise ValueError("Cotización no encontrada")
     
-    # Solo actualizar campos permitidos (NO servicios)
+    # Actualizar campos permitidos
     cotizacion.metodo_pago = data.get('metodo_pago', cotizacion.metodo_pago)
     cotizacion.forma_pago = data.get('forma_pago', cotizacion.forma_pago)
     cotizacion.notas = data.get('notas')
     cotizacion.notas_privadas = data.get('notas_privadas')  # Campo para uso futuro
     cotizacion.modificado_por = usuario.usuario
     
+    # Snapshot: Refrescar siempre los datos del cliente al momento de guardar el wizard
+    from app.modulos.clientes.clientes_modelo import Cliente
+    cliente = db.get(Cliente, cotizacion.cliente_id)
+    if cliente:
+        cotizacion.cliente_nombre = cliente.nombre
+        cotizacion.cliente_rfc = cliente.rfc
+        cotizacion.cliente_direccion = cliente.direccion
+        cotizacion.cliente_ciudad = cliente.ciudad
+        cotizacion.cliente_cp = cliente.cp
+        cotizacion.cliente_telefono = cliente.telefono
+        cotizacion.cliente_email = cliente.email
+    
     db.commit()
+
+    # Si vienen servicios, los actualizamos
+    servicios_data = data.get('servicios')
+    if servicios_data is not None:
+        conceptos_actuales = repo.obtener_conceptos(cotizacion_id)
+        for c in conceptos_actuales:
+            db.delete(c)
+        db.flush()
+        
+        repo_concepto = RepositorioConcepto(db)
+        for servicio_data in servicios_data:
+            repo_concepto.crear(
+                cotizacion_id=cotizacion_id,
+                servicio_id=servicio_data.get('servicio_id'),
+                codigo_sat=servicio_data.get('codigo_sat', ''),
+                descripcion=servicio_data.get('descripcion', ''),
+                unidad=servicio_data.get('unidad', 'pieza'),
+                cantidad=Decimal(str(servicio_data.get('cantidad', 1))),
+                precio_unitario=Decimal(str(servicio_data.get('precio_unitario', 0))),
+                descuento_porcentaje=Decimal(str(servicio_data.get('descuento_porcentaje', 0))),
+            )
+
+    repo.recalcular_totales(cotizacion_id)
     db.refresh(cotizacion)
     
     return {"id": cotizacion.id, "numero": cotizacion.numero, "numero_version": cotizacion.numero_version}
@@ -88,6 +123,13 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
         version_letra=nueva_letra,  # "C"
         cotizacion_original_id=id_madre,  # SIEMPRE apunta a la madre
         cliente_id=cotizacion_actual.cliente_id,  # Cliente no cambia
+        cliente_nombre=cotizacion_madre.cliente.nombre if cotizacion_madre.cliente else None,
+        cliente_rfc=cotizacion_madre.cliente.rfc if cotizacion_madre.cliente else None,
+        cliente_direccion=cotizacion_madre.cliente.direccion if cotizacion_madre.cliente else None,
+        cliente_ciudad=cotizacion_madre.cliente.ciudad if cotizacion_madre.cliente else None,
+        cliente_cp=cotizacion_madre.cliente.cp if cotizacion_madre.cliente else None,
+        cliente_telefono=cotizacion_madre.cliente.telefono if cotizacion_madre.cliente else None,
+        cliente_email=cotizacion_madre.cliente.email if cotizacion_madre.cliente else None,
         estado='borrador',  # Nueva versión empieza como borrador
         metodo_pago=data.get('metodo_pago', cotizacion_actual.metodo_pago),
         forma_pago=data.get('forma_pago', cotizacion_actual.forma_pago),
@@ -103,7 +145,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     nueva_cotizacion.actualizar_vigencia()
     
     db.add(nueva_cotizacion)
-    db.flush()  # Para obtener el ID
+    print("== Haciendo flush =="); db.flush()  # Para obtener el ID
     
     # 7. COPIAR SERVICIOS MODIFICADOS
     repo_concepto = RepositorioConcepto(db)

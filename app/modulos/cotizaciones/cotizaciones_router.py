@@ -98,7 +98,7 @@ def actualizar_notas_privadas(
         raise
 
 
-@router_extras.post("/crear-completa")
+@router_extras.post("/completa")
 def crear_cotizacion_completa(
     data: dict,
     db: Session = Depends(obtener_sesion_bd),

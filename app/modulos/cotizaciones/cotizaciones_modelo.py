@@ -31,7 +31,16 @@ class Cotizacion(BaseDocumento, table=True):
     # Datos de negocio específicos
     fecha_vigencia: date | None = Field(default=None, description="Fecha límite de validez de la oferta")
     
-    # Relación con cliente
+    # Snapshot del Cliente (Congelamiento Histórico)
+    cliente_nombre: str | None = Field(default=None, description="Nombre del cliente al momento de elaborar el documento")
+    cliente_rfc: str | None = Field(default=None, max_length=13, description="RFC capturado")
+    cliente_direccion: str | None = Field(default=None, description="Dirección capturada")
+    cliente_ciudad: str | None = Field(default=None, description="Ciudad capturada")
+    cliente_cp: str | None = Field(default=None, max_length=5, description="Código postal capturado")
+    cliente_telefono: str | None = Field(default=None, description="Teléfono capturado")
+    cliente_email: str | None = Field(default=None, description="Email capturado")
+    
+    # Relación Viva con cliente (para búsquedas, reportes y métricas)
     cliente_id: int = Field(foreign_key="cliente.id", index=True)
     
     # Estado (flujo de negocio)

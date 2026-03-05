@@ -599,8 +599,8 @@
             // Modo versión: crear nueva versión
             await confirmarVersionamiento();
         } else if (modoEdicion) {
-            // Modo edición: verificar si hubo cambios en servicios
-            const serviciosCambiaron = JSON.stringify(wizardState.servicios) !== JSON.stringify(serviciosOriginales);
+            // Modo edición: verificar si hubo cambios en servicios relevantes
+            const serviciosCambiaron = detectarCambiosServicios();
 
             if (serviciosCambiaron) {
                 // Mostrar modal de confirmación
@@ -623,7 +623,7 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando...';
 
         try {
-            const response = await fetch('/api/cotizaciones/crear-completa', {
+            const response = await fetch('/api/cotizaciones/completa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(wizardState)
@@ -652,7 +652,8 @@
                 body: JSON.stringify({
                     metodo_pago: wizardState.metodo_pago,
                     forma_pago: wizardState.forma_pago,
-                    notas: wizardState.notas
+                    notas: wizardState.notas,
+                    servicios: wizardState.servicios
                 })
             });
 
@@ -765,24 +766,28 @@
     }
 
     function detectarCambiosServicios() {
-        // Enfoque híbrido: más simple y confiable
-
-        // 1. Cambió la cantidad de servicios?
         if (serviciosOriginales.length !== wizardState.servicios.length) {
             console.log('✅ Cambio detectado: cantidad de servicios diferente');
             return true;
         }
 
-        // 2. Cambió el total de la cotización?
-        const totalOriginal = calcularTotalCotizacion(serviciosOriginales);
-        const totalActual = calcularTotalCotizacion(wizardState.servicios);
+        for (let i = 0; i < serviciosOriginales.length; i++) {
+            const orig = serviciosOriginales[i];
+            const act = wizardState.servicios[i];
 
-        if (Math.abs(totalOriginal - totalActual) > 0.01) {  // Tolerancia de 1 centavo
-            console.log(`✅ Cambio detectado: total diferente (${totalOriginal.toFixed(2)} → ${totalActual.toFixed(2)})`);
-            return true;
+            // Comparar los campos clave que afectan precio o identidad del producto, 
+            // excluyendo explícitamente la descripción (concepto) para que editar la descripción
+            // no genere automáticamente una nueva versión.
+            if (orig.servicio_id !== act.servicio_id ||
+                orig.cantidad !== act.cantidad ||
+                orig.precio_unitario !== act.precio_unitario ||
+                orig.descuento_porcentaje !== act.descuento_porcentaje) {
+                console.log(`✅ Cambio detectado: propiedades relevantes del servicio ${i} cambiaron`);
+                return true;
+            }
         }
 
-        console.log('✅ Sin cambios en servicios (misma cantidad y mismo total)');
+        console.log('✅ Sin cambios que requieran versión (solo descripciones u otros metadatos intocables)');
         return false;
     }
 

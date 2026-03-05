@@ -298,18 +298,18 @@
         <div class="info-col">
             <div class="info-row">
                 <div class="info-label">Cliente</div>
-                <div class="info-value negrita">{{ cliente.nombre }}</div>
+                <div class="info-value negrita">{{ cotizacion.cliente_nombre or cliente.nombre }}</div>
             </div>
-            {% if cliente.rfc %}
+            {% if cotizacion.cliente_rfc or cliente.rfc %}
             <div class="info-row">
                 <div class="info-label">RFC</div>
-                <div class="info-value">{{ cliente.rfc }}</div>
+                <div class="info-value">{{ cotizacion.cliente_rfc or cliente.rfc }}</div>
             </div>
             {% endif %}
-            {% if cliente.direccion %}
+            {% if cotizacion.cliente_direccion or cliente.direccion %}
             <div class="info-row">
                 <div class="info-label">Domicilio</div>
-                <div class="info-value">{{ cliente.direccion }}</div>
+                <div class="info-value">{{ cotizacion.cliente_direccion or cliente.direccion }}</div>
             </div>
             {% endif %}
         </div>
@@ -322,10 +322,10 @@
                 <div class="info-label">Vigencia</div>
                 <div class="info-value">{{ fecha_vigencia_formateada }}</div>
             </div>
-            {% if cliente.telefono %}
+            {% if cotizacion.cliente_telefono or cliente.telefono %}
             <div class="info-row">
                 <div class="info-label">Teléfono</div>
-                <div class="info-value">{{ cliente.telefono }}</div>
+                <div class="info-value">{{ cotizacion.cliente_telefono or cliente.telefono }}</div>
             </div>
             {% endif %}
             {% if cliente.contacto %}

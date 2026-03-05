@@ -27,7 +27,16 @@ class OrdenCompra(BaseDocumento, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     
-    # Proveedor
+    # Snapshot del Proveedor (Congelamiento Histórico)
+    proveedor_nombre: str | None = Field(default=None, description="Nombre del proveedor al momento de la orden")
+    proveedor_rfc: str | None = Field(default=None, max_length=13, description="RFC del proveedor")
+    proveedor_direccion: str | None = Field(default=None, description="Dirección capturada")
+    proveedor_ciudad: str | None = Field(default=None, description="Ciudad capturada")
+    proveedor_cp: str | None = Field(default=None, max_length=5, description="Código postal capturado")
+    proveedor_telefono: str | None = Field(default=None, description="Teléfono capturado")
+    proveedor_email: str | None = Field(default=None, description="Email capturado")
+    
+    # Proveedor Relación Viva (Para métricas y catálogos)
     proveedor_id: int = Field(foreign_key="proveedor.id", index=True)
     
     # Datos generales

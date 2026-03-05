@@ -16,9 +16,22 @@ class ServicioCreacionOrdenCompra(ServicioDocumentoFinanciero[OrdenCompra, Detal
 
     def _crear_instancia_cabecera(self, data: dict) -> OrdenCompra:
         """Implementación del paso: Crear instancia base."""
+        from app.modulos.proveedores.proveedores_modelo import Proveedor
+        proveedor_id = data['proveedor_id']
+        proveedor = self.db.get(Proveedor, proveedor_id)
+        if not proveedor:
+            raise ValueError("Proveedor no encontrado")
+
         temp_folio = f"TEMP-{uuid.uuid4()}"
         return OrdenCompra(
-            proveedor_id=data['proveedor_id'],
+            proveedor_id=proveedor_id,
+            proveedor_nombre=proveedor.nombre,
+            proveedor_rfc=proveedor.rfc,
+            proveedor_direccion=proveedor.direccion,
+            proveedor_ciudad=proveedor.ciudad,
+            proveedor_cp=proveedor.cp,
+            proveedor_telefono=proveedor.telefono,
+            proveedor_email=proveedor.email,
             fecha_emision=date.today(),
             fecha_entrega_estimada=data.get('fecha_entrega') or None,
             metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),
@@ -74,6 +87,18 @@ class ServicioCreacionOrdenCompra(ServicioDocumentoFinanciero[OrdenCompra, Detal
         orden.forma_pago = data.get('forma_pago', orden.forma_pago)
         orden.notas = data.get('notas', orden.notas)
         orden.modificado_por = usuario_id
+
+        # Renovar el snapshot del proveedor al editar/guardar la OC
+        from app.modulos.proveedores.proveedores_modelo import Proveedor
+        proveedor = self.db.get(Proveedor, orden.proveedor_id)
+        if proveedor:
+            orden.proveedor_nombre = proveedor.nombre
+            orden.proveedor_rfc = proveedor.rfc
+            orden.proveedor_direccion = proveedor.direccion
+            orden.proveedor_ciudad = proveedor.ciudad
+            orden.proveedor_cp = proveedor.cp
+            orden.proveedor_telefono = proveedor.telefono
+            orden.proveedor_email = proveedor.email
 
         # 2. Borrar detalles existentes y recrear
         for detalle in orden.detalles:

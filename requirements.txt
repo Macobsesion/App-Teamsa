@@ -6,6 +6,7 @@ sqlmodel==0.0.24
 SQLAlchemy==2.0.41
 psycopg==3.2.9
 psycopg-binary==3.2.9
+alembic==1.14.0
 
 # Configuración y validación
 pydantic==2.11.5

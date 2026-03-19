@@ -1,0 +1,73 @@
+# compose.dev.yaml — Entorno de DESARROLLO
+#
+# Uso:
+#   docker compose -f compose.dev.yaml up -d        # levantar
+#   docker compose -f compose.dev.yaml down          # bajar
+#   docker compose -f compose.dev.yaml logs -f       # ver logs
+#   docker compose -f compose.dev.yaml restart aplicacion
+#
+# La app corre en http://localhost:8002
+# La base de datos es SEPARADA de producción (teamsa_dev)
+
+services:
+  aplicacion:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:8002:8001" # solo accesible desde el servidor, no desde internet
+    env_file:
+      - .env.dev # variables de desarrollo
+    volumes:
+      - ./app:/teamsa-app/app
+      - ./web:/teamsa-app/web
+      - ./tests:/teamsa-app/tests
+      - ./alembic.ini:/teamsa-app/alembic.ini
+      - ./db_migraciones:/teamsa-app/db_migraciones
+      - uploads-dev-data:/teamsa-app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    secrets:
+      - db-password
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://127.0.0.1:8001/salud', timeout=20).getcode()==200 else sys.exit(1)" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - teamsa-dev-network
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    user: postgres
+    secrets:
+      - db-password
+    volumes:
+      - db-dev-data:/var/lib/postgresql/data # volumen separado de producción
+    env_file:
+      - .env.dev
+    expose:
+      - 5432
+    networks:
+      - teamsa-dev-network
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  teamsa-dev-network:
+    driver: bridge
+
+volumes:
+  db-dev-data: # base de datos de desarrollo, independiente de producción
+  uploads-dev-data:
+
+
+secrets:
+  db-password:
+    file: db/password.txt

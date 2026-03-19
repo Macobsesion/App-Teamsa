@@ -10,6 +10,8 @@ services:
       - ./app:/teamsa-app/app
       - ./web:/teamsa-app/web
       - ./tests:/teamsa-app/tests
+      - ./alembic.ini:/teamsa-app/alembic.ini
+      - ./db_migraciones:/teamsa-app/db_migraciones
       - uploads-data:/teamsa-app/uploads
     depends_on:
       db:

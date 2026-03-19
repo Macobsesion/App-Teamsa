@@ -39,7 +39,8 @@
         url_detalle='/ui/ordenes/' ~ item.id ~ '/detalle',
         extras=btns_extra,
         puede_eliminar=puede_eliminar,
-        delete_confirm='¿Eliminar orden de trabajo ' ~ item.numero_ot ~ '?'
+        delete_confirm='¿Eliminar orden de trabajo ' ~ item.numero_ot ~ '?',
+        puede_editar_negocio=False
     ) }}
 </tr>
 {% endfor %}

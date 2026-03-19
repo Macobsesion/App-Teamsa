@@ -38,6 +38,12 @@
                 <div class="info-value">{{ cotizacion.cliente_direccion or cliente.direccion }}</div>
             </div>
             {% endif %}
+            {% if cliente.contacto %}
+            <div class="info-row">
+                <div class="info-label">Atención a:</div>
+                <div class="info-value">{{ cliente.contacto }}</div>
+            </div>
+            {% endif %}
         </div>
         <div class="info-col" style="text-align: right;">
             <div class="info-row">
@@ -54,12 +60,7 @@
                 <div class="info-value">{{ cotizacion.cliente_telefono or cliente.telefono }}</div>
             </div>
             {% endif %}
-            {% if cliente.contacto %}
-            <div class="info-row">
-                <div class="info-label">Atención a:</div>
-                <div class="info-value">{{ cliente.contacto }}</div>
-            </div>
-            {% endif %}
+
         </div>
     </div>
 
@@ -84,7 +85,7 @@
                 <td class="text-center">{{ concepto.codigo_unidad }}</td>
                 <td class="text-center">{{ concepto.cantidad }}</td>
                 <td class="text-right">${{ "{:,.2f}".format(concepto.precio_unitario) }}</td>
-                <td class="text-right text-danger">
+                <td class="text-right">
                     {% if concepto.descuento_porcentaje > 0 %}
                     -${{ "{:,.2f}".format((concepto.precio_unitario * concepto.cantidad * concepto.descuento_porcentaje
                     / 100)) }}

@@ -7,12 +7,12 @@ from app.base.repositorio import RepositorioCRUD
 from app.base.constantes import IVA_PORCENTAJE, VIGENCIA_DIAS_DEFAULT, PREFIJO_NUMERO_COTIZACION
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.cotizaciones.enums import EstadoCotizacion
-from app.base.excepciones import RecursoNoEncontradoError
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 
 class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     """Repositorio de cotizaciones con lógica de numeración y cálculos."""
-    
+
     modelo = Cotizacion
     campos_filtrables = {"estado", "cliente_id"}
     campos_actualizables = {
@@ -22,54 +22,10 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     campos_busqueda = {"numero": "icontains"}
     orden_por_defecto = ("numero", True)  # Descendente (más reciente primero)
 
-    def listar(
-        self,
-        filtros: dict | None = None,
-        *,
-        limite: int | None = None,
-        desplazamiento: int | None = None,
-        orden: str | None = None,
-        descendente: bool = False,
-    ) -> list[Cotizacion]:
-        """Lista cotizaciones con eager loading del cliente.
-
-        Delega filtros y ordenamiento al RepositorioCRUD base y solo
-        agrega el selectinload necesario para evitar N+1 queries.
-        """
+    def _enriquecer_consulta(self, consulta):
+        """Agrega eager loading del cliente para evitar N+1 queries."""
         from sqlalchemy.orm import selectinload
-
-        # Construir query base con los helpers del padre
-        consulta = self._construir_consulta_base(
-            filtros=filtros,
-            orden=orden,
-            descendente=descendente,
-            limite=limite,
-            desplazamiento=desplazamiento,
-        )
-        # Eager loading: carga el cliente en la misma query
-        consulta = consulta.options(selectinload(Cotizacion.cliente))
-        return list(self.db.exec(consulta).all())
-
-    def _construir_consulta_base(
-        self,
-        filtros: dict | None,
-        orden: str | None,
-        descendente: bool,
-        limite: int | None,
-        desplazamiento: int | None,
-    ):
-        """Construye la consulta base reutilizando los helpers del padre."""
-        from sqlmodel import select
-
-        consulta = select(self.modelo)
-        if filtros:
-            consulta = self._aplicar_filtros(consulta, filtros)
-        consulta = self._aplicar_orden(consulta, orden, descendente)
-        if limite is not None:
-            consulta = consulta.limit(limite)
-        if desplazamiento is not None:
-            consulta = consulta.offset(desplazamiento)
-        return consulta
+        return consulta.options(selectinload(Cotizacion.cliente))
 
 
     def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
@@ -118,7 +74,7 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         """
         La eliminación física está desactivada para preservar historial.
         """
-        raise ValueError("La eliminación física está deshabilitada. Por favor, cambie el estado a 'Cancelada'.")
+        raise ReglaNegocioError("La eliminación física está deshabilitada. Por favor, cambie el estado a 'Cancelada'.")
     
     def obtener_conceptos(self, cotizacion_id: int) -> list[ConceptoCotizacion]:
         """Obtiene todos los conceptos de una cotización."""
@@ -130,29 +86,17 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
 
     def obtener_estado_conceptos(self, cotizacion_id: int) -> dict[int, dict]:
         """
-        Obtiene el estado de OT para cada concepto de una cotización.
+        Obtiene el estado de OT para cada concepto de una cotización de forma encapsulada, 
+        delegando al módulo de Órdenes.
         Retorna: {concepto_id: {"estado": "pendiente"|"completado", "numero_ot": ..., "orden_id": ...}}
         """
-        from app.modulos.ordenes.ordenes_modelo import ConceptoOrdenTrabajo, OrdenTrabajo
+        from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
         
         conceptos = self.obtener_conceptos(cotizacion_id)
-        concepto_ids = [c.id for c in conceptos]
+        concepto_ids = [c.id for c in conceptos if c.id is not None]
         
-        estado_conceptos: dict[int, dict] = {}
-        if concepto_ids:
-            filas = self.db.exec(
-                select(ConceptoOrdenTrabajo, OrdenTrabajo)
-                .join(OrdenTrabajo, ConceptoOrdenTrabajo.orden_id == OrdenTrabajo.id)
-                .where(ConceptoOrdenTrabajo.concepto_cotizacion_id.in_(concepto_ids))
-            ).all()
-
-            for c_ot, ot in filas:
-                estado_conceptos[c_ot.concepto_cotizacion_id] = {
-                    "estado": c_ot.estado,
-                    "numero_ot": ot.numero_ot,
-                    "orden_id": ot.id,
-                }
-        return estado_conceptos
+        repo_ordenes = RepositorioOrden(self.db)
+        return repo_ordenes.obtener_estado_por_conceptos_cotizacion(concepto_ids)
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """
@@ -198,23 +142,25 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         cotizacion = self.db.get(Cotizacion, cotizacion_id)
         if not cotizacion:
             raise RecursoNoEncontradoError("Cotización no encontrada")
-        
+
         cotizacion.actualizar_notas_privadas(notas, usuario_id)
-        
-        self.db.add(cotizacion)
-        self.db.commit()
-        self.db.refresh(cotizacion)
-        
-        return cotizacion
+        return self.guardar(cotizacion)
 
 
-class RepositorioConcepto:
-    """Repositorio para conceptos de cotización."""
-    
-    def __init__(self, db: Session):
-        self.db = db
-    
-    def crear(
+class RepositorioConcepto(RepositorioCRUD[ConceptoCotizacion]):
+    """Repositorio para conceptos de cotización.
+
+    Hereda de RepositorioCRUD para usar la gestión de transacciones del padre.
+    El hook _post_guardar dispara el recálculo de totales de la cotización padre.
+    """
+
+    modelo = ConceptoCotizacion
+
+    def _post_guardar(self, entidad: ConceptoCotizacion, es_nuevo: bool) -> None:
+        """Recalcula los totales de la cotización después de guardar el concepto."""
+        RepositorioCotizacion(self.db).recalcular_totales(entidad.cotizacion_id)
+
+    def crear_concepto(
         self,
         cotizacion_id: int,
         servicio_id: int | None,
@@ -225,7 +171,7 @@ class RepositorioConcepto:
         precio_unitario: Decimal,
         descuento_porcentaje: Decimal = Decimal("0.00"),
     ) -> ConceptoCotizacion:
-        # Crear concepto usando Factory Method
+        """Crea un concepto y recalcula totales de la cotización padre."""
         concepto = ConceptoCotizacion.crear_desde_servicio(
             cotizacion_id=cotizacion_id,
             servicio_id=servicio_id,
@@ -234,26 +180,14 @@ class RepositorioConcepto:
             unidad=unidad,
             cantidad=cantidad,
             precio_unitario=precio_unitario,
-            descuento_porcentaje=descuento_porcentaje
+            descuento_porcentaje=descuento_porcentaje,
         )
-        
-        self.db.add(concepto)
-        self.db.commit()
-        self.db.refresh(concepto)
-        
-        # Recalcular totales de la cotización
-        repo_cotizacion = RepositorioCotizacion(self.db)
-        repo_cotizacion.recalcular_totales(cotizacion_id)
-        
-        return concepto
-    
-    def eliminar(self, concepto_id: int, cotizacion_id: int) -> None:
+        return self.guardar(concepto)
+
+    def eliminar_concepto(self, concepto_id: int, cotizacion_id: int) -> None:
         """Elimina un concepto y recalcula totales de la cotización."""
         concepto = self.db.get(ConceptoCotizacion, concepto_id)
         if concepto:
-            self.db.delete(concepto)
-            self.db.commit()
-            
-            # Recalcular totales
-            repo_cotizacion = RepositorioCotizacion(self.db)
-            repo_cotizacion.recalcular_totales(cotizacion_id)
+            self._eliminar(concepto)
+            RepositorioCotizacion(self.db).recalcular_totales(cotizacion_id)
+

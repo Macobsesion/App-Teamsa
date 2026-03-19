@@ -1,4 +1,4 @@
-{% from 'partials/actions.html' import acciones %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% for item in items %}
 <tr>
     <td>
@@ -25,7 +25,7 @@
         <span class="badge bg-secondary">Inactivo</span>
         {% endif %}
     </td>
-    {{ acciones(ui_base, item.id, puede_editar, delete_confirm='¿Eliminar cliente ' ~ item.nombre ~ '?') }}
+    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar cliente ' ~ item.nombre ~ '?') }}
 </tr>
 {% endfor %}
 {% if not items %}

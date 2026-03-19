@@ -1,0 +1,23 @@
+{# web/templates/ui/macros/tablas.html #}
+
+{% macro tabla_crud(config, ui_base) %}
+<div class="table-responsive">
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                {% if config and config.columnas %}
+                {% for col in config.columnas %}
+                <th>{{ col.titulo if col.titulo else col.campo|title }}</th>
+                {% endfor %}
+                {% endif %}
+                <th style="width:150px;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody id="tbody-lista" hx-get="{{ ui_base }}/filas" hx-trigger="load, refrescarLista from:body" hx-swap="innerHTML">
+            <tr>
+                <td colspan="100" class="text-center">Cargando...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endmacro %}

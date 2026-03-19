@@ -50,7 +50,7 @@ def engine():
 
     # Asegurar que base de tests esté limpia (Drop All solo seguro aquí)
     SQLModel.metadata.drop_all(motor)
-    crear_tablas() 
+    SQLModel.metadata.create_all(motor) 
     return motor
 
 @pytest.fixture(scope="function")

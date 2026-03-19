@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, Body
 from typing import Any
 from datetime import date
 from decimal import Decimal
 from sqlmodel import Session
 from pydantic import BaseModel
-from app.base.descriptor_crud import DescriptorCRUD
-from app.base.factory_modulo import crear_modulo_crud
+from app.base.descriptor_crud import DescriptorCRUD, ConfiguracionUI
+from app.base.factory_modulo import crear_modulo_crud_estandar
 from app.nucleo.base_datos import obtener_sesion_bd
 from app.rutas.dependencias import dp_usuario_actual
 from app.rutas.permisos import para_modulo
@@ -13,13 +13,14 @@ from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
 from app.modulos.ordenes.ordenes_esquemas import (
     OrdenTrabajoRead, OrdenTrabajoCreate, OrdenTrabajoUpdate, ConceptoOTRead
 )
-from app.modulos.ordenes.ordenes_repositorio import (
-    RepositorioOrden, EmpalmeError, ConceptoYaAsignadoError, ConceptoCompletadoError
+from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
+from app.modulos.ordenes.ordenes_servicios import (
+    ServicioOrdenes, EmpalmeError, ConceptoYaAsignadoError, ConceptoCompletadoError
 )
-from app.modulos.ordenes.dependencias import obtener_repo_ordenes
+from app.modulos.ordenes.dependencias import obtener_repo_ordenes, obtener_servicio_ordenes
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 from app.modulos.ordenes.pdf_generator import generar_pdf_orden
-from app.base.excepciones import RecursoNoEncontradoError
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 
 # ---------- Router Extras (API) ----------
@@ -33,20 +34,17 @@ def descargar_pdf_orden(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Genera y descarga el PDF de la Orden de Trabajo."""
-    try:
-        pdf_bytes = generar_pdf_orden(id, db)
-        ot = repo.obtener_por_id(id)
-        if not ot:
-             raise HTTPException(status_code=404, detail="Orden no encontrada")
-        filename = f"Orden_{ot.numero_ot}.pdf"
-        from fastapi.responses import Response
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="{filename}"'}
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+    pdf_bytes = generar_pdf_orden(id, db)
+    ot = repo.obtener_por_id(id)
+    if not ot:
+        raise RecursoNoEncontradoError("Orden no encontrada")
+    filename = f"Orden_{ot.numero_ot}.pdf"
+    from fastapi.responses import Response
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'}
+    )
 
 
 # ---------- Router Técnicos (prioritario: debe ir ANTES de /{entidad_id}) ----------
@@ -55,11 +53,11 @@ router_tecnicos = APIRouter(prefix="/api/ordenes", tags=["Ordenes - Extras"])
 
 @router_tecnicos.get("/tecnicos", response_model=list[dict])
 def listar_tecnicos(
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Lista usuarios con rol 'tecnico' para asignación en el modal de creación."""
-    tecnicos = repo.listar_tecnicos()
+    tecnicos = servicio.listar_tecnicos()
     return [{"id": t.id, "nombres": t.nombres, "usuario": t.usuario} for t in tecnicos]
 
 
@@ -76,12 +74,12 @@ class PayloadCrearOT(BaseModel):
 @router_extras.post("/crear-desde-cotizacion", response_model=OrdenTrabajoRead)
 def crear_desde_cotizacion(
     payload: PayloadCrearOT,
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Crea una OT a partir de una cotización con conceptos seleccionados y técnico opcional."""
     try:
-        ot = repo.crear_desde_cotizacion(
+        ot = servicio.crear_desde_cotizacion(
             cotizacion_id=payload.cotizacion_id,
             fecha_programada=payload.fecha_programada,
             hora_programada=payload.hora_programada,
@@ -95,8 +93,6 @@ def crear_desde_cotizacion(
         # ReglaNegocioError y RecursoNoEncontradoError son capturadas por el app_factory
         # Se re-lanzan para que el handler global las convierta a 409/404 correctamente
         raise
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
 
 
 
@@ -106,16 +102,11 @@ def crear_desde_cotizacion(
 def completar_concepto(
     orden_id: int,
     concepto_id: int,
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Marca un concepto de la OT como completado. Acción irreversible."""
-    try:
-        return repo.completar_concepto(orden_id, concepto_id, usuario.usuario)
-    except RecursoNoEncontradoError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ConceptoCompletadoError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    return servicio.completar_concepto(orden_id, concepto_id, usuario.usuario)
 
 
 # ---------- Finalizar y Cancelar OT manual ----------
@@ -123,30 +114,20 @@ def completar_concepto(
 @router_extras.post("/{orden_id}/finalizar", response_model=OrdenTrabajoRead)
 def finalizar_orden(
     orden_id: int,
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Finaliza manualmente una Orden de Trabajo (útil si no tiene conceptos o se fuerza el cierre)."""
-    try:
-        return repo.finalizar_orden(orden_id)
-    except RecursoNoEncontradoError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    return servicio.finalizar_orden(orden_id)
 
 @router_extras.post("/{orden_id}/cancelar", response_model=OrdenTrabajoRead)
 def cancelar_orden(
     orden_id: int,
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Cancela una Orden de Trabajo y emite evento para ajustar la Cotización asociada."""
-    try:
-        return repo.cancelar_orden(orden_id)
-    except RecursoNoEncontradoError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+    return servicio.cancelar_orden(orden_id)
 
 # ---------- Reasignar técnico ----------
 
@@ -157,24 +138,17 @@ class PayloadReasignarTecnico(BaseModel):
 def reasignar_tecnico(
     orden_id: int,
     payload: PayloadReasignarTecnico,
-    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Reasigna o quita el técnico de una OT. Valida que no haya empalme de horario."""
-    try:
-        return repo.reasignar_tecnico(orden_id, payload.tecnico_id, usuario.usuario)
-    except RecursoNoEncontradoError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-    except EmpalmeError as e:
-        raise HTTPException(status_code=409, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    return servicio.reasignar_tecnico(orden_id, payload.tecnico_id, usuario.usuario)
 
 
 # ---------- Router UI Extras ----------
-from fastapi.templating import Jinja2Templates
 from fastapi import Request
-TEMPLATES = Jinja2Templates(directory="web/templates")
+from app.web.jinja import get_templates
+TEMPLATES = get_templates()
 router_ui_extras = APIRouter(prefix="/ui/ordenes", tags=["Ordenes - UI"])
 
 @router_ui_extras.get("/{id}/detalle")
@@ -182,19 +156,28 @@ def ver_detalle_orden(
     id: int,
     request: Request,
     repo: RepositorioOrden = Depends(obtener_repo_ordenes),
-    usuario: UsuarioIdentity = Depends(dp_usuario_actual)
+    usuario = Depends(para_modulo("ordenes", "ver"))
 ):
     """Vista de detalle de una Orden de Trabajo."""
     ot = repo.obtener_por_id(id)
     if not ot:
-        raise HTTPException(status_code=404, detail="Orden no encontrada")
+        raise RecursoNoEncontradoError("Orden no encontrada")
     
+    # RBAC context for detail view
+    perms_edit = getattr(usuario, "permisos_editar", []) or []
+    perms_delete = getattr(usuario, "permisos_eliminar", []) or []
+    
+    puede_editar = "ordenes" in perms_edit
+    puede_eliminar = "ordenes" in perms_delete
+
     return TEMPLATES.TemplateResponse(
         "ui/ordenes/detalle.html",
         {
             "request": request,
             "usuario": usuario,
             "ot": ot,
+            "puede_editar": puede_editar,
+            "puede_eliminar": puede_eliminar,
         }
     )
 
@@ -210,19 +193,16 @@ descriptor = DescriptorCRUD[OrdenTrabajo, OrdenTrabajoCreate, OrdenTrabajoUpdate
     campos_editables={"fecha_programada", "hora_programada", "domicilio", "contacto", "estado", "notas_publicas", "notas_privadas"},
     filtros_permitidos={"estado", "cliente_nombre"},
     campo_busqueda="numero_ot",
-    columnas_incluir=["numero_ot", "fecha_programada", "cliente_nombre", "estado", "tecnico_nombre"],
-    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
-    boton_crear={"texto": "📋 Ir a Cotizaciones", "url": "/cotizaciones", "modal": False},
+    config_ui=ConfiguracionUI(
+        columnas_incluir=["numero_ot", "fecha_programada", "cliente_nombre", "estado", "tecnico_nombre"],
+        columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
+        boton_crear={"texto": "📋 Ir a Cotizaciones", "url": "/cotizaciones", "modal": False},
+    )
 )
 
-# ---------- Router Factory ----------
-router = crear_modulo_crud(
+router = crear_modulo_crud_estandar(
     descriptor=descriptor,
-    obtener_sesion=obtener_sesion_bd,
-    actor_dependency=dp_usuario_actual,
-    write_dependency=para_modulo("ordenes"),
-    tpl_filas="ui/ordenes/_filas.html",
-    tpl_form="ui/ordenes/_form.html",
+    nombre_modulo="ordenes",
     routers_prioritarios=[router_tecnicos],          # /tecnicos ANTES de /{entidad_id}
     routers_adicionales=[router_extras, router_ui_extras]
 )

@@ -26,12 +26,22 @@ router = APIRouter()
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent.parent / "web" / "templates"
 templates = get_templates()
 
-def render_crud_page(request: Request, *, template: str, descriptor, ui_base: str, puede_editar: bool = True) -> HTMLResponse:
+def render_crud_page(request: Request, *, template: str, descriptor, ui_base: str, usuario, modulo: str) -> HTMLResponse:
     """
     Renderiza una página CRUD genérica.
     - `descriptor.frontend_config()` aporta columnas (thead) y etiquetas.
     - `ui_base` es la base de rutas HTMX para filas (`/filas`) y formulario (`/form`).
     """
+    # Lógica de permisos para la UI: Admin tiene todo, otros consultan sus arrays JSON
+    perms_edit = getattr(usuario, "permisos_editar", []) or []
+    perms_create = getattr(usuario, "permisos_crear", []) or []
+    perms_delete = getattr(usuario, "permisos_eliminar", []) or []
+    
+    # Para la UI, respetamos estrictamente los checkboxes (incluso para admins)
+    puede_editar = modulo in perms_edit
+    puede_crear = modulo in perms_create
+    puede_eliminar = modulo in perms_delete
+    
     return templates.TemplateResponse(
         template,
         {
@@ -39,6 +49,9 @@ def render_crud_page(request: Request, *, template: str, descriptor, ui_base: st
             "crud_config": descriptor.frontend_config(),
             "ui_base": ui_base,
             "puede_editar": puede_editar,
+            "puede_crear": puede_crear,
+            "puede_eliminar": puede_eliminar,
+            "usuario": usuario,
         },
     )
 
@@ -59,72 +72,40 @@ def pagina_error(request: Request, status: int = 401, detail: str = "No autentic
     raise HTTPException(status_code=status, detail=detail)
 
 
-@router.get(
-    "/usuarios",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("usuarios"))],
-)
-def pagina_listado_usuarios(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", puede_editar=True)
+@router.get("/usuarios", response_class=HTMLResponse)
+def pagina_listado_usuarios(request: Request, usuario=Depends(para_modulo("usuarios", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", usuario=usuario, modulo="usuarios")
 
 
-@router.get(
-    "/clientes",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("clientes"))],
-)
-def pagina_listado_clientes(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", puede_editar=True)
+@router.get("/clientes", response_class=HTMLResponse)
+def pagina_listado_clientes(request: Request, usuario=Depends(para_modulo("clientes", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=clientes_descriptor, ui_base="/ui/clientes", usuario=usuario, modulo="clientes")
 
 
-@router.get(
-    "/servicios",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("servicios"))],
-)
-def pagina_listado_servicios(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=servicios_descriptor, ui_base="/ui/servicios", puede_editar=True)
+@router.get("/servicios", response_class=HTMLResponse)
+def pagina_listado_servicios(request: Request, usuario=Depends(para_modulo("servicios", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=servicios_descriptor, ui_base="/ui/servicios", usuario=usuario, modulo="servicios")
 
 
-@router.get(
-    "/proveedores",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("proveedores"))],
-)
-def pagina_listado_proveedores(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", puede_editar=True)
+@router.get("/proveedores", response_class=HTMLResponse)
+def pagina_listado_proveedores(request: Request, usuario=Depends(para_modulo("proveedores", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=proveedores_descriptor, ui_base="/ui/proveedores", usuario=usuario, modulo="proveedores")
 
 
-@router.get(
-    "/cotizaciones",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("cotizaciones"))],
-)
-def pagina_listado_cotizaciones(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", puede_editar=True)
+@router.get("/cotizaciones", response_class=HTMLResponse)
+def pagina_listado_cotizaciones(request: Request, usuario=Depends(para_modulo("cotizaciones", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", usuario=usuario, modulo="cotizaciones")
 
 
-@router.get(
-    "/ordenes",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("ordenes"))],
-)
-def pagina_listado_ordenes(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_descriptor, ui_base="/ui/ordenes", puede_editar=True)
+@router.get("/ordenes", response_class=HTMLResponse)
+def pagina_listado_ordenes(request: Request, usuario=Depends(para_modulo("ordenes", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_descriptor, ui_base="/ui/ordenes", usuario=usuario, modulo="ordenes")
 
 
-@router.get(
-    "/servicios-proveedores",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("servicios_proveedores"))],
-)
-def pagina_servicios_proveedores(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=servicios_proveedores_descriptor, ui_base="/ui/servicios-proveedores", puede_editar=True)
+@router.get("/servicios-proveedores", response_class=HTMLResponse)
+def pagina_servicios_proveedores(request: Request, usuario=Depends(para_modulo("servicios_proveedores", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=servicios_proveedores_descriptor, ui_base="/ui/servicios-proveedores", usuario=usuario, modulo="servicios_proveedores")
 
-@router.get(
-    "/ordenes-compra",
-    response_class=HTMLResponse,
-    dependencies=[Depends(para_modulo("ordenes_compra"))],
-)
-def pagina_ordenes_compra(request: Request):
-    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_compra_descriptor, ui_base="/ui/ordenes-compra", puede_editar=True)
+@router.get("/ordenes-compra", response_class=HTMLResponse)
+def pagina_ordenes_compra(request: Request, usuario=Depends(para_modulo("ordenes_compra", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_compra_descriptor, ui_base="/ui/ordenes-compra", usuario=usuario, modulo="ordenes_compra")

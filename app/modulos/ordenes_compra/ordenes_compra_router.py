@@ -1,14 +1,15 @@
 """Router para Órdenes de Compra."""
-from fastapi import APIRouter, Depends, Body, HTTPException, Response
+from fastapi import APIRouter, Depends, Body, Response
 from sqlmodel import Session
 from typing import Any
 
-from app.base.descriptor_crud import DescriptorCRUD
-from app.base.factory_modulo import crear_modulo_crud
+from app.base.descriptor_crud import DescriptorCRUD, ConfiguracionUI
+from app.base.factory_modulo import crear_modulo_crud_estandar
 from app.nucleo.base_datos import obtener_sesion_bd
 from app.rutas.dependencias import dp_usuario_actual
 from app.rutas.permisos import para_modulo
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
 from app.modulos.proveedores.proveedores_modelo import Proveedor
@@ -16,6 +17,7 @@ from app.modulos.servicios_proveedores.servicios_proveedores_modelo import Servi
 from app.modulos.ordenes_compra.ordenes_compra_esquemas import OrdenCompraCreate, OrdenCompraUpdate, OrdenCompraRead
 from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
 from app.modulos.ordenes_compra.ordenes_compra_servicios import ServicioCreacionOrdenCompra
+from app.modulos.ordenes_compra.pdf_generator import generar_pdf_orden_compra
 
 
 # Router para endpoints custom (creación compleja)
@@ -40,8 +42,6 @@ def obtener_orden_completa(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Retorna una orden de compra con sus detalles para modo edición."""
-    from app.base.excepciones import RecursoNoEncontradoError
-
     orden = db.get(OrdenCompra, orden_id)
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
@@ -91,17 +91,14 @@ def actualizar_notas_privadas_oc(
     usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra")),
 ):
     """Actualiza las notas privadas de una orden de compra."""
-    from app.base.excepciones import RecursoNoEncontradoError
-
+    repo = RepositorioOrdenCompra(db)
     orden = db.get(OrdenCompra, orden_id)
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
 
     orden.notas_privadas = data.get('notas_privadas')
     orden.modificado_por = usuario.usuario
-    db.commit()
-    db.refresh(orden)
-    return {"detail": "Notas privadas actualizadas", "notas_privadas": orden.notas_privadas}
+    return repo.guardar(orden)
 
 
 @router_extras.get("/{orden_id}/pdf")
@@ -111,23 +108,16 @@ def descargar_pdf_orden(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Genera y descarga el PDF de una orden de compra."""
-    from app.modulos.ordenes_compra.pdf_generator import generar_pdf_orden_compra
-    
-    try:
-        pdf_bytes = generar_pdf_orden_compra(orden_id, db)
-        
-        # Recuperar folio para el nombre del archivo (podríamos devolverlo desde la función, pero query simple es barato)
-        # O mejor, mover la logica de response aqui.
-        orden = db.get(OrdenCompra, orden_id) # Re-get is cheap or cached
-        filename = f"OC-{orden.folio}.pdf"
-        
-        headers = {
-            "Content-Disposition": f"inline; filename={filename}"
-        }
-        
-        return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
-    except Exception as e:
-         raise HTTPException(status_code=500, detail=str(e))
+    pdf_bytes = generar_pdf_orden_compra(orden_id, db)
+    orden = db.get(OrdenCompra, orden_id)
+    if not orden:
+        raise RecursoNoEncontradoError("Orden de compra no encontrada")
+    filename = f"OC-{orden.folio}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"inline; filename={filename}"},
+    )
 
 
 # Descriptor CRUD estándar
@@ -144,19 +134,17 @@ descriptor = DescriptorCRUD[
     schema_read=OrdenCompraRead,
     schema_create=OrdenCompraCreate,
     schema_update=OrdenCompraUpdate,
-    columnas_incluir=["folio", "fecha_emision", "proveedor_id", "estado", "total"],
-    columnas_excluir={"creado_por", "modificado_por"},
-    topic="ordenes_compra",
-    boton_crear={"texto": "📦 Nueva Orden de Compra", "url": "/ui/ordenes-compra/wizard", "modal": False},
+    config_ui=ConfiguracionUI(
+        topic="ordenes_compra",
+        columnas_incluir=["folio", "fecha_emision", "proveedor_id", "estado", "total"],
+        columnas_excluir={"creado_por", "modificado_por"},
+        boton_crear={"texto": "📦 Nueva Orden de Compra", "url": "/ui/ordenes-compra/wizard", "modal": False},
+    )
 )
 
 # Router combinado
-router = crear_modulo_crud(
+router = crear_modulo_crud_estandar(
     descriptor=descriptor,
-    obtener_sesion=obtener_sesion_bd,
-    actor_dependency=dp_usuario_actual,
-    write_dependency=para_modulo("ordenes_compra"),
-    tpl_filas="ui/ordenes_compra/_filas.html",
-    tpl_form="ui/ordenes_compra/_form.html",
+    nombre_modulo="ordenes_compra",
     routers_adicionales=[router_extras]
 )

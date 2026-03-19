@@ -1,7 +1,9 @@
 """Endpoints para wizard y vistas HTML de órdenes de compra."""
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from typing import Any
+
+from app.web.jinja import get_templates
 from sqlmodel import Session
 
 from app.base.excepciones import RecursoNoEncontradoError
@@ -14,7 +16,7 @@ from app.modulos.proveedores.proveedores_modelo import Proveedor
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
 
 router = APIRouter(prefix="/ui/ordenes-compra", tags=["Ordenes Compra - UI"])
-TEMPLATES = Jinja2Templates(directory="web/templates")
+TEMPLATES = get_templates()
 
 
 @router.get("/wizard")
@@ -35,7 +37,7 @@ def ver_detalle_orden(
     orden_id: int,
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(dp_usuario_actual),
+    usuario = Depends(para_modulo("ordenes_compra", "ver")),
 ):
     """Vista de detalle de una orden de compra."""
     orden = db.get(OrdenCompra, orden_id)
@@ -45,6 +47,13 @@ def ver_detalle_orden(
     # Eager loading simulado (si no está configurado en relación lazy='joined')
     proveedor = db.get(Proveedor, orden.proveedor_id)
     
+    # RBAC context for detail view
+    perms_edit = getattr(usuario, "permisos_editar", []) or []
+    perms_delete = getattr(usuario, "permisos_eliminar", []) or []
+    
+    puede_editar = "ordenes_compra" in perms_edit
+    puede_eliminar = "ordenes_compra" in perms_delete
+
     return TEMPLATES.TemplateResponse(
         "ui/ordenes_compra/detalle.html",
         {
@@ -52,6 +61,8 @@ def ver_detalle_orden(
             "usuario": usuario,
             "orden": orden,
             "proveedor": proveedor,
-            "detalles": orden.detalles, # Relación ORM
+            "detalles": orden.detalles,
+            "puede_editar": puede_editar,
+            "puede_eliminar": puede_eliminar,
         }
     )

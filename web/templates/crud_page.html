@@ -1,5 +1,8 @@
 {% extends "base.html" %}
-{% block title %}{{ crud_config.label or 'CRUD' }}{% endblock %}
+{% from 'ui/macros/tablas.html' import tabla_crud %}
+{% from 'ui/macros/modales.html' import modal_htmx %}
+{% import "ui/macros/botones.html" as btn %}
+{% block title %}{{ crud_config.titulo }}{% endblock %}
 
 {% block customCSS %}{% endblock %}
 
@@ -11,7 +14,7 @@
       hx-trigger="keyup changed delay:300ms" hx-target="#tbody-lista">
   </div>
 </div>
-{% if puede_editar %}
+{% if puede_crear %}
 <div class="d-flex justify-content-end mb-3">
   {% if crud_config.botonCrear %}
   {% if crud_config.botonCrear.modal %}
@@ -31,34 +34,10 @@
   {% endif %}
 </div>
 {% endif %}
-<div class="table-responsive">
-  <table class="table table-striped table-sm">
-    <thead>
-      <tr>
-        {% if crud_config and crud_config.columnas %}
-        {% for col in crud_config.columnas %}
-        <th>{{ col.titulo if col.titulo else col.campo|title }}</th>
-        {% endfor %}
-        {% endif %}
-        <th style="width:150px;">Acciones</th>
-      </tr>
-    </thead>
-    <tbody id="tbody-lista" hx-get="{{ ui_base }}/filas" hx-trigger="load" hx-swap="innerHTML">
-      <tr>
-        <td colspan="100" class="text-center">Cargando...</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+{{ tabla_crud(crud_config, ui_base) }}
 
 {# Modal HTMX #}
-<div class="modal fade" id="editModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content" id="modal-content">
-      <!-- Contenido cargado por HTMX -->
-    </div>
-  </div>
-</div>
+{{ modal_htmx('editModal') }}
 
 {# Modal de Notas Privadas - compartido para todas las cotizaciones #}
 {# Modal de Notas Privadas - Genérico para cualquier módulo #}
@@ -66,10 +45,12 @@
 <div class="modal fade" id="modalNotasPrivadas" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
-      <div class="modal-header bg-primary-gradient">
-        <h5 class="modal-title text-white" id="modalNotasPrivadasTitulo">📝 Notas Privadas</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-dark" id="modalNotasPrivadasTitulo">
+            <i class="fas fa-lock text-muted me-2"></i>Notas Privadas
+        </h5>
+        {{ btn.btn_cerrar_modal() }}
+    </div>
       <div class="modal-body">
         <div class="alert alert-info alert-sm">
           <small><strong>ℹ️ Nota:</strong> Estas notas son solo para uso interno y no aparecen en el PDF.</small>
@@ -79,12 +60,10 @@
         <input type="hidden" id="notasPrivadasId">
         <input type="hidden" id="notasPrivadasModulo">
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="button" class="btn btn-teamsa-primary" onclick="guardarNotasPrivadas()">
-          💾 Guardar
-        </button>
-      </div>
+      <div class="modal-footer border-0 pt-0">
+        {{ btn.btn_secundario("Cancelar") }}
+        {{ btn.btn_primario("Guardar Notas", onclick="guardarNotasPrivadas()") }}
+    </div>
     </div>
   </div>
 </div>

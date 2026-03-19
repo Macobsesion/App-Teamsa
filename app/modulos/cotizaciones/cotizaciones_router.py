@@ -1,17 +1,16 @@
-"""Router y descriptor CRUD para cotizaciones usando factory pattern."""
 from typing import Any
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Body, HTTPException, Response, Query
+from fastapi import APIRouter, Depends, Body, Response, Query
 from sqlmodel import Session
 
-from app.base.descriptor_crud import DescriptorCRUD
-from app.base.factory_modulo import crear_modulo_crud
+from app.base.descriptor_crud import DescriptorCRUD, ConfiguracionUI
+from app.base.factory_modulo import crear_modulo_crud_estandar
 from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
 from app.rutas.dependencias import dp_usuario_actual
 from app.rutas.permisos import para_modulo
-from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate
+from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate, ConceptoRead
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
@@ -33,23 +32,20 @@ def obtener_completa(
     _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
     """Obtiene una cotización con sus conceptos (para edición)."""
-    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
     from app.modulos.cotizaciones.cotizaciones_esquemas import ConceptoRead
-    
+
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
         raise RecursoNoEncontradoError("Cotización no encontrada")
-    
-    # Obtener conceptos usando repository existente
+
     repo = RepositorioCotizacion(db)
     conceptos = repo.obtener_conceptos(cotizacion_id)
-    
-    # Convertir a dict y agregar conceptos
+
     cotizacion_dict = cotizacion.model_dump()
     cotizacion_dict["conceptos"] = [
         ConceptoRead.model_validate(c) for c in conceptos
     ]
-    
+
     return cotizacion_dict
 
 
@@ -60,22 +56,16 @@ def descargar_pdf(
     _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
     """Genera y descarga el PDF de una cotización."""
-    try:
-        pdf_bytes = generar_pdf_cotizacion(cotizacion_id, db)
-        
-        from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-        cotizacion = db.get(Cotizacion, cotizacion_id)
-        filename = f"{cotizacion.numero if cotizacion else 'cotizacion'}.pdf"
-        
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="{filename}"'}
-        )
-    except ValueError as e:
-        raise RecursoNoEncontradoError(str(e))
-    except Exception as e:
-        raise ReglaNegocioError(f"Error generando PDF: {str(e)}")
+    pdf_bytes = generar_pdf_cotizacion(cotizacion_id, db)
+    cotizacion = db.get(Cotizacion, cotizacion_id)
+    if not cotizacion:
+        raise RecursoNoEncontradoError("Cotización no encontrada")
+    filename = f"{cotizacion.numero}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router_extras.patch("/{cotizacion_id}/notas-privadas")
@@ -178,20 +168,18 @@ descriptor = DescriptorCRUD[RepositorioCotizacion, CotizacionCreate, CotizacionU
     },
     filtros_permitidos={"estado", "cliente_id"},
     campo_busqueda="numero",
-    columnas_incluir=["numero", "cliente_id", "fecha_emision", "total", "estado"],
-    columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
-    boton_crear={"texto": "✨ Nueva Cotización", "url": "/ui/cotizaciones/wizard", "modal": False},
+    config_ui=ConfiguracionUI(
+        columnas_incluir=["numero", "cliente_id", "fecha_emision", "total", "estado"],
+        columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
+        boton_crear={"texto": "✨ Nueva Cotización", "url": "/ui/cotizaciones/wizard", "modal": False},
+    )
 )
 
 
 # ---------- Router Combinado usando Factory ----------
-router = crear_modulo_crud(
+router = crear_modulo_crud_estandar(
     descriptor=descriptor,
-    obtener_sesion=obtener_sesion_bd,
-    actor_dependency=dp_usuario_actual,
-    write_dependency=para_modulo("cotizaciones"),
-    tpl_filas="ui/cotizaciones/_filas.html",
-    tpl_form="ui/cotizaciones/_form.html",
+    nombre_modulo="cotizaciones",
     routers_adicionales=[
         conceptos_router.router_ui,
         conceptos_router.router_api,

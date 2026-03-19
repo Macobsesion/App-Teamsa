@@ -1,11 +1,12 @@
 """Esquemas Pydantic para clientes."""
 from datetime import datetime
-from pydantic import BaseModel, Field  # type: ignore
+from pydantic import BaseModel
+from sqlmodel import SQLModel, Field  # type: ignore
 
 
-class ClienteBase(BaseModel):
+class ClienteBase(SQLModel):
     """Campos comunes de cliente."""
-    nombre: str = Field(min_length=1, max_length=200)
+    nombre: str = Field(index=True, min_length=1, max_length=200)
     rfc: str | None = Field(default=None, max_length=13)
     razon_social: str | None = None
     contacto: str | None = None
@@ -13,9 +14,8 @@ class ClienteBase(BaseModel):
     telefono: str | None = None
     direccion: str | None = None
     ciudad: str | None = None
-    estado: str | None = None
     cp: str | None = Field(default=None, max_length=5)
-    activo: bool = True
+    activo: bool = Field(default=True)
     notas: str | None = None
 
 
@@ -43,7 +43,6 @@ class ClienteUpdate(BaseModel):
     telefono: str | None = None
     direccion: str | None = None
     ciudad: str | None = None
-    estado: str | None = None
     cp: str | None = None
     activo: bool | None = None
     notas: str | None = None

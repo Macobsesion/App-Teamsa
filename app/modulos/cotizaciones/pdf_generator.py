@@ -2,8 +2,7 @@
 import base64
 from io import BytesIO
 from pathlib import Path
-from weasyprint import HTML, CSS  # type: ignore
-from jinja2 import Template
+from app.base.generador_pdf import GeneradorPDF
 
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
@@ -46,12 +45,7 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
     repo = RepositorioCotizacion(db)
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
-    # Leer template HTML
-    template_path = Path(__file__).parent.parent.parent.parent / "web" / "templates" / "pdf" / "cotizacion.html"
-    template_content = template_path.read_text(encoding="utf-8")
-    template = Template(template_content)
-    
-    # Convertir imágenes a data URIs
+    # Formatear fechas en español
     logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
     firma_path = Path(__file__).parent.parent.parent.parent / "web" / "static" / "img" / "firma_jefe.png"
     firma_data_uri = imagen_a_data_uri(firma_path)
@@ -71,10 +65,5 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
         "fecha_vigencia_formateada": fecha_vigencia_es,
     }
     
-    # Renderizar HTML
-    html_renderizado = template.render(**contexto)
-    
-    # Generar PDF
-    pdf_bytes = HTML(string=html_renderizado).write_pdf()
-    
-    return pdf_bytes
+    # Generar PDF a través del generador central
+    return GeneradorPDF.generar_pdf("pdf/cotizacion.html", contexto)

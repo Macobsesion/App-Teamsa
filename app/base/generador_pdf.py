@@ -1,22 +1,28 @@
 """Servicio para generar documentos PDF usando WeasyPrint y Jinja2."""
 from typing import Any, Dict
-from fastapi.templating import Jinja2Templates
+from app.web.jinja import get_templates
 from weasyprint import HTML, CSS
 from weasyprint.text.fonts import FontConfiguration
 from pathlib import Path
+import logging
+
+# WeasyPrint logger setup
+logger = logging.getLogger('weasyprint')
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.WARNING)
 
 # Configurar templates
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 TEMPLATES_DIR = BASE_DIR / "web" / "templates"
 STATIC_DIR = BASE_DIR / "web" / "static"
 
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates = get_templates()
 
 class GeneradorPDF:
     """Clase utilitaria para generar PDFs desde templates HTML."""
 
     @staticmethod
-    def generar_pdf(template_name: str, context: Dict[str, Any], base_url: str = str(STATIC_DIR)) -> bytes:
+    def generar_pdf(template_name: str, context: Dict[str, Any], base_url: str = f"file://{STATIC_DIR}/") -> bytes:
         """
         Renderiza un template y genera el binario PDF.
         
@@ -37,8 +43,9 @@ class GeneradorPDF:
         font_config = FontConfiguration()
         
         # Generar PDF
-        # base_url permite cargar imagenes/css locales con rutas relativas
+        # Inyectamos el CSS explícitamente para evitar problemas de resolución de rutas
         pdf_bytes = HTML(string=html_content, base_url=base_url).write_pdf(
+            stylesheets=[CSS(filename=str(STATIC_DIR / "css" / "pdf.css"))],
             font_config=font_config,
             # presentational_hints=True para respetar atributos HTML como width/height/align
             presentational_hints=True

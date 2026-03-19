@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, TypeVar, Generic, Union, Type
+from typing import Any, Callable, Iterable, TypeVar, Generic, Union, Type, Optional
 
 from pydantic import BaseModel  # type: ignore
 
@@ -36,6 +36,22 @@ def _auditoria_actualizacion_default(payload: Any, actor: Any) -> dict[str, Any]
 
 
 @dataclass
+class ConfiguracionUI:
+    """Metadatos puramente de presentación para las vistas HTML/HTMX.
+    
+    Extraído del DescriptorCRUD para favorecer la Composición y el SRP.
+    """
+    label_singular: str | None = None
+    mensajes: dict[str, str] = field(default_factory=dict)
+    columnas_incluir: Iterable[str] | None = None
+    columnas_excluir: Iterable[str] | None = None
+    selectores: dict[str, Any] = field(default_factory=dict)
+    form: list[dict[str, Any]] | None = None
+    boton_crear: dict[str, Any] | None = None
+    topic: str | None = None
+
+
+@dataclass
 class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, ActorType]):
     """Descriptor de un módulo CRUD.
 
@@ -55,6 +71,9 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
     schema_read: type[ReadSchema]
     schema_create: type[CreateSchema]
     schema_update: type[UpdateSchema]
+    # Composición: Configuración Opcional para las vistas HTML
+    config_ui: ConfiguracionUI | None = None
+    # --- Campos opcionales backend (con default) ---
     campos_editables: Iterable[str] = field(default_factory=list)
     # None significa "usar auditoría automática", lambda vacía significa "sin auditoría"
     campos_creacion_extra: Callable[[CreateSchema, ActorType], dict[str, Any]] | None = None
@@ -63,13 +82,6 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
     validar_actualizacion: Callable[[ReposType, UpdateSchema, int], str | None] | None = None
     filtros_permitidos: set[str] = field(default_factory=set)
     campo_busqueda: str | None = None
-    topic: str | None = None
-    mensajes: dict[str, str] = field(default_factory=dict)
-    columnas_incluir: Iterable[str] | None = None
-    columnas_excluir: Iterable[str] | None = None
-    selectores: dict[str, Any] = field(default_factory=dict)
-    form: list[dict[str, Any]] | None = None
-    boton_crear: dict[str, Any] | None = None
 
     def __post_init__(self):
         """Configura auditoría automática si no se proporcionaron funciones."""
@@ -143,47 +155,56 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
         )
 
     def columnas(self, incluir: Iterable[str] | None = None, excluir: Iterable[str] | None = None):
-        """Devuelve metadata de columnas a partir del schema_read.
-
-        Permite opcionalmente limitar o excluir columnas por nombre.
-        """
-        incluir = incluir if incluir is not None else self.columnas_incluir
-        excluir_final = set(self.columnas_excluir or [])
+        """Devuelve metadata de columnas a partir del schema_read."""
+        ui = self.config_ui or ConfiguracionUI()
+        incluir = incluir if incluir is not None else ui.columnas_incluir
+        excluir_final = set(ui.columnas_excluir or [])
         if excluir:
             excluir_final.update(excluir)
         return obtener_columnas_schema(self.schema_read, incluir=incluir, excluir=excluir_final)
 
+    def _singular(self) -> str:
+        """Devuelve el nombre singular del recurso para mensajes."""
+        ui = self.config_ui or ConfiguracionUI()
+        if ui.label_singular:
+            return ui.label_singular
+        # Fallback: quitar 's' final si la tiene
+        return self.label[:-1] if self.label.lower().endswith("s") else self.label
+
     def _mensajes_por_defecto(self) -> dict[str, str]:
         etiqueta = self.label
+        singular = self._singular()
         return {
             'cargaError': f'Error al obtener {etiqueta.lower()}',
-            'guardarError': f'Error al crear {etiqueta.lower()[:-1] if etiqueta.endswith("s") else etiqueta.lower()}',
-            'actualizarError': f'Error al actualizar {etiqueta.lower()[:-1] if etiqueta.endswith("s") else etiqueta.lower()}',
-            'eliminarError': f'Error al eliminar {etiqueta.lower()}',
-            'eliminado': f'{etiqueta[:-1] if etiqueta.endswith("s") else etiqueta} eliminado',
+            'guardarError': f'Error al crear {singular.lower()}',
+            'actualizarError': f'Error al actualizar {singular.lower()}',
+            'eliminarError': f'Error al eliminar {singular.lower()}',
+            'eliminado': f'{singular} eliminado',
             'confirmacionEliminar': '¿Confirma eliminar este registro?',
-            'creado': f'{etiqueta[:-1] if etiqueta.endswith("s") else etiqueta} creado',
-            'actualizado': f'{etiqueta[:-1] if etiqueta.endswith("s") else etiqueta} actualizado',
+            'creado': f'{singular} creado',
+            'actualizado': f'{singular} actualizado',
         }
 
     def frontend_config(self) -> dict[str, Any]:
         """Construye la configuración que consumen las vistas HTML (Jinja/HTMX)."""
-        mensajes_finales = {**self._mensajes_por_defecto(), **(self.mensajes or {})}
+        ui = self.config_ui or ConfiguracionUI()
+        mensajes_finales = {**self._mensajes_por_defecto(), **(ui.mensajes or {})}
+        topic = ui.topic or self.base_url.strip('/').replace('/', '_')
         return {
             'label': self.label,
             'baseUrl': self.base_url,
-            'topic': self.topic or self.base_url.strip('/').replace('/', '_'),
+            'topic': topic,
             'mensajes': mensajes_finales,
             'columnas': self.columnas(),
             'filtros': sorted(self.filtros_permitidos),
             'campoBusqueda': self.campo_busqueda,
-            'selectores': self.selectores,
-            'form': self.form,
+            'selectores': ui.selectores,
+            'form': ui.form,
             'editables': sorted(set(self.campos_editables)),
             'creables': obtener_campos_creables(self.schema_create),
             'required': obtener_campos_requeridos(self.schema_create),
             'propTypes': obtener_tipos_propiedades(self.schema_create),
-            'botonCrear': self.boton_crear,
+            'botonCrear': ui.boton_crear,
         }
 
-__all__ = ["DescriptorCRUD"]
+__all__ = ["DescriptorCRUD", "ConfiguracionUI"]

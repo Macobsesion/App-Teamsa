@@ -1,4 +1,4 @@
-{# Filas de la tabla de cotizaciones #}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% if items %}
 {% for item in items %}
 <tr>
@@ -30,32 +30,26 @@
             {{ item.estado|replace('_', ' ')|title }}
         </span>
     </td>
-    <td>
-        <div class="btn-group btn-group-sm">
-            <a href="/ui/cotizaciones/{{ item.id }}/detalle" class="btn btn-sm btn-teamsa-primary" title="Ver Detalle">
-                👁️
-            </a>
-
-            {# Botón Notas Privadas - Usa modal genérico en crud_page.html #}
-            <button class="btn btn-sm text-white btn-notas-privadas-generico"
-                style="background-color: var(--teamsa-primary); border-color: var(--teamsa-primary);"
-                title="Notas Privadas" data-modulo="cotizaciones" data-id="{{ item.id }}"
-                data-folio="{{ item.numero_version | default(item.numero, true) }}"
-                data-notas="{{ item.notas_privadas or '' }}">
-                📝
-            </button>
-
-            {% if item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
-            <a href="/ui/cotizaciones/{{ item.id }}/editar" class="btn btn-sm btn-warning" title="Editar">
-                ✏️
-            </a>
-            {% else %}
-            <button class="btn btn-sm btn-secondary" disabled title="Bloqueada ({{ item.estado }})">
-                🔒
-            </button>
-            {% endif %}
-        </div>
-    </td>
+    {% set can_edit_negocio = item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
+    {% set btns_extra = [
+        {
+            'label': '📝', 
+            'label_full': 'Notas Privadas',
+            'extra_attrs': 'data-modulo="cotizaciones" data-id="' ~ item.id ~ '" data-folio="' ~ (item.numero_version | default(item.numero, true)) ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
+            'extra_clases': 'btn-notas-privadas-generico'
+        }
+    ] %}
+    {{ acciones(
+        ui_base, 
+        item.id, 
+        puede_editar, 
+        url_detalle='/ui/cotizaciones/' ~ item.id ~ '/detalle',
+        url_editar='/ui/cotizaciones/' ~ item.id ~ '/editar',
+        extras=btns_extra,
+        puede_eliminar=puede_eliminar,
+        delete_confirm='¿Eliminar cotización ' ~ item.numero ~ '?',
+        puede_editar_negocio=can_edit_negocio
+    ) }}
 </tr>
 {% endfor %}
 {% else %}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'ui/macros/wizard_components.html' import indicador_progreso, tarjeta_totales %}
 
 {% block title %}Nueva Cotización{% endblock %}
 
@@ -11,23 +12,8 @@
                 <div class="card-body">
                     <h3 class="mb-4" id="wizard-titulo">✨ Nueva Cotización</h3>
 
-                    {# Progress Steps #}
-                    <div class="d-flex justify-content-between mb-4">
-                        <div class="wizard-step active" data-step="1">
-                            <div class="step-number">1</div>
-                            <div class="step-label">Cliente</div>
-                        </div>
-                        <div class="wizard-step-line"></div>
-                        <div class="wizard-step" data-step="2">
-                            <div class="step-number">2</div>
-                            <div class="step-label">Servicios</div>
-                        </div>
-                        <div class="wizard-step-line"></div>
-                        <div class="wizard-step" data-step="3">
-                            <div class="step-number">3</div>
-                            <div class="step-label">Resumen</div>
-                        </div>
-                    </div>
+                    {# Progress Steps mediante Macro #}
+                    {{ indicador_progreso(['Cliente', 'Servicios', 'Resumen']) }}
                 </div>
             </div>
 
@@ -137,31 +123,8 @@
                             </div>
                         </div>
 
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <table class="table table-sm mb-0">
-                                    <tr>
-                                        <td>Subtotal:</td>
-                                        <td class="text-end"><strong>$<span id="resumen-subtotal">0.00</span></strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Descuentos:</td>
-                                        <td class="text-end text-danger">-$<span id="resumen-descuento">0.00</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>IVA (16%):</td>
-                                        <td class="text-end">$<span id="resumen-iva">0.00</span></td>
-                                    </tr>
-                                    <tr class="table-primary">
-                                        <td><strong>TOTAL:</strong></td>
-                                        <td class="text-end">
-                                            <h5 class="mb-0">$<span id="resumen-total">0.00</span></h5>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+                        {# Tarjeta de Totales mediante Macro #}
+                        {{ tarjeta_totales() }}
                     </div>
 
                     {# Navigation Buttons #}
@@ -321,7 +284,7 @@
         if (wizardState.currentStep === 1) {
             const clienteId = document.getElementById('cliente-select').value;
             if (!clienteId) {
-                alert('Por favor selecciona un cliente');
+                mostrarError('Por favor selecciona un cliente');
                 return;
             }
             wizardState.cliente_id = parseInt(clienteId);
@@ -332,7 +295,7 @@
 
         if (wizardState.currentStep === 2) {
             if (wizardState.servicios.length === 0) {
-                alert('Agrega al menos un servicio');
+                mostrarError('Agrega al menos un servicio');
                 return;
             }
             actualizarResumen();
@@ -382,13 +345,13 @@
         const descuento = parseFloat(document.getElementById('descuento-input').value);
 
         if (!servicioId || !cantidad || cantidad <= 0) {
-            alert('Completa los campos del servicio correctamente');
+            mostrarError('Completa los campos del servicio correctamente');
             return;
         }
 
         // Validar descuento
         if (descuento < 0 || descuento > 100) {
-            alert('El descuento debe estar entre 0% y 100%');
+            mostrarError('El descuento debe estar entre 0% y 100%');
             return;
         }
 
@@ -583,12 +546,12 @@
 
     async function submitWizard() {
         if (!wizardState.cliente_id) {
-            alert('Selecciona un cliente');
+            mostrarError('Selecciona un cliente');
             return;
         }
 
         if (wizardState.servicios.length === 0) {
-            alert('Agrega al menos un servicio');
+            mostrarError('Agrega al menos un servicio');
             return;
         }
 
@@ -635,7 +598,7 @@
             window.location.href = `/ui/cotizaciones/${data.id}/detalle`;
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al crear la cotización: ' + error.message);
+            mostrarError('Error al crear la cotización: ' + error.message);
             btn.disabled = false;
             btn.innerHTML = '<span id="btn-submit-text">✓ Crear Cotización</span>';
         }
@@ -663,7 +626,7 @@
             window.location.href = '/cotizaciones';
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al actualizar la cotización: ' + error.message);
+            mostrarError('Error al actualizar la cotización: ' + error.message);
             btn.disabled = false;
             btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
         }
@@ -698,7 +661,7 @@
             window.location.href = '/cotizaciones';
         } catch (error) {
             console.error('Error:', error);
-            alert('Error al crear nueva versión: ' + error.message);
+            mostrarError('Error al crear nueva versión: ' + error.message);
             btn.disabled = false;
             btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
         }
@@ -749,7 +712,7 @@
             }
         } catch (error) {
             console.error('Error cargando cotización:', error);
-            alert('Error al cargar la cotización para editar');
+            mostrarError('Error al cargar la cotización para editar');
             window.location.href = '/cotizaciones';
         }
     }

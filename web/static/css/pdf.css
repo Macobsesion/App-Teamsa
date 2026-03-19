@@ -1,0 +1,377 @@
+/* 
+  Estilos centralizados para PDF generado por WeasyPrint 
+  Diseño base adaptado de cotizaciones.html (Preferencias de tamaño del cliente)
+*/
+
+:root {
+  /* Estas variables pueden ser sobrescritas globalmente, pero WeasyPrint requiere que existan al menos aquí */
+  --teamsa-primary: #4148C3;
+  --teamsa-primary-dark: #3840a8;
+  --teamsa-secondary: #027DC0;
+  --teamsa-accent: #97DBE6;
+  --teamsa-light-bg: #C6EBF1;
+  --teamsa-success: #198754;
+  --teamsa-success-dark: #047857;
+  --teamsa-success-gradient-start: #059669;
+  --teamsa-success-gradient-end: #047857;
+  --teamsa-warning: #ffc107;
+  --teamsa-danger: #dc3545;
+  --teamsa-text-dark: #212529;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+@page {
+  size: Letter;
+  margin: 1.0cm;
+  /* El cliente prefirió los márgenes de cotizaciones.html */
+}
+
+body {
+  font-family: 'Helvetica', 'Arial', sans-serif;
+  font-size: 10pt;
+  color: #333;
+  line-height: 1.2;
+}
+
+/* Header con logo y título */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--teamsa-primary);
+}
+
+.logo-container {
+  flex: 0 0 90px;
+}
+
+.logo {
+  max-width: 90px;
+  height: auto;
+}
+
+.titulo-container {
+  text-align: right;
+  flex: 1;
+}
+
+.titulo-principal {
+  font-size: 28pt;
+  /* De cotizaciones */
+  font-weight: bold;
+  color: var(--teamsa-primary);
+  margin-bottom: 5px;
+}
+
+.numero-cotizacion,
+.numero-folio,
+.numero-ot,
+.numero {
+  font-size: 16pt;
+  color: #64748b;
+  font-weight: 600;
+}
+
+/* Sección de información (Gris claro) */
+.info-section {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 10px 10px 0px 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.info-col {
+  flex: 1;
+}
+
+.info-label {
+  font-size: 8pt;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.info-value {
+  font-size: 10pt;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.info-row {
+  margin-bottom: 10px;
+}
+
+/* Tabla de conceptos (Azul Primario) */
+.conceptos-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 5px;
+}
+
+.conceptos-table thead {
+  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+  color: white;
+}
+
+.conceptos-table th {
+  padding: 12px 10px;
+  text-align: left;
+  font-size: 9pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.conceptos-table th.text-right {
+  text-align: right;
+}
+
+.conceptos-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.conceptos-table tbody tr:nth-child(even) {
+  background-color: #f8fafc;
+}
+
+.conceptos-table tbody tr:hover {
+  background-color: #f1f5f9;
+}
+
+.conceptos-table td {
+  padding: 10px;
+  font-size: 9.5pt;
+}
+
+/* Alineaciones y utilidades de la tabla */
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.codigo-sat,
+.codigo-sku {
+  color: #64748b;
+  font-size: 8pt;
+  font-family: 'Courier New', monospace;
+}
+
+/* Totales (Azul Primario) */
+.totales-container {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.totales-table {
+  width: 300px;
+  border-collapse: collapse;
+}
+
+.totales-table tr {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.totales-table td {
+  padding: 8px 12px;
+  font-size: 10pt;
+}
+
+.totales-table .label {
+  text-align: right;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.totales-table .valor {
+  text-align: right;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.totales-table .total-row {
+  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+  color: white;
+  font-size: 12pt;
+  font-weight: bold;
+}
+
+.totales-table .total-row td {
+  padding: 12px;
+  border: none;
+}
+
+/* Footer y Notas Generales */
+.footer {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 2px solid #e2e8f0;
+}
+
+.condiciones {
+  margin-bottom: 16px;
+}
+
+.condiciones-titulo {
+  font-size: 9pt;
+  font-weight: 600;
+  color: var(--teamsa-primary);
+  margin-bottom: 5px;
+}
+
+.condiciones-texto {
+  font-size: 8.5pt;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.notas,
+.observaciones {
+  background-color: #fef3c7;
+  padding: 8px;
+  border-left: 4px solid #f59e0b;
+  border-radius: 3px;
+  margin-bottom: 20px;
+}
+
+/* Color naranja estandar para notas de atencion */
+.notas-titulo,
+.observaciones-titulo {
+  font-size: 8pt;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 5px;
+}
+
+.notas-texto,
+.observaciones-texto {
+  font-size: 8.5pt;
+  color: #78350f;
+}
+
+/* Firmas */
+.firmas {
+  display: flex;
+  margin-top: 100px;
+  justify-content: space-around;
+}
+
+.firma-box {
+  text-align: center;
+  flex: 1;
+  margin: 0 16px;
+}
+
+.firma-linea {
+  border-top: 1px solid #333;
+  padding-top: 10px;
+}
+
+.firma-label {
+  font-size: 8pt;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Utilidades adicionales */
+.negrita {
+  font-weight: 600;
+}
+
+.muted {
+  color: #64748b;
+}
+
+.text-danger {
+  color: var(--teamsa-danger);
+}
+
+/* Variación Verde / Success para "Viáticos" */
+.viatico-header {
+  border-bottom: 3px solid var(--teamsa-success-gradient-start);
+}
+
+.viatico-titulo-principal {
+  color: var(--teamsa-success-dark);
+}
+
+.info-general-viaticos {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  padding: 12px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  border-left: 4px solid var(--teamsa-success-gradient-start);
+}
+
+.info-label-viaticos {
+  color: var(--teamsa-success-dark);
+}
+
+.categoria-titulo-viaticos {
+  background: linear-gradient(135deg, var(--teamsa-success-gradient-start) 0%, var(--teamsa-success-gradient-end) 100%);
+  color: white;
+  padding: 8px 10px;
+  font-size: 10pt;
+  font-weight: 600;
+  margin-top: 15px;
+  margin-bottom: 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.gastos-table-viaticos thead {
+  background-color: #d1fae5;
+  background: none;
+}
+
+.gastos-table-viaticos th {
+  color: var(--teamsa-success-dark);
+  border-bottom: 2px solid var(--teamsa-success-gradient-start);
+}
+
+.subtotal-row-viaticos {
+  background-color: #f0fdf4;
+  font-weight: 600;
+  color: var(--teamsa-success-dark);
+}
+
+.totales-finales-viaticos {
+  margin-top: 15px;
+  padding: 10px;
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-radius: 4px;
+}
+
+.total-categoria-viaticos {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 10px;
+  font-size: 9pt;
+  color: var(--teamsa-success-dark);
+}
+
+.total-general-row-viaticos {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, var(--teamsa-success-gradient-start) 0%, var(--teamsa-success-gradient-end) 100%);
+  color: white;
+  font-size: 12pt;
+  font-weight: bold;
+  border-radius: 4px;
+}

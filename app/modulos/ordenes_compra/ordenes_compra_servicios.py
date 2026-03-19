@@ -20,7 +20,8 @@ class ServicioCreacionOrdenCompra(ServicioDocumentoFinanciero[OrdenCompra, Detal
         proveedor_id = data['proveedor_id']
         proveedor = self.db.get(Proveedor, proveedor_id)
         if not proveedor:
-            raise ValueError("Proveedor no encontrado")
+            from app.base.excepciones import RecursoNoEncontradoError
+            raise RecursoNoEncontradoError("Proveedor no encontrado")
 
         temp_folio = f"TEMP-{uuid.uuid4()}"
         return OrdenCompra(

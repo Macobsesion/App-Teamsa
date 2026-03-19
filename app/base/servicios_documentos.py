@@ -6,6 +6,7 @@ import uuid
 from abc import ABC, abstractmethod
 
 from app.base.documentos_modelo import BaseDocumento, MixinDocumentoFinanciero
+from app.base.constantes import IVA_PORCENTAJE
 
 TDocumento = TypeVar("TDocumento", bound=BaseDocumento)
 TDetalle = TypeVar("TDetalle", bound=MixinDocumentoFinanciero)
@@ -54,8 +55,8 @@ class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
             self.db.flush()
             self.db.refresh(documento)
         
-        # Calcular totales (subtotal, iva, total)
-        self._calcular_totales_cabecera(documento)
+        # Calcular totales (subtotal, iva, total) usando los objetos instanciados para saltar el lazy load ORM cache
+        self._calcular_totales_cabecera(documento, items_orm)
         
         # Guardar final
         self.db.add(documento)
@@ -83,12 +84,15 @@ class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
         """Genera un folio final usando el ID del documento."""
         return None
 
-    def _calcular_totales_cabecera(self, documento: TDocumento) -> None:
+    def _calcular_totales_cabecera(self, documento: TDocumento, items_orm: Optional[List[TDetalle]] = None) -> None:
         """
         Suma los importes de los detalles y calcula impuestos.
         """
-        # Intenta obtener la relación de detalles dinámicamente
-        detalles = getattr(documento, 'detalles', getattr(documento, 'conceptos', []))
+        # Usar los items creados explicitos o intenta obtener la relación de detalles dinámicamente
+        if items_orm is not None:
+            detalles = items_orm
+        else:
+            detalles = getattr(documento, 'detalles', getattr(documento, 'conceptos', []))
         
         subtotal = sum(d.importe for d in detalles)
         iva = self._calcular_impuestos(documento, subtotal)
@@ -99,5 +103,5 @@ class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
         documento.total = total
 
     def _calcular_impuestos(self, documento: TDocumento, subtotal: Decimal) -> Decimal:
-        """Calcula el IVA/Impuestos. Por defecto 16%."""
-        return subtotal * Decimal("0.16")
+        """Calcula el IVA/Impuestos usando la tasa configurada en constantes."""
+        return subtotal * Decimal(str(IVA_PORCENTAJE))

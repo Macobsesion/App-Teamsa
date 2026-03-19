@@ -7,6 +7,7 @@ from sqlmodel import Session
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.base.excepciones import RecursoNoEncontradoError
 
 
 
@@ -19,7 +20,7 @@ def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuari
     cotizacion = db.get(Cotizacion, cotizacion_id)
     
     if not cotizacion:
-        raise ValueError("Cotización no encontrada")
+        raise RecursoNoEncontradoError("Cotización no encontrada")
     
     # Actualizar campos permitidos
     cotizacion.metodo_pago = data.get('metodo_pago', cotizacion.metodo_pago)
@@ -52,7 +53,7 @@ def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuari
         
         repo_concepto = RepositorioConcepto(db)
         for servicio_data in servicios_data:
-            repo_concepto.crear(
+            repo_concepto.crear_concepto(
                 cotizacion_id=cotizacion_id,
                 servicio_id=servicio_data.get('servicio_id'),
                 codigo_sat=servicio_data.get('codigo_sat', ''),
@@ -83,7 +84,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     cotizacion_actual = db.get(Cotizacion, cotizacion_id)
     
     if not cotizacion_actual:
-        raise ValueError("Cotización no encontrada")
+        raise RecursoNoEncontradoError("Cotización no encontrada")
     
     # 1. ENCONTRAR LA COTIZACIÓN MADRE (original)
     if cotizacion_actual.cotizacion_original_id:
@@ -91,7 +92,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
         id_madre = cotizacion_actual.cotizacion_original_id
         cotizacion_madre = db.get(Cotizacion, id_madre)
         if not cotizacion_madre:
-            raise ValueError("Cotización madre no encontrada")
+            raise RecursoNoEncontradoError("Cotización madre no encontrada")
     else:
         # Esta ES la cotización madre
         id_madre = cotizacion_actual.id
@@ -150,7 +151,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
     # 7. COPIAR SERVICIOS MODIFICADOS
     repo_concepto = RepositorioConcepto(db)
     for servicio_data in data.get('servicios', []):
-        repo_concepto.crear(
+        repo_concepto.crear_concepto(
             cotizacion_id=nueva_cotizacion.id,
             servicio_id=servicio_data.get('servicio_id'),
             codigo_sat=servicio_data['codigo_sat'],
@@ -161,6 +162,7 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
             descuento_porcentaje=Decimal(str(servicio_data.get('descuento_porcentaje', 0))),
         )
     
+    repo.recalcular_totales(nueva_cotizacion.id)
     db.commit()
     db.refresh(nueva_cotizacion)
     

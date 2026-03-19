@@ -21,44 +21,33 @@
 {'id':'funcionario','nombre':'Funcionario'}
 ] %}
 {{ f.field_select('rol','Rol', roles, item=item, required=True) }}
-{# Contraseña editable también en edición: requerida sólo al crear #}
-{% set es_crear = (modo == 'crear') %}
-{{ f.field_input('contrasena','Contraseña', type='password', required=es_crear, attrs='autocomplete="new-password"') }}
-{{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=es_crear,
+{# En edición la contraseña se cambia con el botón con candado dedicado. En creación, sí se pide #}
+{% if modo == 'crear' %}
+{{ f.field_input('contrasena','Contraseña temporal', type='password', required=True, attrs='autocomplete="new-password"') }}
+{{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=True,
 attrs='autocomplete="new-password"') }}
+<script>
+  // Validar al crear
+  setTimeout(() => {
+    var form = document.getElementById('frmUsuario');
+    var p = form.querySelector('input[name="contrasena"]');
+    var c = form.querySelector('input[name="confirmarContrasena"]');
+    var btn = form.querySelector('button[type="submit"]');
+    function validate() {
+      btn.disabled = (p.value !== c.value) || !p.value;
+    }
+    p.addEventListener('input', validate);
+    c.addEventListener('input', validate);
+  }, 100);
+</script>
+{% endif %}
 
 <script>
   (function () {
     var f = document.getElementById('frmUsuario');
     if (!f) return;
-    var p = f.querySelector('input[name="contrasena"]');
-    var c = f.querySelector('input[name="confirmarContrasena"]');
     var btn = f.querySelector('button[type="submit"]');
-    function validar() {
-      if (!p || !c) return;
-      var pv = (p.value || '');
-      var cv = (c.value || '');
-      // En edición, si ambos vacíos, no bloquear
-      if (!f.querySelector('input[name="id"]') && (pv === '' || cv === '')) {
-        // creación: requieren ambos no vacíos
-        try { p.classList.toggle('is-invalid', pv === ''); c.classList.toggle('is-invalid', cv === ''); } catch (_) { }
-      }
-      if (pv && cv) {
-        var ok = (pv === cv);
-        try { c.classList.toggle('is-invalid', !ok); c.classList.toggle('is-valid', ok); } catch (_) { }
-        if (btn) btn.disabled = !ok;
-      } else {
-        // En edición, permitimos vacío (no cambio de contraseña)
-        if (f.querySelector('input[name="id"]')) {
-          if (btn) btn.disabled = false;
-        }
-      }
-    }
-    ['input', 'change', 'blur'].forEach(function (ev) {
-      if (p) p.addEventListener(ev, validar);
-      if (c) c.addEventListener(ev, validar);
-    });
-    validar();
+    /* Eliminada la validación manual de contraseñas ya que ahora vive en su propio modal */
   })();
 </script>
 {% endcall %}

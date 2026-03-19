@@ -1,8 +1,14 @@
 {% from 'partials/forms.html' import render_field %}
+{% import "ui/macros/botones.html" as btn %}
+<!-- Modal Compartido Órdenes (Crear/Editar) -->
+<!-- Variables para modo HTMX dinámico -->
 <form hx-put="/api/ordenes/{{ item.id }}" hx-target="#tbody-lista" hx-swap="innerHTML">
     <div class="modal-header">
-        <h5 class="modal-title">Editar Orden de Trabajo</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title fw-bold text-dark">
+            <i class="fas {% if p_es_editar %}fa-edit{% else %}fa-plus-circle{% endif %} text-muted me-2"></i>
+            {% if p_es_editar %}Editar Orden #{{ p_item.id }}{% else %}Nueva Orden{% endif %}
+        </h5>
+        {{ btn.btn_cerrar_modal() }}
     </div>
     <div class="modal-body">
         <div class="row">
@@ -31,8 +37,8 @@
             <small>⚠️ Datos del cliente (Snapshot) no son editables.</small>
         </div>
     </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" class="btn btn-teamsa-primary">Guardar Cambios</button>
+    <div class="modal-footer border-0 pt-0">
+        {{ btn.btn_secundario("Cancelar") }}
+        {{ btn.btn_primario("Guardar Cambios", type="submit") }}
     </div>
 </form>

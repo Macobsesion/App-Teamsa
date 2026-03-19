@@ -35,6 +35,8 @@ from app.nucleo.archivos import (
     move_pdf_to_entity,
     save_pdf_for_entity,
 )
+from app.base.archivos_procesador import GestorArchivosPolimorfico
+from app.base.procesador_formularios import ProcesadorFormulariosHTMX
 
 # Tipos genéricos
 RepoT = TypeVar("RepoT")
@@ -43,27 +45,9 @@ UpdateSchemaT = TypeVar("UpdateSchemaT", bound=BaseModel)
 ActorT = TypeVar("ActorT")
 
 
-def _es_nullable_o_numerico(k: str, v: Any, defn: dict[str, Any]) -> bool:
-    """Determina si un campo vacío debe convertirse a None.
-
-    Los campos numéricos (integer/number) y de email no aceptan string vacío;
-    deben recibir None para evitar errores de validación de Pydantic.
-    También aplica a campos que declararon `null` como tipo posible (Optional).
-    """
-    if not (isinstance(v, str) and v.strip() == ""):
-        return False
-    fmt = defn.get("format")
-    t = defn.get("type")
-    if t in ("integer", "number") or fmt == "email":
-        return True
-    for key in ("anyOf", "oneOf", "allOf"):
-        lst = defn.get(key) or []
-        if isinstance(lst, list) and any(
-            isinstance(d, dict) and d.get("type") in ("null", "integer", "number")
-            for d in lst
-        ):
-            return True
-    return False
+# La función `_es_nullable_o_numerico` fue eliminada aplicando principios KISS.
+# La coerción de strings vacíos a None debe manejarse vía Pydantic (utiles_pydantic.py)
+# o mediante un pre-procesamiento unificado sencillo.
 
 
 @dataclass
@@ -75,6 +59,9 @@ class DescriptorUI:
     msg_creado: str | None = None
     msg_actualizado: str | None = None
     msg_eliminado: str | None = None
+
+
+
 
 
 def construir_enrutador_ui(
@@ -144,14 +131,27 @@ def construir_enrutador_ui(
             filtros = {}
         # type: ignore[attr-defined]
         items = repo.listar(filtros)
-        puede_editar = bool(actor and getattr(actor, "rol", None) == "admin")
+        # Interrogamos el usuario real de DB para verificar ocultamiento de botones HTMX
+        puede_editar = False
+        puede_eliminar = False
+        if actor:
+            from app.modulos.usuarios.usuarios_modelo import Usuario
+            from sqlmodel import select
+            usuario_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
+            if usuario_db:
+                # Inferencia de módulo desde URL
+                modulo = prefix.strip("/").split("/")[-1].replace("-", "_")
+                # Respetamos los checkboxes como fuente de verdad para ocultar botones
+                puede_editar = modulo in (getattr(usuario_db, "permisos_editar", []) or [])
+                puede_eliminar = modulo in (getattr(usuario_db, "permisos_eliminar", []) or [])
+                    
         return templates.TemplateResponse(request, ui.tpl_filas, {
             "items": items,
             "puede_editar": puede_editar,
+            "puede_eliminar": puede_eliminar,
             "ui_base": prefix,
             "columnas": columnas or [],
         })
-
 
     @router.get("/form", response_class=HTMLResponse)
     def ui_form(
@@ -164,7 +164,19 @@ def construir_enrutador_ui(
         repo = _get_repo(db)
         # type: ignore[attr-defined]
         item = repo.db.get(repo.modelo, id) if id else None
-        puede_editar = bool(actor and getattr(actor, "rol", None) == "admin")
+        # Determinar si puede editar basándose en rol o permisos por módulo
+        puede_editar = False
+        if actor:
+            from app.modulos.usuarios.usuarios_modelo import Usuario
+            from sqlmodel import select
+            usuario_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
+            if usuario_db:
+                if usuario_db.rol == "admin":
+                    puede_editar = True
+                else:
+                    modulo = prefix.strip("/").split("/")[-1].replace("-", "_")
+                    puede_editar = modulo in (getattr(usuario_db, "permisos_editar", []) or [])
+
         extra_ctx = extra_context_provider(db) if extra_context_provider else {}
         ctx = {"request": request, "item": item, "modo": modo, "puede_editar": puede_editar}
         ctx.update(extra_ctx)
@@ -180,88 +192,37 @@ def construir_enrutador_ui(
         repo = _get_repo(db)
         form = await request.form()
 
-        # Validación UI opcional (p.ej. confirmación de contraseña)
+        # Validación UI opcional
         if validar_form_creacion:
             error = validar_form_creacion(dict(form))
             if error:
-                return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": error},
+                return templates.TemplateResponse(
+                    request, ui.tpl_form,
+                    {"item": None, "modo": "crear", "error": error},
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
-        # Filtra según el esquema de creación
         creables = set(obtener_campos_creables(schema_create))
-        # Detectar campos de tipo lista para recoger múltiples valores del FormData
         props = schema_create.model_json_schema().get("properties", {})
-        def _es_array_prop(defn: dict[str, Any]) -> bool:
-            if defn.get("type") == "array":
-                return True
-            # Pydantic puede emitir anyOf con array|null
-            for key in ("anyOf", "oneOf", "allOf"):
-                lst = defn.get(key) or []
-                if isinstance(lst, list) and any(isinstance(d, dict) and d.get("type") == "array" for d in lst):
-                    return True
-            # Si hay "items" es indicio de array
-            return "items" in defn
-        array_fields = {k for k, v in props.items() if isinstance(v, dict) and _es_array_prop(v)}
-        datos_filtrados: dict[str, Any] = {}
-        archivos_temp: dict[str, str] = {}
-        for k in creables:
-            if k not in form:
-                continue
-            # Primero tratar campos tipo array (incluye input multiple de archivos)
-            is_array = (k in array_fields) or bool((file_fields or {}).get(k, {}).get("multiple"))
-            if is_array and hasattr(form, "getlist"):
-                lista = form.getlist(k)
-                if lista and isinstance(lista[0], (UploadFile, StarletteUploadFile)):
-                    rutas: list[str] = []
-                    for f in lista:
-                        if not (f and (f.filename or "").strip()):
-                            continue
-                        try:
-                            rutas.append(save_pdf_temp(f))
-                        except Exception as e:  # pragma: no cover
-                            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
-                                status_code=200,
-                            )
-                    if rutas:
-                        archivos_temp[k] = rutas
-                    datos_filtrados[k] = rutas
-                else:
-                    # valores de texto simples en arrays
-                    datos_filtrados[k] = lista
-                continue
-
-            # Caso campo simple (no array)
-            val = form.get(k)
-            if isinstance(val, (UploadFile, StarletteUploadFile)) and (val.filename or "").strip():
-                try:
-                    temp_rel = save_pdf_temp(val)
-                except Exception as e:  # pragma: no cover
-                    return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Archivo inválido: {e}"},
-                        status_code=200,
-                    )
-                archivos_temp.setdefault(k, [])
-                archivos_temp[k].append(temp_rel)
-                datos_filtrados[k] = temp_rel
-            else:
-                datos_filtrados[k] = val
-        # Coerción KISS: vacíos a None para campos que Pydantic puede rechazar como vacíos
-        for k, v in list(datos_filtrados.items()):
-            defn = props.get(k, {}) if isinstance(props, dict) else {}
-            if _es_nullable_o_numerico(k, v, defn):
-                datos_filtrados[k] = None
+        datos_filtrados, archivos_temp = ProcesadorFormulariosHTMX.procesar(
+            form, props, creables, file_fields
+        )
 
         try:
             payload = schema_create(**datos_filtrados)
         except ValidationError as e:  # pragma: no cover
-            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": str(e)},
+            return templates.TemplateResponse(
+                request, ui.tpl_form,
+                {"item": None, "modo": "crear", "error": str(e)},
                 status_code=200,
             )
-        # Validación de unicidad (si existe)
+
         if hooks.validar_unicidad:
             conflicto = hooks.validar_unicidad(repo, payload)  # type: ignore[arg-type]
             if conflicto:
-                return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": conflicto},
+                return templates.TemplateResponse(
+                    request, ui.tpl_form,
+                    {"item": None, "modo": "crear", "error": conflicto},
                     status_code=200,
                 )
 
@@ -272,40 +233,36 @@ def construir_enrutador_ui(
             entidad = repo.crear(**combinado)
         except Exception as exc:
             traceback.print_exc()
-            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "crear", "error": f"Error interno: {str(exc)}"},
+            return templates.TemplateResponse(
+                request, ui.tpl_form,
+                {"item": None, "modo": "crear", "error": f"Error interno: {str(exc)}"},
                 status_code=200,
             )
 
+        # POLIMORFISMO: Confirmar guardado de archivos moviéndolos a destino final
         if archivos_temp:
-            cambios: dict[str, Any] = {}
             plural = label.strip().lower()
             entidad_id = getattr(entidad, "id", None)
             if entidad_id is not None:
+                cambios: dict[str, Any] = {}
                 for campo, temps in archivos_temp.items():
-                    cfg = (file_fields or {}).get(campo)
-                    if isinstance(temps, list):
-                        finales: list[str] = []
-                        for t in temps:
-                            final_rel = move_pdf_to_entity(t, entity_plural=plural, entity_id=int(entidad_id))
-                            finales.append(final_rel)
-                        # Validar máximo de archivos si se indicó
-                        if cfg and cfg.get("multiple") and cfg.get("max"):
-                            if len(finales) > int(cfg["max"]):
-                                return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(cfg['max'])} archivos"},
-                                    status_code=200,
-                                )
-                        # Si el campo es múltiple, asignamos lista; si no, el primero
-                        cambios[campo] = finales if (cfg and cfg.get("multiple")) else (finales[0] if finales else None)
-                    else:
-                        final_rel = move_pdf_to_entity(temps, entity_plural=plural, entity_id=int(entidad_id))
-                        cambios[campo] = final_rel
+                    cfg = (file_fields or {}).get(campo, {})
+                    estrategia = GestorArchivosPolimorfico.obtener_estrategia(bool(cfg.get("multiple")))
+                    try:
+                        finales = estrategia.confirmar_guardado(temps, int(entidad_id), plural, cfg)
+                        if finales is not None:
+                            cambios[campo] = finales
+                    except ValueError as e:
+                        return templates.TemplateResponse(
+                            request, ui.tpl_form,
+                            {"item": entidad, "modo": "editar", "error": str(e)},
+                            status_code=200,
+                        )
                 if cambios:
                     repo.actualizar(int(entidad_id), cambios)
 
-        # Señales HTMX
         response.headers["HX-Trigger"] = json.dumps({
-            "refrescarLista": True,
-            "modalClose": True,
+            "refrescarLista": True, "modalClose": True,
             "flash": {"tipo": "success", "texto": msg_creado},
         })
         response.headers["HX-Refresh"] = "true"
@@ -320,91 +277,54 @@ def construir_enrutador_ui(
         db: Session = Depends(obtener_sesion),
     ):
         repo = _get_repo(db)
-        # entidad actual para validaciones contextuales
         entidad_actual = repo.db.get(repo.modelo, id)
         form = await request.form()
-        # Recoger datos teniendo en cuenta arrays según schema_update
+
         props_u = schema_update.model_json_schema().get("properties", {})
-        array_fields_u = {k for k, v in props_u.items() if v.get("type") == "array"}
-        datos_u: dict[str, Any] = {}
-        archivos_update: dict[str, str] = {}
-        # Para actualización, si llegan archivos nuevos:
-        for k in props_u.keys():
-            if k not in form:
-                continue
-            # Primero tratar arrays (posibles múltiples archivos)
-            is_array_u = (k in array_fields_u) or bool((file_fields or {}).get(k, {}).get("multiple"))
-            if is_array_u and hasattr(form, "getlist"):
-                lista = form.getlist(k)
-                if lista and isinstance(lista[0], (UploadFile, StarletteUploadFile)):
-                    finales: list[str] = []
-                    for f in lista:
-                        if not (f and (f.filename or "").strip()):
-                            continue
-                        final_rel = save_pdf_for_entity(f, entity_plural=label.strip().lower(), entity_id=int(id))
-                        finales.append(final_rel)
-                    current = []
-                    try:
-                        entidad = repo.db.get(repo.modelo, id)
-                        current = list(getattr(entidad, k, []) or []) if entidad else []
-                    except Exception:
-                        current = []
-                    combinado_lista = current + finales
-                    max_files = (file_fields or {}).get(k, {}).get("max")
-                    if max_files and len(combinado_lista) > int(max_files):
-                        return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
-                            status_code=200,
-                        )
-                    archivos_update[k] = combinado_lista
-                else:
-                    datos_u[k] = lista
-                continue
+        campos_u = set(props_u.keys())
+        datos_u, archivos_update = ProcesadorFormulariosHTMX.procesar(
+            form, props_u, campos_u, file_fields,
+            entity_id=id, entity_plural=label.strip().lower()
+        )
 
-            # Caso campo simple (no array)
-            val = form.get(k)
-            if isinstance(val, (UploadFile, StarletteUploadFile)) and (val.filename or "").strip():
-                try:
-                    final_rel = save_pdf_for_entity(val, entity_plural=label.strip().lower(), entity_id=int(id))
-                except Exception as e:  # pragma: no cover
-                    return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "editar", "error": f"Archivo inválido: {e}"},
-                        status_code=200,
-                    )
-                if file_fields and file_fields.get(k, {}).get("multiple"):
-                    current = []
-                    try:
-                        entidad = repo.db.get(repo.modelo, id)
-                        current = list(getattr(entidad, k, []) or []) if entidad else []
-                    except Exception:
-                        current = []
-                    combinado_lista = current + [final_rel]
-                    max_files = (file_fields or {}).get(k, {}).get("max")
-                    if max_files and len(combinado_lista) > int(max_files):
-                        return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad, "modo": "editar", "error": f"Máximo {int(max_files)} archivos"},
-                            status_code=200,
-                        )
-                    archivos_update[k] = combinado_lista
-                else:
-                    archivos_update[k] = final_rel
-            else:
-                datos_u[k] = val
-        # Coerción KISS: vacíos a None para campos numéricos/emails opcionales en update
-        for k, v in list(datos_u.items()):
-            defn = props_u.get(k, {}) if isinstance(props_u, dict) else {}
-            if _es_nullable_o_numerico(k, v, defn):
-                datos_u[k] = None
+        # POLIMORFISMO: Fusionar actualizaciones de archivos
+        for campo, nuevos in list(archivos_update.items()):
+            cfg = (file_fields or {}).get(campo, {})
+            is_multiple = bool(cfg.get("multiple"))
+            estrategia = GestorArchivosPolimorfico.obtener_estrategia(is_multiple)
+            
+            try:
+                entidad = repo.db.get(repo.modelo, id)
+                actuales = list(getattr(entidad, campo, []) or []) if entidad else []
+            except Exception:
+                actuales = []
+                
+            try:
+                fusionados = estrategia.fusionar_actualizacion(nuevos, actuales, cfg)
+                archivos_update[campo] = fusionados
+            except ValueError as e:
+                return templates.TemplateResponse(
+                    request, ui.tpl_form,
+                    {"item": entidad_actual, "modo": "editar", "error": str(e)},
+                    status_code=200,
+                )
 
-        # Validación de formulario de actualización (suave, UI)
+        # Validación de formulario de actualización
         if validar_form_actualizacion is not None:
             msg = validar_form_actualizacion(datos_u, entidad_actual)
             if msg:
-                return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad_actual, "modo": "editar", "error": msg},
+                return templates.TemplateResponse(
+                    request, ui.tpl_form,
+                    {"item": entidad_actual, "modo": "editar", "error": msg},
                     status_code=200,
                 )
 
         try:
             payload = schema_update(**datos_u)
         except ValidationError as e:  # pragma: no cover
-            return templates.TemplateResponse(request, ui.tpl_form, { "item": None, "modo": "editar", "error": str(e)},
+            return templates.TemplateResponse(
+                request, ui.tpl_form,
+                {"item": None, "modo": "editar", "error": str(e)},
                 status_code=200,
             )
         base = hooks.preparar_actualizacion(payload, actor)  # type: ignore[arg-type]
@@ -414,17 +334,20 @@ def construir_enrutador_ui(
             repo.actualizar(id, combinado)
         except Exception as exc:
             traceback.print_exc()
-            return templates.TemplateResponse(request, ui.tpl_form, { "item": entidad_actual, "modo": "editar", "error": f"Error interno: {str(exc)}"},
+            return templates.TemplateResponse(
+                request, ui.tpl_form,
+                {"item": entidad_actual, "modo": "editar", "error": f"Error interno: {str(exc)}"},
                 status_code=200,
             )
 
         response.headers["HX-Trigger"] = json.dumps({
-            "refrescarLista": True,
-            "modalClose": True,
+            "refrescarLista": True, "modalClose": True,
             "flash": {"tipo": "success", "texto": msg_actualizado},
         })
         response.headers["HX-Refresh"] = "true"
         return HTMLResponse("")
+
+    from sqlalchemy.exc import IntegrityError
 
     @router.delete("/{id}")
     def ui_eliminar(
@@ -434,15 +357,26 @@ def construir_enrutador_ui(
         db: Session = Depends(obtener_sesion),
     ):
         repo = _get_repo(db)
-        # type: ignore[attr-defined]
-        repo.eliminar(id)
-        response.headers["HX-Trigger"] = json.dumps({
-            "refrescarLista": True,
-            "flash": {"tipo": "success", "texto": msg_eliminado},
-        })
-        response.headers["HX-Refresh"] = "true"
+        try:
+            repo.eliminar(id)
+            response.headers["HX-Trigger"] = json.dumps({
+                "refrescarLista": True,
+                "flash": {"tipo": "success", "texto": msg_eliminado},
+            })
+        except IntegrityError:
+            db.rollback()
+            response.headers["HX-Trigger"] = json.dumps({
+                "flash": {"tipo": "error", "texto": "No se puede eliminar este registro porque está siendo utilizado en otros documentos (ej: cotizaciones u órdenes)."},
+            })
+        except Exception as e:
+            db.rollback()
+            response.headers["HX-Trigger"] = json.dumps({
+                "flash": {"tipo": "error", "texto": f"Error al eliminar: {str(e)}"},
+            })
+            
         return HTMLResponse("")
 
     return router
+
 
 __all__ = ["DescriptorUI", "construir_enrutador_ui"]

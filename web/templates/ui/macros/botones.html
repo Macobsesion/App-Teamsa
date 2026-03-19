@@ -1,0 +1,79 @@
+{# web/templates/ui/macros/botones.html #}
+
+{% macro acciones_crud(base_url, item_id, puede_editar, delete_confirm="¿Eliminar este registro?", puede_eliminar=none, extras=none, url_detalle=none, puede_ver=true, url_editar=none, puede_editar_negocio=none) %}
+{% set can_edit_rbac = puede_editar %}
+{% set can_edit_negocio = puede_editar_negocio if puede_editar_negocio is not none else true %}
+{% set can_delete = puede_eliminar if puede_eliminar is not none else puede_editar %}
+<td class="text-center">
+    <div class="btn-group btn-group-sm">
+        {# Botón Ver (Ojo) - Siempre visible si puede_ver es true #}
+        {% if puede_ver and url_detalle %}
+        <a href="{{ url_detalle }}" class="btn btn-outline-info" title="Ver Detalle">
+            👁️
+        </a>
+        {% endif %}
+
+        {# Acciones Extras (Negocio/Notas) - Dependen solo de RBAC si el usuario tiene permiso de editar #}
+        {% if can_edit_rbac %}
+            {% if extras %}
+            {% for ex in extras %}
+            <button class="btn btn-outline-secondary {{ ex.extra_clases }}" 
+              {% if ex.data_bs_toggle %}data-bs-toggle="{{ ex.data_bs_toggle }}" data-bs-target="{{ ex.data_bs_target }}"{% endif %}
+              {% if ex.hx_get %}hx-get="{{ ex.hx_get }}" hx-target="#modal-content" hx-swap="innerHTML"{% endif %}
+              {% if ex.onclick %}onclick="{{ ex.onclick }}"{% endif %}
+              {% if ex.extra_attrs %}{{ ex.extra_attrs|safe }}{% endif %}
+              title="{{ ex.label_full | default(ex.label) }}">
+              {{ ex.label }}
+            </button>
+            {% endfor %}
+            {% endif %}
+
+            {# Botón Editar - Depende de RBAC Y de la Lógica de Negocio (status del item) #}
+            {% if can_edit_negocio %}
+                {% if url_editar %}
+                <a href="{{ url_editar }}" class="btn btn-outline-primary" title="Editar">
+                    ✏️
+                </a>
+                {% else %}
+                <button class="btn btn-outline-primary"
+                    hx-get="{{ base_url }}/form?id={{ item_id }}&modo=editar" 
+                    hx-target="#modal-content"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#editModal" 
+                    title="Editar">
+                    ✏️
+                </button>
+                {% endif %}
+            {% endif %}
+        {% endif %}
+
+        {# Acción de Eliminar - Solo si can_delete es true #}
+        {% if can_delete %}
+        <button class="btn btn-outline-danger" 
+            hx-delete="{{ base_url }}/{{ item_id }}"
+            hx-confirm="{{ delete_confirm }}" 
+            hx-target="closest tr" 
+            hx-swap="outerHTML" 
+            title="Eliminar">
+            🗑️
+        </button>
+        {% endif %}
+    </div>
+</td>
+{% endmacro %}
+
+{% macro btn_primario(texto, type="button", id="", onclick="", extra_attrs="", extra_clases="") %}
+<button type="{{ type }}" {% if id %}id="{{ id }}"{% endif %} class="btn btn-teamsa-primary {{ extra_clases }}" {% if onclick %}onclick="{{ onclick }}"{% endif %} {{ extra_attrs|safe }}>
+    {{ texto|safe }}
+</button>
+{% endmacro %}
+
+{% macro btn_secundario(texto, type="button", data_dismiss="modal", extra_attrs="") %}
+<button type="{{ type }}" class="btn btn-secondary" {% if data_dismiss %}data-bs-dismiss="{{ data_dismiss }}"{% endif %} {{ extra_attrs|safe }}>
+    {{ texto }}
+</button>
+{% endmacro %}
+
+{% macro btn_cerrar_modal() %}
+<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+{% endmacro %}

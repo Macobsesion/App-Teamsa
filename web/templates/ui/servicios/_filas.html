@@ -1,10 +1,10 @@
-{% from 'partials/actions.html' import acciones %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% from 'partials/rows.html' import celdas %}
 {% if items %}
 {% for item in items %}
 <tr>
     {{ celdas(item, columnas) }}
-    {{ acciones(ui_base, item.id, True, None, '¿Eliminar servicio?') }}
+    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar servicio?') }}
 </tr>
 {% endfor %}
 {% else %}

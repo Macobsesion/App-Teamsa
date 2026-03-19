@@ -1,50 +1,57 @@
 """
-Tabla central de permisos por módulo.
+Módulo de control de acceso dinámico (RBAC).
 
-Para cambiar quién puede acceder a un módulo, sólo edita PERMISOS_MODULOS.
-Todos los routers importan `para_modulo(nombre)` en lugar de `exigir_roles(...)`.
+Reemplaza los diccionarios quemados en código estático.
+Expone la dependencia FastAPI que interroga a la base de datos 
+para leer los arrays JSON de permisos del usuario.
 """
-from app.rutas.dependencias import exigir_roles, dp_usuario_actual
+from typing import Callable
+from fastapi import Depends, HTTPException, status
+from sqlmodel import Session, select
 
-# ── Tabla central: módulo → roles autorizados para escritura ─────────────────
-# Keys: nombre del módulo (usar el mismo string en para_modulo()).
-# Values: tupla de roles que pueden crear/editar/eliminar en ese módulo.
-PERMISOS_MODULOS: dict[str, tuple[str, ...]] = {
-    "usuarios":               ("admin",),
-    "clientes":               ("admin",),
-    "servicios":              ("admin",),
-    "proveedores":            ("admin", "funcionario"),
-    "cotizaciones":           ("admin",),
-    "ordenes":                ("admin",),
-    "ordenes_compra":         ("admin", "tecnico", "funcionario"),
-    "servicios_proveedores":  ("admin", "tecnico", "funcionario"),
-}
+from app.nucleo.base_datos import obtener_sesion_bd
+from app.rutas.dependencias import dp_usuario_actual
+from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.modulos.usuarios.usuarios_modelo import Usuario
+from app.base.excepciones import PermisoDenegadoError
 
-
-def para_modulo(modulo: str):
+def para_modulo(modulo: str, accion: str = "editar") -> Callable:
     """
-    Retorna la dependencia FastAPI de autorización para el módulo dado.
-
+    Retorna la dependencia FastAPI de autorización dinámica para el módulo dado.
+    accion debe ser una de: "ver", "crear", "editar", "eliminar".
+    
     Uso en routers:
-        write_dependency=para_modulo("ordenes_compra")
-        actor: UsuarioIdentity = Depends(para_modulo("cotizaciones"))
-
-    Lanza ValueError si el módulo no está registrado en PERMISOS_MODULOS,
-    lo que evita errores silenciosos por typos.
+        write_dependency=Depends(para_modulo("ordenes_compra", "editar"))
     """
-    roles = PERMISOS_MODULOS.get(modulo)
-    if not roles:
-        raise ValueError(
-            f"Módulo '{modulo}' no tiene permisos definidos en PERMISOS_MODULOS. "
-            f"Módulos válidos: {sorted(PERMISOS_MODULOS)}"
-        )
-    return exigir_roles(*roles)
+    def _verificar(
+        identidad: UsuarioIdentity = Depends(dp_usuario_actual),
+        db: Session = Depends(obtener_sesion_bd)
+    ) -> Usuario:
+        # Extraer de BD para leer arrays JSON en tiempo real
+        usuario = db.exec(select(Usuario).where(Usuario.usuario == identidad.usuario)).first()
+        
+        if not usuario:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario no encontrado en la base de datos",
+            )
+            
+        # Eliminamos el bypass de admin para que el backend sea estrictamente reactivo a los checkboxes.
+        # if usuario.rol == "admin":
+        #    return usuario
+            
+        # Determinar qué lista revisar dinámicamente
+        lista_permisos = getattr(usuario, f"permisos_{accion}", []) or []
+        
+        if modulo not in lista_permisos:
+            raise PermisoDenegadoError(
+                f"No cuentas con el permiso para {accion} en {modulo}"
+            )
+        return usuario
+        
+    return _verificar
 
-
-
-# ── Mapa ruta HTML → módulo (para visibilidad del navbar) ────────────────────
-# Clave: prefijo de URL que aparece en el navbar.
-# Valor: nombre de módulo en PERMISOS_MODULOS.
+# Mapa de ruta HTML para renderizado
 RUTAS_MODULO: dict[str, str] = {
     "/usuarios":              "usuarios",
     "/clientes":              "clientes",
@@ -56,18 +63,4 @@ RUTAS_MODULO: dict[str, str] = {
     "/servicios-proveedores": "servicios_proveedores",
 }
 
-
-def puede_ver(ruta: str, rol: str) -> bool:
-    """Retorna True si el rol dado tiene permiso para ver la ruta.
-
-    Usada como función global en los templates Jinja para mostrar/ocultar
-    elementos del navbar según el rol del usuario autenticado.
-    """
-    modulo = RUTAS_MODULO.get(ruta)
-    if modulo is None:
-        return True  # rutas no registradas son públicas por defecto
-    roles_permitidos = PERMISOS_MODULOS.get(modulo, ())
-    return rol.lower() in {r.lower() for r in roles_permitidos}
-
-
-__all__ = ["para_modulo", "PERMISOS_MODULOS", "RUTAS_MODULO", "puede_ver"]
+__all__ = ["para_modulo", "RUTAS_MODULO"]

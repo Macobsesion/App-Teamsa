@@ -10,8 +10,9 @@ from decimal import Decimal
 from datetime import date, datetime
 from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo, ConceptoOrdenTrabajo
 from app.modulos.ordenes.enums import EstadoConceptoOT
-from app.modulos.ordenes.ordenes_repositorio import (
-    RepositorioOrden, EmpalmeError, ConceptoYaAsignadoError, ConceptoCompletadoError
+from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
+from app.modulos.ordenes.ordenes_servicios import (
+    ServicioOrdenes, EmpalmeError, ConceptoYaAsignadoError, ConceptoCompletadoError
 )
 from app.modulos.cotizaciones.enums import EstadoCotizacion
 from app.modulos.usuarios.usuarios_modelo import Usuario
@@ -70,13 +71,14 @@ def tecnico(session):
 
 
 @pytest.fixture
-def repo(session):
-    return RepositorioOrden(session)
+def servicio(session):
+    from app.base.folios import EstrategiaFolioFechaId
+    return ServicioOrdenes(session, EstrategiaFolioFechaId())
 
 
 # ─── Test: crear OT con conceptos seleccionados ───────────────────────────────
 
-def test_crear_ot_con_conceptos_seleccionados(session, cotizacion_base, repo, admin_client):
+def test_crear_ot_con_conceptos_seleccionados(session, cotizacion_base, servicio, admin_client):
     """
     Verifica que al crear una OT con concepto_ids, se guarden snapshots
     de los conceptos seleccionados.
@@ -129,7 +131,7 @@ def test_crear_ot_con_tecnico(session, cotizacion_base, tecnico, admin_client):
 
 # ─── Test: empalme de técnico ────────────────────────────────────────────────
 
-def test_empalme_tecnico_mismo_horario(session, cotizacion_base, tecnico, repo):
+def test_empalme_tecnico_mismo_horario(session, cotizacion_base, tecnico, servicio):
     """
     Verifica que no se puede asignar un técnico que ya tiene otra OT
     en el mismo horario (empalme).
@@ -150,7 +152,7 @@ def test_empalme_tecnico_mismo_horario(session, cotizacion_base, tecnico, repo):
     session.commit()
 
     # Intentar asignar el mismo técnico en horario solapado (11:00 – 12:00)
-    conflicto = repo.verificar_empalme_tecnico(
+    conflicto = servicio.verificar_empalme_tecnico(
         tecnico_id=tecnico.id,
         fecha=date.today(),
         hora="11:00",
@@ -159,7 +161,7 @@ def test_empalme_tecnico_mismo_horario(session, cotizacion_base, tecnico, repo):
     assert conflicto is not None, "Debería detectar empalme"
 
 
-def test_sin_empalme_tecnico_horario_diferente(session, cotizacion_base, tecnico, repo):
+def test_sin_empalme_tecnico_horario_diferente(session, cotizacion_base, tecnico, servicio):
     """
     Verifica que NO hay empalme si la OT está en horario distinto (después).
     """
@@ -178,7 +180,7 @@ def test_sin_empalme_tecnico_horario_diferente(session, cotizacion_base, tecnico
     session.commit()
 
     # 10:30 no se empalma con 08:00-10:00
-    conflicto = repo.verificar_empalme_tecnico(
+    conflicto = servicio.verificar_empalme_tecnico(
         tecnico_id=tecnico.id,
         fecha=date.today(),
         hora="10:30",

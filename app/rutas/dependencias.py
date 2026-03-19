@@ -35,16 +35,4 @@ def dp_usuario_actual(request: Request) -> UsuarioIdentity:
     return UsuarioIdentity(usuario=usuario, rol=rol)
 
 
-def exigir_roles(*roles_permitidos: str) -> Callable[[UsuarioIdentity], UsuarioIdentity]:
-    permitidos = {rol.strip().lower() for rol in roles_permitidos if rol}
 
-    def _verificar(usuario: UsuarioIdentity = Depends(dp_usuario_actual)) -> UsuarioIdentity:
-        # # Si hay roles permitidos, verifica autorización del usuario
-        if permitidos and usuario.rol.lower() not in permitidos:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No cuentas con los permisos necesarios",
-            )
-        return usuario
-
-    return _verificar

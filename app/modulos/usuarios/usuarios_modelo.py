@@ -5,10 +5,11 @@
 # Se usa el nombre de atributo Python `contrasena` (ASCII) pero se mapea a una
 # columna con nombre "contraseña" para compatibilidad con bases existentes.
 """
-from sqlalchemy import Column, String  # type: ignore
+from sqlalchemy import Column, String, JSON  # type: ignore
 from sqlmodel import Field, SQLModel  # type: ignore
 
 from app.base.auditoria import AuditMixin
+
 
 
 class Usuario(AuditMixin, SQLModel, table=True):
@@ -20,3 +21,8 @@ class Usuario(AuditMixin, SQLModel, table=True):
     rol: str = Field(default="funcionario")
     correo: str = Field(default="")
     area: str | None = None
+    
+    permisos_ver: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_crear: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_editar: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_eliminar: list[str] = Field(default_factory=list, sa_column=Column(JSON))

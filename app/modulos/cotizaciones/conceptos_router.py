@@ -1,8 +1,10 @@
 """Endpoints para gestión de conceptos en cotizaciones (UI y API)."""
 from decimal import Decimal
-from fastapi import APIRouter, Depends, Request
-from fastapi.templating import Jinja2Templates
+from fastapi import APIRouter, Depends, Body, Request
 from sqlmodel import Session
+
+from app.web.jinja import get_templates
+TEMPLATES = get_templates()
 
 from app.nucleo.base_datos import obtener_sesion_bd
 from app.rutas.dependencias import dp_usuario_actual
@@ -14,7 +16,7 @@ from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 router_ui = APIRouter(prefix="/ui/cotizaciones", tags=["Cotizaciones - Conceptos UI"])
 router_api = APIRouter(prefix="/api/cotizaciones", tags=["Cotizaciones - Conceptos API"])
 
-TEMPLATES = Jinja2Templates(directory="web/templates")
+TEMPLATES = get_templates()
 
 
 # ========== UI/HTMX Endpoints ==========
@@ -52,7 +54,7 @@ def agregar_concepto_htmx(
     
     # Agregar concepto
     repo_concepto = RepositorioConcepto(db)
-    repo_concepto.crear(
+    repo_concepto.crear_concepto(
         cotizacion_id=cotizacion_id,
         servicio_id=servicio_id,
         codigo_sat=codigo_sat,
@@ -86,7 +88,7 @@ def eliminar_concepto_htmx(
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
     
     repo_concepto = RepositorioConcepto(db)
-    repo_concepto.eliminar(concepto_id, cotizacion_id)
+    repo_concepto.eliminar_concepto(concepto_id, cotizacion_id)
     
     repo = RepositorioCotizacion(db)
     cotizacion = db.get(Cotizacion, cotizacion_id)
@@ -109,7 +111,7 @@ def agregar_concepto_api(
 ):
     """Agrega un concepto a una cotización (API JSON)."""
     repo = RepositorioConcepto(db)
-    return repo.crear(
+    return repo.crear_concepto(
         cotizacion_id=cotizacion_id,
         servicio_id=concepto.servicio_id,
         codigo_sat=concepto.codigo_sat,
@@ -129,5 +131,5 @@ def eliminar_concepto_api(
 ):
     """Elimina un concepto (API JSON)."""
     repo = RepositorioConcepto(db)
-    repo.eliminar(concepto_id, cotizacion_id)
+    repo.eliminar_concepto(concepto_id, cotizacion_id)
     return {"detail": "Concepto eliminado"}

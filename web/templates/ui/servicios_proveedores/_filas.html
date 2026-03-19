@@ -1,4 +1,4 @@
-{% from 'partials/actions.html' import acciones %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% for item in items %}
 <tr>
     <td>
@@ -18,7 +18,7 @@
     <td class="text-end font-monospace">
         ${{ "%.2f"|format(item.costo_unitario) }} <small>{{ item.moneda }}</small>
     </td>
-    {{ acciones(ui_base, item.id, puede_editar, delete_confirm='¿Eliminar servicio ' ~ item.codigo_sku ~ '?') }}
+    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar servicio ' ~ item.codigo_sku ~ '?') }}
 </tr>
 {% endfor %}
 {% if not items %}

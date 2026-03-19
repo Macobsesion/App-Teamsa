@@ -1,12 +1,40 @@
 {% extends "base.html" %}
-{% block title %}Error {{ status }}{% endblock %}
+{% block title %}Error {{ status or 'Acceso' }}{% endblock %}
 
 {% block content %}
-  <div class="py-5 text-center">
-    <h1 class="display-6 text-danger">{{ detail or 'Error' }}</h1>
-    {% if status %}
-      <p class="text-muted">Código: {{ status }}</p>
-    {% endif %}
-  </div>
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 70vh;">
+    <div class="card shadow-lg border-0 text-center p-5" style="border-radius: 20px; max-width: 500px; background: rgba(255, 255, 255, 0.95);">
+        <div class="mb-4">
+            <div class="display-1 text-danger mb-3" style="filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.1));">
+                {% if status == 403 %}🚫{% elif status == 404 %}🔍{% else %}⚠️{% endif %}
+            </div>
+            <h2 class="fw-bold mb-2" style="background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                {{ detail or 'Algo salió mal' }}
+            </h2>
+            <p class="text-muted fs-5">
+                {% if status == 403 %}
+                    No cuentas con los privilegios necesarios para acceder a este recurso.
+                {% elif status == 404 %}
+                    La página que buscas no existe o ha sido movida.
+                {% else %}
+                    Ha ocurrido un error inesperado al procesar tu solicitud.
+                {% endif %}
+            </p>
+        </div>
+        
+        <div class="mt-4">
+            {% if status %}
+                <span class="badge rounded-pill bg-light text-dark border px-3 py-2 mb-4">Código de error: {{ status }}</span>
+            {% endif %}
+            <div class="d-grid gap-2">
+                <a href="javascript:history.back()" class="btn btn-primary btn-lg shadow-sm" 
+                   style="border-radius: 12px; background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%); border: none;">
+                    ← Volver atrás
+                </a>
+                <a href="/" class="btn btn-link text-decoration-none">Ir al inicio</a>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 

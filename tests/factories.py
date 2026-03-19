@@ -257,7 +257,7 @@ def crear_ot_desde_cotizacion(
         ot = crear_ot_desde_cotizacion(db, cot, [conceptos[0].id])
     """
     from datetime import date
-    from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
+    from app.modulos.ordenes.ordenes_servicios import ServicioOrdenes
 
     repo = RepositorioOrden(db)
     return repo.crear_desde_cotizacion(

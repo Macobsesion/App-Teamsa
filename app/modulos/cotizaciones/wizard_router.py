@@ -1,8 +1,10 @@
 """Endpoints para wizard y vistas HTML de cotizaciones."""
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse, HTMLResponse
+from typing import Any
 from sqlmodel import Session
+
+from app.web.jinja import get_templates
 
 from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 
@@ -13,7 +15,7 @@ from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizac
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 
 router = APIRouter(prefix="/ui/cotizaciones", tags=["Cotizaciones - Wizard & Views"])
-TEMPLATES = Jinja2Templates(directory="web/templates")
+TEMPLATES = get_templates()
 
 
 @router.get("/wizard")
@@ -34,7 +36,7 @@ def ver_detalle_cotizacion(
     cotizacion_id: int,
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(dp_usuario_actual),
+    usuario = Depends(para_modulo("cotizaciones", "ver")),
 ):
     """Vista de detalle de una cotización con gestión de conceptos."""
     from sqlmodel import select
@@ -53,6 +55,13 @@ def ver_detalle_cotizacion(
     # Estado de OT por concepto: {concepto_id: {"estado": "libre"|"en_ot"|"completado", "numero_ot": ...}}
     estado_conceptos = repo.obtener_estado_conceptos(cotizacion_id)
 
+    # RBAC context for detail view actions
+    per_edit = getattr(usuario, "permisos_editar", []) or []
+    per_create = getattr(usuario, "permisos_crear", []) or []
+    
+    puede_editar = "cotizaciones" in per_edit
+    puede_crear_ordenes = "ordenes" in per_create
+
     return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/detalle.html",
         {
@@ -61,7 +70,9 @@ def ver_detalle_cotizacion(
             "cotizacion": cotizacion,
             "cliente": cliente,
             "conceptos": conceptos,
-            "estado_conceptos": estado_conceptos,   # nuevo
+            "estado_conceptos": estado_conceptos,
+            "puede_editar": puede_editar,
+            "puede_crear_ordenes": puede_crear_ordenes,
         }
     )
 
@@ -94,7 +105,7 @@ def cargar_modal_notas_privadas(
     cotizacion_id: int,
     request: Request,
     db: Session = Depends(obtener_sesion_bd),
-    _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
+    usuario = Depends(para_modulo("cotizaciones", "ver")),
 ):
     """Carga el modal de notas privadas."""
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion

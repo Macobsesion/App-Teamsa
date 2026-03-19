@@ -19,7 +19,7 @@ from starlette.requests import Request
 from fastapi.exceptions import RequestValidationError  # type: ignore
 import logging
 
-from app.modulos.usuarios.usuarios_router import router as rt_usuarios
+from app.modulos.usuarios.usuarios_router import router as rt_usuarios, router_extra as rt_usuarios_extra
 from app.modulos.clientes.clientes_router import router as rt_clientes
 from app.modulos.servicios.servicios_router import router as rt_servicios
 from app.modulos.proveedores.proveedores_router import router as rt_proveedores
@@ -118,18 +118,27 @@ def create_app() -> FastAPI:
     ) -> templates.TemplateResponse:
         """
         Renderiza una página HTML de error usando la plantilla error.html.
-        
-        Args:
-            request: Objeto Request de FastAPI con información de la solicitud
-            codigo_estado_http: Código HTTP del error (404, 500, etc.)
-            mensaje_error: Mensaje descriptivo del error para mostrar al usuario
-            
-        Returns:
-            TemplateResponse con la página de error formateada
+        Al ser una página protegida por base.html (navbar), intentamos inyectar al usuario.
         """
+        # Intentamos obtener la identidad del usuario para que el navbar no explote
+        usuario_contexto = None
+        from app.nucleo.sesion import obtener_token_cookie
+        from app.nucleo.cls_identidad import obtener_gestor_identidad
+        from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+        
+        token = obtener_token_cookie(request)
+        if token:
+            try:
+                u, r = obtener_gestor_identidad().extraer_identidad(token)
+                usuario_contexto = UsuarioIdentity(usuario=u, rol=r)
+            except Exception:
+                pass
+
         contexto_template = {
+            "request": request, # Importante para url_for y otros helpers
             "status": codigo_estado_http,
-            "detail": mensaje_error
+            "detail": mensaje_error,
+            "usuario": usuario_contexto
         }
         return templates.TemplateResponse(
             request,
@@ -149,8 +158,9 @@ def create_app() -> FastAPI:
         
         es_pagina_html = _es_solicitud_de_pagina_html(ruta_solicitada)
         cliente_acepta_html = "text/html" in encabezado_accept or encabezado_accept == "*/*"
+        es_htmx = request.headers.get("hx-request") == "true"
         
-        if es_pagina_html and cliente_acepta_html:
+        if es_pagina_html and cliente_acepta_html and not es_htmx:
             # Personalizar mensaje según el código de error
             mensaje_error = exc.detail or ("No autenticado" if exc.status_code == 401 else "Error")
             return _renderizar_pagina_de_error(request, exc.status_code, mensaje_error)
@@ -158,33 +168,35 @@ def create_app() -> FastAPI:
         # Para solicitudes de API, usar el handler por defecto de FastAPI (devuelve JSON)
         return await default_http_exception_handler(request, exc)
 
+    # ---- Helpers de Respuesta de Error ----
+
+    def _responder_error_dominio(
+        request: Request, exc: AppError, status_code: int
+    ):
+        """Helper reutilizable para responder errores de dominio en HTML o JSON."""
+        ruta = request.url.path or ""
+        es_htmx = request.headers.get("hx-request") == "true"
+        
+        if _es_solicitud_de_pagina_html(ruta) and not es_htmx:
+            return _renderizar_pagina_de_error(request, status_code, exc.mensaje)
+        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=status_code)
+
     # ---- Handlers de Excepciones de Dominio ----
-    
+
     @app.exception_handler(RecursoNoEncontradoError)
     async def manejador_no_encontrado(request: Request, exc: RecursoNoEncontradoError):
         """Maneja errores de recurso no encontrado (404)."""
-        ruta = request.url.path or ""
-        if _es_solicitud_de_pagina_html(ruta):
-            return _renderizar_pagina_de_error(request, 404, exc.mensaje)
-        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=404)
+        return _responder_error_dominio(request, exc, 404)
 
     @app.exception_handler(ReglaNegocioError)
     async def manejador_regla_negocio(request: Request, exc: ReglaNegocioError):
         """Maneja errores de reglas de negocio (409 Conflict o 422). Usamos 409 por defecto."""
-        ruta = request.url.path or ""
-        if _es_solicitud_de_pagina_html(ruta):
-            # En HTML, a veces es mejor mostrar un 200 con mensaje de error o redireccionar,
-            # pero por ahora mostramos página de error 400.
-            return _renderizar_pagina_de_error(request, 400, exc.mensaje)
-        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=409)
+        return _responder_error_dominio(request, exc, 409)
 
     @app.exception_handler(PermisoDenegadoError)
     async def manejador_permiso_denegado(request: Request, exc: PermisoDenegadoError):
         """Maneja errores de permisos (403)."""
-        ruta = request.url.path or ""
-        if _es_solicitud_de_pagina_html(ruta):
-            return _renderizar_pagina_de_error(request, 403, exc.mensaje)
-        return JSONResponse({"detail": exc.mensaje, "code": exc.codigo}, status_code=403)
+        return _responder_error_dominio(request, exc, 403)
 
     @app.exception_handler(RequestValidationError)
     async def manejador_errores_de_validacion(request: Request, exc: RequestValidationError):
@@ -193,8 +205,9 @@ def create_app() -> FastAPI:
         """
         ruta_solicitada = request.url.path or ""
         es_pagina_html = _es_solicitud_de_pagina_html(ruta_solicitada)
+        es_htmx = request.headers.get("hx-request") == "true"
         
-        if es_pagina_html:
+        if es_pagina_html and not es_htmx:
             return _renderizar_pagina_de_error(request, 422, "Solicitud inválida")
         
         # Para API, devolver JSON con detalles de los errores de validación
@@ -214,8 +227,9 @@ def create_app() -> FastAPI:
         
         ruta_solicitada = request.url.path or ""
         es_pagina_html = _es_solicitud_de_pagina_html(ruta_solicitada)
+        es_htmx = request.headers.get("hx-request") == "true"
         
-        if es_pagina_html:
+        if es_pagina_html and not es_htmx:
             return _renderizar_pagina_de_error(request, 500, "Error interno")
         
         # Para API, devolver JSON genérico
@@ -248,6 +262,7 @@ def create_app() -> FastAPI:
     app.add_middleware(HtmlNotFoundMiddleware)
 
     routers = [
+        rt_usuarios_extra,  # Primero: rutas específicas antes que el router genérico con {id}
         rt_paginas.router,
         rt_autenticacion.router,
         rt_usuarios,

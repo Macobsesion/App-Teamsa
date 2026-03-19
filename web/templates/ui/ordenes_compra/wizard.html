@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'ui/macros/wizard_components.html' import indicador_progreso, tarjeta_totales %}
 
 {% block title %}Nueva Orden de Compra{% endblock %}
 
@@ -11,23 +12,8 @@
                 <div class="card-body">
                     <h3 class="mb-4" id="wizard-titulo">📦 Nueva Orden de Compra</h3>
 
-                    {# Progress Steps #}
-                    <div class="d-flex justify-content-between mb-4">
-                        <div class="wizard-step active" data-step="1">
-                            <div class="step-number">1</div>
-                            <div class="step-label">Proveedor</div>
-                        </div>
-                        <div class="wizard-step-line"></div>
-                        <div class="wizard-step" data-step="2">
-                            <div class="step-number">2</div>
-                            <div class="step-label">Productos</div>
-                        </div>
-                        <div class="wizard-step-line"></div>
-                        <div class="wizard-step" data-step="3">
-                            <div class="step-number">3</div>
-                            <div class="step-label">Revisión</div>
-                        </div>
-                    </div>
+                    {# Progress Steps mediante Macro #}
+                    {{ indicador_progreso(['Proveedor', 'Productos', 'Revisión']) }}
                 </div>
             </div>
 
@@ -171,31 +157,8 @@
                             </div>
                         </div>
 
-                        <div class="card bg-light">
-                            <div class="card-body">
-                                <table class="table table-sm mb-0">
-                                    <tr>
-                                        <td>Subtotal:</td>
-                                        <td class="text-end"><strong>$<span id="resumen-subtotal">0.00</span></strong>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td>Descuentos:</td>
-                                        <td class="text-end text-danger">-$<span id="resumen-descuento">0.00</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td>IVA (16%):</td>
-                                        <td class="text-end">$<span id="resumen-iva">0.00</span></td>
-                                    </tr>
-                                    <tr class="table-primary">
-                                        <td><strong>TOTAL:</strong></td>
-                                        <td class="text-end">
-                                            <h5 class="mb-0">$<span id="resumen-total">0.00</span></h5>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </div>
-                        </div>
+                        {# Tarjeta de Totales mediante Macro #}
+                        {{ tarjeta_totales() }}
                     </div>
 
                     {# Navigation Buttons #}
@@ -329,7 +292,7 @@
     function nextStep() {
         if (wizardState.step === 1) {
             const pid = document.getElementById('proveedor-select').value;
-            if (!pid) return alert("Selecciona un proveedor");
+            if (!pid) return mostrarError("Selecciona un proveedor");
             wizardState.proveedor_id = parseInt(pid);
             wizardState.fecha_emision = document.getElementById('fecha-emision').value;
             wizardState.fecha_entrega = document.getElementById('fecha-entrega').value;
@@ -337,7 +300,7 @@
             wizardState.forma_pago = document.getElementById('forma-pago').value;
             wizardState.notas = document.getElementById('notas').value;
         } else if (wizardState.step === 2) {
-            if (wizardState.items.length === 0) return alert("Agrega al menos un producto");
+            if (wizardState.items.length === 0) return mostrarError("Agrega al menos un producto");
             renderResumen();
         }
 
@@ -374,7 +337,7 @@
         const precio = parseFloat(document.getElementById('precio-input').value);
         const desc = parseFloat(document.getElementById('descuento-input').value) || 0;
 
-        if (!sid || cant <= 0 || isNaN(precio)) return alert("Datos inválidos");
+        if (!sid || cant <= 0 || isNaN(precio)) return mostrarError("Datos inválidos");
 
         const prod = catalogoProductos.find(p => p.id == sid);
 
@@ -570,7 +533,7 @@
                 window.location.href = '/ordenes-compra';
             }
         } catch (e) {
-            alert('Error: ' + e.message);
+            mostrarError('Error: ' + e.message);
             btn.disabled = false;
             btn.innerHTML = `<span id="btn-submit-text">${modoEdicion ? '💾 Guardar Cambios' : '✓ Generar Orden de Compra'}</span>`;
         }
@@ -617,7 +580,7 @@
             }
         } catch (error) {
             console.error('Error cargando orden:', error);
-            alert('Error al cargar la orden para editar');
+            mostrarError('Error al cargar la orden para editar');
             window.location.href = '/ordenes-compra';
         }
     }

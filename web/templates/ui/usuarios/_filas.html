@@ -1,4 +1,4 @@
-{% from 'partials/actions.html' import acciones %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% for u in items %}
 <tr>
   <td>
@@ -20,7 +20,11 @@
     {% endif %}
   </td>
   <td>{{ u.area if u.area else '-' }}</td>
-  {{ acciones(ui_base, u.id, puede_editar, delete_confirm='¿Eliminar usuario ' ~ u.usuario ~ '?') }}
+  {% set btns_extra = [
+    {'hx_get': ui_base ~ '/password?id=' ~ u.id, 'label': '🔐', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Cambiar Contraseña'},
+    {'hx_get': ui_base ~ '/permisos?id=' ~ u.id, 'label': '🛡️', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Gestionar Permisos'}
+  ] %}
+  {{ acciones(ui_base, u.id, puede_editar, extras=btns_extra, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar usuario ' ~ u.usuario ~ '?') }}
 </tr>
 {% endfor %}
 {% if not items %}

@@ -1,7 +1,6 @@
 """Generador de PDF para Ordenes de Trabajo."""
 from pathlib import Path
-from weasyprint import HTML  # type: ignore
-from jinja2 import Template
+from app.base.generador_pdf import GeneradorPDF
 from sqlmodel import Session  # type: ignore
 
 from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
@@ -28,16 +27,7 @@ def generar_pdf_orden(orden_id: int, db: Session) -> bytes:
     # NO todos los conceptos de la cotización.
     conceptos_ot = ot.conceptos  # lista de ConceptoOrdenTrabajo
 
-    # Template
-    template_path = (
-        Path(__file__).parent.parent.parent.parent
-        / "web" / "templates" / "pdf" / "orden.html"
-    )
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template no encontrado: {template_path}")
 
-    template_content = template_path.read_text(encoding="utf-8")
-    template = Template(template_content)
 
     # Logo (manejo robusto de ruta no encontrada)
     try:
@@ -53,6 +43,5 @@ def generar_pdf_orden(orden_id: int, db: Session) -> bytes:
         "fecha_programada_fmt": formatear_fecha_español(ot.fecha_programada),
     }
 
-    html_renderizado = template.render(**contexto)
-    return HTML(string=html_renderizado).write_pdf()
+    return GeneradorPDF.generar_pdf("pdf/orden.html", contexto)
 

@@ -24,3 +24,14 @@ def obtener_repo_ordenes(
     Factory que ensambla el RepositorioOrden con todas sus dependencias.
     """
     return RepositorioOrden(db, generador_folio=generador)
+
+from app.modulos.ordenes.ordenes_servicios import ServicioOrdenes
+
+def obtener_servicio_ordenes(
+    db: Session = Depends(obtener_sesion_bd),
+    generador: GeneradorFolio = Depends(obtener_generador_folios)
+) -> ServicioOrdenes:
+    """
+    Factory que provee el Servicio de Dominio para operaciones complejas.
+    """
+    return ServicioOrdenes(db, generador)

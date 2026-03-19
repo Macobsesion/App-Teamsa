@@ -17,6 +17,7 @@ TModelo = TypeVar("TModelo", bound=SQLModel)
 
 
 from app.base.excepciones import RecursoNoEncontradoError
+from app.base.eventos import BusEventos
 
 class RepositorioCRUD(Generic[TModelo]):
     """Repositorio CRUD genérico con filtros y actualizaciones limitadas."""
@@ -68,8 +69,21 @@ class RepositorioCRUD(Generic[TModelo]):
         pass
 
     def _post_guardar(self, entidad: TModelo, es_nuevo: bool) -> None:
-        """Hook para acciones posteriores al guardado (logs, notifiaciones)."""
+        """Hook para acciones posteriores al guardado (logs, notificaciones)."""
         pass
+
+    def _enriquecer_consulta(self, consulta):
+        """Hook para que subclases enriquezcan la consulta base (ej: eager loading).
+
+        Sobrescribir en el repositorio hijo para agregar selectinload, joinedload, etc.
+        sin necesidad de reimplementar el método listar() completo.
+
+        Example::
+
+            def _enriquecer_consulta(self, consulta):
+                return consulta.options(selectinload(MiModelo.relacion))
+        """
+        return consulta
 
     def _sanitizar_busqueda(self, valor: str) -> str:
         """
@@ -118,6 +132,8 @@ class RepositorioCRUD(Generic[TModelo]):
         if filtros:
             consulta = self._aplicar_filtros(consulta, filtros)
         consulta = self._aplicar_orden(consulta, orden, descendente)
+        # Hook de extensión: permite eager loading u otras transformaciones
+        consulta = self._enriquecer_consulta(consulta)
         if limite is not None:
             consulta = consulta.limit(limite)
         if desplazamiento is not None:
@@ -129,9 +145,17 @@ class RepositorioCRUD(Generic[TModelo]):
         datos_procesados = self._pre_procesar_datos_creacion(datos)
         entidad = self.modelo(**datos_procesados)
         self._pre_guardar(entidad, es_nuevo=True)
-        guardada = self._guardar(entidad)
+        guardada = self.guardar(entidad)
         self._post_guardar(guardada, es_nuevo=True)
+        
+        # Emitir Evento de Dominio Desacoplado
+        BusEventos.publicar(f"{self.modelo.__name__}.creado", guardada)
+        
         return guardada
+
+    def guardar(self, entidad: TModelo) -> TModelo:
+        """Persiste una entidad existente o nueva en la base de datos de forma segura."""
+        return self._guardar(entidad)
 
     def actualizar(self, entidad_id: int, cambios: Mapping[str, Any]) -> TModelo:
         entidad = self.db.get(self.modelo, entidad_id)
@@ -146,8 +170,12 @@ class RepositorioCRUD(Generic[TModelo]):
         self._aplicar_cambios(entidad, cambios_permitidos)
         
         self._pre_guardar(entidad, es_nuevo=False)
-        guardada = self._guardar(entidad)
+        guardada = self.guardar(entidad)
         self._post_guardar(guardada, es_nuevo=False)
+        
+        # Emitir Evento de Dominio Desacoplado
+        BusEventos.publicar(f"{self.modelo.__name__}.actualizado", guardada)
+        
         return guardada
 
     def eliminar(self, entidad_id: int) -> None:
@@ -155,10 +183,16 @@ class RepositorioCRUD(Generic[TModelo]):
         if not entidad:
             raise RecursoNoEncontradoError(f"{self.modelo.__name__} con id {entidad_id} no encontrado")
         self._eliminar(entidad)
+        
+        # Emitir Evento de Dominio Desacoplado
+        BusEventos.publicar(f"{self.modelo.__name__}.eliminado", entidad)
 
-    def obtener_por_id(self, entidad_id: int) -> TModelo | None:
-        """Obtiene una entidad por su ID."""
-        return self.db.get(self.modelo, entidad_id)
+    def obtener_por_id(self, entidad_id: int) -> TModelo:
+        """Obtiene una entidad por su ID o lanza RecursoNoEncontradoError HTTP 404."""
+        entidad = self.db.get(self.modelo, entidad_id)
+        if not entidad:
+            raise RecursoNoEncontradoError(f"El recurso con id {entidad_id} no fue encontrado.")
+        return entidad
 
     def obtener_por_campo(self, campo: str, valor: Any) -> TModelo | None:
         """

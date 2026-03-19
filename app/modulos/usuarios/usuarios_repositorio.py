@@ -16,7 +16,10 @@ class RepositorioUsuario(RepositorioCRUD[Usuario]):
     modelo = Usuario
     campos_filtrables = {"usuario", "rol", "id"}
     campos_busqueda = {"nombres": "icontains", "correo": "icontains", "area": "icontains"}
-    campos_actualizables = {"nombres", "correo", "rol", "area", "contrasena", "modificado_por"}
+    campos_actualizables = {
+        "nombres", "correo", "rol", "area", "contrasena", "modificado_por",
+        "permisos_ver", "permisos_crear", "permisos_editar", "permisos_eliminar"
+    }
     orden_por_defecto = ("id", False)
 
     def _hashear_contrasena(self, contrasena: str) -> str:

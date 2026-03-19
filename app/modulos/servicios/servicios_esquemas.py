@@ -1,19 +1,20 @@
 """Esquemas Pydantic para servicios."""
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, Field  # type: ignore
+from pydantic import BaseModel
+from sqlmodel import SQLModel, Field  # type: ignore
 
 
-class ServicioBase(BaseModel):
+class ServicioBase(SQLModel):
     """Campos comunes de servicio."""
-    codigo_sat: str = Field(min_length=1, max_length=50)
-    codigo_unidad: str = Field(min_length=1, max_length=10)
-    clave: str = Field(min_length=1, max_length=50)
+    codigo_sat: str = Field(index=True, min_length=1, max_length=50, description="Código de producto/servicio SAT")
+    codigo_unidad: str = Field(index=True, min_length=1, max_length=10, description="Código de unidad de medida SAT (H87, E48, etc.)")
+    clave: str = Field(unique=True, index=True, min_length=1, max_length=50, description="Clave interna del servicio/producto")
     descripcion: str | None = None
-    area: str = Field(description="producto o servicio")
-    precio_base: Decimal = Field(ge=0, decimal_places=2)
-    unidad: str = Field(min_length=1, max_length=50)
-    activo: bool = True
+    area: str = Field(description="Área de aplicación del servicio")
+    precio_base: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
+    unidad: str = Field(min_length=1, max_length=50, description="Nombre de la unidad: pieza, hora, m2, etc.")
+    activo: bool = Field(default=True)
     notas: str | None = None
 
 

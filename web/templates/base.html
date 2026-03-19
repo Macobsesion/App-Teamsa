@@ -2,6 +2,7 @@
   Plantilla base de la aplicación (Bootstrap, cabecera y pie).
   Bloques: title, customCSS, content, customJS.
 -->
+{% import 'ui/macros/alertas.html' as alertas %}
 <!DOCTYPE html>
 <html lang="es">
 
@@ -26,8 +27,12 @@
     </div>
     {% endif %}
   </header>
-  <main class="container">
+  <main class="container position-relative">
     <div id="mensaje" class="mx-auto"></div>
+
+    <!-- Contenedor Toast de Errores Globales HTMX (Mediante Macro) -->
+    {{ alertas.contenedor_toasts()|safe }}
+
     {% block content %}{% endblock %}
   </main>
 
@@ -57,7 +62,39 @@
       if (typeof d === 'string') { mostrarFlash(d, 'success'); return; }
       mostrarFlash(d.texto || 'Operación realizada', d.tipo || 'success');
     });
-    // (Cierre robusto de modal eliminado para simplificar comportamiento)
+
+    // Función global para mostrar errores premium desde JS (Wizards, manual, etc)
+    window.mostrarError = function(mensaje) {
+      var toastEl = document.getElementById('errorToast');
+      var toastBody = document.getElementById('errorToastBody');
+      if (toastEl && toastBody) {
+        toastBody.textContent = mensaje;
+        var toast = new bootstrap.Toast(toastEl, { delay: 6000 });
+        toast.show();
+      }
+    };
+
+    // Toast global para errores HTMX
+    document.body.addEventListener('htmx:responseError', function (e) {
+      var xhr = e.detail.xhr;
+      var mensajeRespaldo = "Ocurrió un error inesperado al procesar la solicitud.";
+
+      if (xhr.responseText) {
+        try {
+          var jsonResponse = JSON.parse(xhr.responseText);
+          if (jsonResponse.detail) {
+            mensajeRespaldo = typeof jsonResponse.detail === 'string'
+              ? jsonResponse.detail
+              : JSON.stringify(jsonResponse.detail);
+          }
+        } catch (err) {
+          if (xhr.status === 404) mensajeRespaldo = "Recurso no encontrado.";
+          else if (xhr.status === 403) mensajeRespaldo = "Acceso denegado: No tienes permisos para esta acción.";
+          else if (xhr.status >= 500) mensajeRespaldo = "Error interno del servidor.";
+        }
+      }
+      window.mostrarError(mensajeRespaldo);
+    });
   })();
 </script>
 

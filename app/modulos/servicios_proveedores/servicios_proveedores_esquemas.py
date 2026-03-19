@@ -1,16 +1,17 @@
 """Esquemas Pydantic para Servicios de Proveedor."""
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from sqlmodel import SQLModel, Field  # type: ignore
 
-class ServicioProveedorBase(BaseModel):
-    proveedor_id: int
-    codigo_sku: str
-    descripcion: str
-    descripcion_detallada: str | None = None
-    costo_unitario: Decimal = Field(default=Decimal("0.00"), ge=0, decimal_places=2)
-    moneda: str = "MXN"
-    unidad: str = "Pieza"
-    activo: bool = True
+class ServicioProveedorBase(SQLModel):
+    proveedor_id: int = Field(foreign_key="proveedor.id", index=True)
+    codigo_sku: str = Field(index=True, description="Código SKU del proveedor")
+    descripcion: str = Field(description="Nombre o descripción del producto/servicio")
+    descripcion_detallada: str | None = Field(default=None, description="Detalles técnicos, dimensiones, etc.")
+    costo_unitario: Decimal = Field(default=Decimal("0.00"), decimal_places=2, description="Costo de compra pactado (antes de impuestos)")
+    moneda: str = Field(default="MXN", max_length=3)
+    unidad: str = Field(default="Pieza", description="Unidad de compra: Caja, Kg, Litro, Hora")
+    activo: bool = Field(default=True)
 
 class ServicioProveedorCreate(ServicioProveedorBase):
     pass

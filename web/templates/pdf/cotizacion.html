@@ -4,281 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Cotización {{ cotizacion.numero }}</title>
-    <style>
-        /* Reset y configuración base */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        @page {
-            size: Letter;
-            margin: 1.5cm;
-        }
-
-        body {
-            font-family: 'Helvetica', 'Arial', sans-serif;
-            font-size: 10pt;
-            color: #333;
-            line-height: 1.4;
-        }
-
-        /* Header con logo y título */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #4148C3;
-        }
-
-        .logo-container {
-            flex: 0 0 90px;
-        }
-
-        .logo {
-            max-width: 90px;
-            height: auto;
-        }
-
-        .titulo-container {
-            text-align: right;
-            flex: 1;
-        }
-
-        .titulo-principal {
-            font-size: 28pt;
-            font-weight: bold;
-            color: #4148C3;
-            margin-bottom: 5px;
-        }
-
-        .numero-cotizacion {
-            font-size: 14pt;
-            color: #64748b;
-            font-weight: 600;
-        }
-
-        /* Sección de información */
-        .info-section {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            margin-bottom: 10px;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
-
-        .info-col {
-            flex: 1;
-        }
-
-        .info-label {
-            font-size: 8pt;
-            color: #64748b;
-            text-transform: uppercase;
-            font-weight: 600;
-            margin-bottom: 3px;
-        }
-
-        .info-value {
-            font-size: 10pt;
-            color: #1e293b;
-            font-weight: 500;
-        }
-
-        .info-row {
-            margin-bottom: 10px;
-        }
-
-        /* Tabla de conceptos */
-        .conceptos-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 5px;
-        }
-
-        .conceptos-table thead {
-            background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);
-            color: white;
-        }
-
-        .conceptos-table th {
-            padding: 12px 10px;
-            text-align: left;
-            font-size: 9pt;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .conceptos-table th.text-right {
-            text-align: right;
-        }
-
-        .conceptos-table tbody tr {
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .conceptos-table tbody tr:nth-child(even) {
-            background-color: #f8fafc;
-        }
-
-        .conceptos-table tbody tr:hover {
-            background-color: #f1f5f9;
-        }
-
-        .conceptos-table td {
-            padding: 10px;
-            font-size: 9.5pt;
-        }
-
-        .text-right {
-            text-align: right;
-        }
-
-        .text-center {
-            text-align: center;
-        }
-
-        .codigo-sat {
-            color: #64748b;
-            font-size: 8pt;
-            font-family: 'Courier New', monospace;
-        }
-
-        /* Totales */
-        .totales-container {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 20px;
-        }
-
-        .totales-table {
-            width: 300px;
-            border-collapse: collapse;
-        }
-
-        .totales-table tr {
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .totales-table td {
-            padding: 8px 12px;
-            font-size: 10pt;
-        }
-
-        .totales-table .label {
-            text-align: right;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .totales-table .valor {
-            text-align: right;
-            font-weight: 600;
-            font-family: 'Courier New', monospace;
-        }
-
-        .totales-table .total-row {
-            background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);
-            color: white;
-            font-size: 12pt;
-            font-weight: bold;
-        }
-
-        .totales-table .total-row td {
-            padding: 12px;
-            border: none;
-        }
-
-        /* Footer */
-        .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 2px solid #e2e8f0;
-        }
-
-        .condiciones {
-            margin-bottom: 15px;
-        }
-
-        .condiciones-titulo {
-            font-size: 9pt;
-            font-weight: 600;
-            color: #4148C3;
-            margin-bottom: 5px;
-        }
-
-        .condiciones-texto {
-            font-size: 8.5pt;
-            color: #64748b;
-            line-height: 1.5;
-        }
-
-        .notas {
-            background-color: #fef3c7;
-            padding: 10px;
-            border-left: 4px solid #f59e0b;
-            margin-bottom: 20px;
-            border-radius: 3px;
-        }
-
-        .notas-titulo {
-            font-size: 8pt;
-            font-weight: 600;
-            color: #92400e;
-            margin-bottom: 5px;
-        }
-
-        .notas-texto {
-            font-size: 8.5pt;
-            color: #78350f;
-        }
-
-        .firmas {
-            display: flex;
-            justify-content: space-around;
-            margin-top: 80px;
-            gap: 40px;
-        }
-
-        .firma-box {
-            text-align: center;
-            flex: 1;
-            margin: 0 20px;
-        }
-
-        .firma-linea {
-            border-top: 1px solid #333;
-            margin-bottom: 5px;
-            padding-top: 40px;
-        }
-
-        .firma-label {
-            font-size: 8pt;
-            color: #64748b;
-            font-weight: 500;
-        }
-
-        .firma-img {
-            max-width: 150px;
-            height: auto;
-            margin-bottom: 10px;
-        }
-
-        /* Utilidades */
-        .negrita {
-            font-weight: 600;
-        }
-
-        .muted {
-            color: #64748b;
-        }
-    </style>
+    <link rel="stylesheet" href="css/pdf.css">
 </head>
 
 <body>
@@ -345,7 +71,7 @@
                 <th style="width: 35%;">Descripción</th>
                 <th style="width: 8%;">Cód. Unidad</th>
                 <th class="text-center" style="width: 8%;">Cantidad</th>
-                <th class="text-right" style="width: 13%;">P. Unitario</th>
+                <th class="text-right" style="width: 13%;">Precio Unitario</th>
                 <th class="text-right" style="width: 10%;">Descuento</th>
                 <th class="text-right" style="width: 16%;">Importe</th>
             </tr>
@@ -401,7 +127,7 @@
     <!-- Footer -->
     <div class="footer">
         <!-- Métodos de pago en la misma línea -->
-        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
             <div style="width: 48%;">
                 <div class="condiciones-titulo">MÉTODO DE PAGO</div>
                 <div class="condiciones-texto">
@@ -426,9 +152,6 @@
         <!-- Firmas -->
         <div class="firmas">
             <div class="firma-box">
-                {% if firma_responsable %}
-                <img src="{{ firma_responsable }}" alt="Firma" class="firma-img">
-                {% endif %}
                 <div class="firma-linea"></div>
                 <div class="firma-label">Responsable TEAMSA</div>
             </div>
@@ -439,7 +162,7 @@
         </div>
 
         <!-- Mensaje de cortesía -->
-        <div style="text-align: center; margin-top: 30px; font-size: 9pt; color: #64748b; font-style: italic;">
+        <div style="text-align: center; margin-top: 25px; font-size: 9pt; color: #64748b; font-style: italic;">
             Agradecemos de antemano la consideración por nuestros servicios y le enviamos un cordial saludo.
         </div>
     </div>

@@ -99,7 +99,7 @@ Proveedor: <strong>{{ proveedor.nombre }}</strong>
 {% block pdf_url_download %}/api/ordenes-compra/{{ orden.id }}/pdf{% endblock %}
 
 {% block actions_content %}
-{% if orden.estado == 'borrador' %}
+{% if orden.estado == 'borrador' and puede_editar %}
 <a href="/ui/ordenes-compra/wizard?id={{ orden.id }}" class="btn btn-warning">
     ✏️ Editar Orden de Compra
 </a>

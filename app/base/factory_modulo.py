@@ -12,7 +12,8 @@ from typing import Any, Callable, Optional
 from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session
 
-from app.base.descriptor_crud import DescriptorCRUD
+from app.base.descriptor_crud import DescriptorCRUD, ConfiguracionUI
+from app.base.enrutador_crud import construir_enrutador_crud
 from app.base.ui_crud import DescriptorUI, construir_enrutador_ui
 
 
@@ -44,7 +45,7 @@ def crear_modulo_crud(
         descriptor: DescriptorCRUD con configuración del módulo
         obtener_sesion: Dependencia para obtener sesión de DB
         actor_dependency: Dependencia para obtener usuario actual
-        write_dependency: Dependencia para operaciones de escritura (ej: exigir_roles)
+        write_dependency: Dependencia para operaciones de escritura (ej: para_modulo)
         tpl_filas: Ruta al template de filas (ej: "ui/clientes/_filas.html")
         tpl_form: Ruta al template de formulario (ej: "ui/clientes/_form.html")
         validar_form_creacion: Validación opcional para formulario de creación
@@ -62,14 +63,15 @@ def crear_modulo_crud(
     Ejemplo:
         ```python
         from app.base.factory_modulo import crear_modulo_crud
-        from app.rutas.dependencias import dp_obtener_sesion_db, dp_usuario_actual, exigir_roles
+        from app.rutas.dependencias import dp_obtener_sesion_db, dp_usuario_actual
+        from app.rutas.permisos import para_modulo
         
         # Módulo simple sin extras
         router = crear_modulo_crud(
             descriptor=descriptor_proveedores,
             obtener_sesion=dp_obtener_sesion_db,
             actor_dependency=dp_usuario_actual,
-            write_dependency=exigir_roles("admin"),
+            write_dependency=para_modulo("proveedores", "editar"),
             tpl_filas="ui/proveedores/_filas.html",
             tpl_form="ui/proveedores/_form.html",
         )
@@ -79,7 +81,7 @@ def crear_modulo_crud(
             descriptor=descriptor_clientes,
             obtener_sesion=dp_obtener_sesion_db,
             actor_dependency=dp_usuario_actual,
-            write_dependency=exigir_roles("admin"),
+            write_dependency=para_modulo("clientes", "editar"),
             tpl_filas="ui/clientes/_filas.html",
             tpl_form="ui/clientes/_form.html",
             include_select_endpoint=True,
@@ -91,7 +93,7 @@ def crear_modulo_crud(
             descriptor=descriptor_viaticos,
             obtener_sesion=dp_obtener_sesion_db,
             actor_dependency=dp_usuario_actual,
-            write_dependency=exigir_roles("admin"),
+            write_dependency=para_modulo("viaticos", "editar"),
             tpl_filas="ui/viaticos/_filas.html",
             tpl_form="ui/viaticos/_form.html",
             routers_adicionales=[gastos_router.router, pdf_router.router],
@@ -117,75 +119,60 @@ def crear_modulo_crud(
     # Endpoint /select automático (si se solicita)
     if include_select_endpoint:
         campos = select_fields or ["id", "nombre"]
-        
+
+        def _mapear_item(item) -> dict:
+            """Mapea un item del modelo a un dict con los campos solicitados."""
+            # KISS: Permitir al modelo dictaminar cómo se serializa para selectores
+            if hasattr(item, "serializar_select"):
+                return item.serializar_select()
+
+            item_dict: dict = {}
+            for campo in campos:
+                valor = getattr(item, campo, None)
+
+                # Convertir Decimal a float para JSON
+                if isinstance(valor, Decimal):
+                    valor = float(valor)
+
+                item_dict[campo] = valor if valor is not None else ""
+            return item_dict
+
+        def _coercer_filtro(repo, key: str, value: str):
+            """Convierte el valor de query param al tipo correcto del modelo."""
+            columna = getattr(repo.modelo, key, None)
+            if columna is None:
+                return value
+            try:
+                python_type = columna.type.python_type
+                if python_type == int:
+                    return int(value)
+                if python_type == bool:
+                    return value.lower() in ('true', '1', 'yes')
+            except (AttributeError, ValueError):
+                pass
+            return value
+
         @router_prioritario.get("/select", response_model=list[dict])
         def obtener_para_select(
-            request: Request,  # Request de FastAPI/Starlette
+            request: Request,
             db: Session = Depends(obtener_sesion),
-            # El usuario ya viene validado por la dependencia del router
         ):
             """Endpoint automático para poblar selects/dropdowns."""
-            
             repo = descriptor.repo_factory(db)
-            
-            # Construir filtros desde query params
-            filtros = {}
-            if hasattr(request, 'query_params'):
+
+            filtros: dict = {}
+            if hasattr(repo, 'campos_filtrables'):
                 for key, value in request.query_params.items():
-                    # Solo aplicar filtros si el campo es filtrable en el repositorio
-                    if hasattr(repo, 'campos_filtrables') and key in repo.campos_filtrables:
-                        # Convertir el valor al tipo correcto según la columna del modelo
-                        columna = getattr(descriptor.repo_factory.modelo, key, None)
-                        if columna is not None:
-                            # Obtener el tipo Python de la columna
-                            try:
-                                python_type = columna.type.python_type
-                                # Convertir el string del query param al tipo correcto
-                                if python_type == int:
-                                    filtros[key] = int(value)
-                                elif python_type == bool:
-                                    filtros[key] = value.lower() in ('true', '1', 'yes')
-                                else:
-                                    filtros[key] = value
-                            except (AttributeError, ValueError):
-                                # Si no se puede determinar el tipo, usar el valor como string
-                                filtros[key] = value
-                        else:
-                            filtros[key] = value
-            
-            # Listar con filtros si los hay
-            if filtros:
-                items = repo.listar(filtros=filtros)
-            else:
-                items = repo.listar()
-            
-            resultado = []
-            for item in items:
-                # Filtrar por activo si se solicita y el campo existe
-                if select_filter_activo and hasattr(item, "activo") and not item.activo:
-                    continue
-                
-                # Construir dict con campos solicitados
-                item_dict = {}
-                for campo in campos:
-                    # Soportar navegación por relaciones (ej: "proveedor.nombre")
-                    if "." in campo:
-                        partes = campo.split(".", 1)
-                        objeto_relacionado = getattr(item, partes[0], None)
-                        valor = getattr(objeto_relacionado, partes[1], None) if objeto_relacionado else None
-                    else:
-                        valor = getattr(item, campo, None)
-                    
-                    # Convertir Decimal a float para JSON
-                    if isinstance(valor, Decimal):
-                        valor = float(valor)
-                    
-                    # Convertir None a string vacío para mejor UX en selects
-                    item_dict[campo] = valor if valor is not None else ""
-                
-                resultado.append(item_dict)
-            
-            return resultado
+                    if key in repo.campos_filtrables:
+                        filtros[key] = _coercer_filtro(repo, key, value)
+
+            items = repo.listar(filtros=filtros) if filtros else repo.listar()
+
+            return [
+                _mapear_item(item)
+                for item in items
+                if not (select_filter_activo and hasattr(item, "activo") and not item.activo)
+            ]
     
     # Derivar prefix de UI desde el base_url de API
     ui_prefix = descriptor.base_url.replace("/api/", "/ui/")
@@ -213,6 +200,27 @@ def crear_modulo_crud(
         columnas=descriptor.frontend_config().get("columnas"),
         campo_busqueda=descriptor.campo_busqueda,
     )
+
+    # Añadir la vista principal al router UI
+    # Esto se hace aquí para que pueda usar el `ui_prefix` y `actor_dependency`
+    # del contexto de `crear_modulo_crud` y no tener que pasarlos a `construir_enrutador_ui`
+    # solo para este endpoint.
+    from fastapi.responses import HTMLResponse
+    from app.web.jinja import get_templates
+    
+    ui_config = descriptor.config_ui or ConfiguracionUI()
+    @router_ui.get("/", response_class=HTMLResponse)
+    def vista_principal(request: Request, _actor: Any = Depends(actor_dependency)):
+        """Devuelve la vista principal (listado) de la entidad generada desde base_crud.html."""
+        templates = get_templates()
+        return templates.TemplateResponse(
+            "ui/base_crud.html",
+            {
+                "request": request,
+                "configuracion": descriptor.frontend_config(),
+                "topic": ui_config.topic or descriptor.base_url.strip('/').replace('/', '_')
+            }
+        )
     
     # Combinar routers: PRIORITARIOS -> API -> UI -> ADICIONALES
     router_combinado = APIRouter()
@@ -232,4 +240,45 @@ def crear_modulo_crud(
     return router_combinado
 
 
-__all__ = ["crear_modulo_crud"]
+
+def crear_modulo_crud_estandar(
+    *,
+    descriptor: DescriptorCRUD,
+    nombre_modulo: str,
+    include_select_endpoint: bool = False,
+    select_fields: Optional[list[str]] = None,
+    routers_prioritarios: Optional[list[APIRouter]] = None,
+    routers_adicionales: Optional[list[APIRouter]] = None,
+    validar_form_creacion: Optional[Callable[[dict[str, Any]], Optional[str]]] = None,
+    validar_form_actualizacion: Optional[Callable[[dict[str, Any], Any], Optional[str]]] = None,
+    extra_context_provider: Optional[Callable[[Session], dict[str, Any]]] = None,
+    file_fields: Optional[dict[str, dict[str, Any]]] = None,
+) -> APIRouter:
+    """ Wrapper estandarizado para crear un módulo CRUD.
+    
+    Evita la duplicación en todos los routers al asumir valores por defecto para:
+    - dependencias (sesion, usuario_actual, permisos para el módulo)
+    - templates (ui/{nombre_modulo}/_filas.html, _form.html)
+    """
+    from app.nucleo.base_datos import obtener_sesion_bd
+    from app.rutas.dependencias import dp_usuario_actual
+    from app.rutas.permisos import para_modulo
+    
+    return crear_modulo_crud(
+        descriptor=descriptor,
+        obtener_sesion=obtener_sesion_bd,
+        actor_dependency=dp_usuario_actual,
+        write_dependency=para_modulo(nombre_modulo),
+        tpl_filas=f"ui/{nombre_modulo}/_filas.html",
+        tpl_form=f"ui/{nombre_modulo}/_form.html",
+        include_select_endpoint=include_select_endpoint,
+        select_fields=select_fields,
+        routers_prioritarios=routers_prioritarios,
+        routers_adicionales=routers_adicionales,
+        validar_form_creacion=validar_form_creacion,
+        validar_form_actualizacion=validar_form_actualizacion,
+        extra_context_provider=extra_context_provider,
+        file_fields=file_fields
+    )
+
+__all__ = ["crear_modulo_crud", "crear_modulo_crud_estandar"]

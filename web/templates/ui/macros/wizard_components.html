@@ -1,0 +1,43 @@
+{# web/templates/ui/macros/wizard_components.html #}
+
+{% macro indicador_progreso(pasos) %}
+<div class="d-flex justify-content-between mb-4">
+    {% for paso in pasos %}
+    <div class="wizard-step {% if loop.first %}active{% endif %}" data-step="{{ loop.index }}">
+        <div class="step-number">{{ loop.index }}</div>
+        <div class="step-label">{{ paso }}</div>
+    </div>
+    {% if not loop.last %}
+    <div class="wizard-step-line"></div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro tarjeta_totales() %}
+<div class="card bg-light">
+    <div class="card-body">
+        <table class="table table-sm mb-0">
+            <tr>
+                <td>Subtotal:</td>
+                <td class="text-end"><strong>$<span id="resumen-subtotal">0.00</span></strong>
+                </td>
+            </tr>
+            <tr>
+                <td>Descuentos:</td>
+                <td class="text-end text-danger">-$<span id="resumen-descuento">0.00</span></td>
+            </tr>
+            <tr>
+                <td>IVA (16%):</td>
+                <td class="text-end">$<span id="resumen-iva">0.00</span></td>
+            </tr>
+            <tr class="table-primary">
+                <td><strong>TOTAL:</strong></td>
+                <td class="text-end">
+                    <h5 class="mb-0">$<span id="resumen-total">0.00</span></h5>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+{% endmacro %}

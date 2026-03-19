@@ -3,12 +3,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, Optional, TypeVar, Dict
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Query, Body  # type: ignore
+from fastapi import APIRouter, Depends, Response, status, Query, Body  # type: ignore
 from fastapi import Request
 from pydantic import BaseModel  # type: ignore
 from sqlmodel import Session  # type: ignore
 
 from app.base.repositorio import RepositorioCRUD
+from app.base.excepciones import ReglaNegocioError, RecursoNoEncontradoError
 
 RepoT = TypeVar("RepoT", bound=RepositorioCRUD)
 ReadSchemaT = TypeVar("ReadSchemaT", bound=BaseModel)
@@ -107,13 +108,13 @@ def construir_enrutador_crud(
         try:
             payload = schema_create(**payload_dict)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise ReglaNegocioError(str(e))
 
         repo = _get_repo(db)
         if hooks.validar_unicidad:
             conflicto = hooks.validar_unicidad(repo, payload)
             if conflicto:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=conflicto)
+                raise ReglaNegocioError(conflicto)
         datos = hooks.preparar_creacion(payload, actor)  # type: ignore[arg-type]
         extras = hooks.extra_kwargs_creacion(payload, actor)  # type: ignore[arg-type]
         combinado = {**datos, **(extras or {})}
@@ -130,26 +131,20 @@ def construir_enrutador_crud(
         try:
             payload = schema_update(**payload_dict)
         except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise ReglaNegocioError(str(e))
 
         repo = _get_repo(db)
         # Validación opcional de actualización (suave): devolver 400 con detalle
         if hooks.validar_actualizacion is not None:
             msg = hooks.validar_actualizacion(repo, payload, entidad_id)
             if msg:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
+                raise ReglaNegocioError(msg)
         cambios = hooks.preparar_actualizacion(payload, actor)  # type: ignore[arg-type]
         if not cambios:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No hay cambios válidos para aplicar",
-            )
+            raise ReglaNegocioError("No hay cambios válidos para aplicar")
         extras = hooks.extra_kwargs_actualizacion(payload, actor)  # type: ignore[arg-type]
         combinado = {**cambios, **(extras or {})}
-        try:
-            return repo.actualizar(entidad_id, combinado)
-        except LookupError as exc:  # pragma: no cover
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado") from exc
+        return repo.actualizar(entidad_id, combinado)
 
     @router.get("/{entidad_id}", response_model=schema_read)
     def obtener(
@@ -157,13 +152,11 @@ def construir_enrutador_crud(
         db: Session = Depends(obtener_sesion),
     ):
         repo = _get_repo(db)
-        try:
-            entidad = repo.obtener_por_id(entidad_id)
-            if entidad is None:
-                 raise LookupError("Recurso no encontrado")
-            return entidad
-        except LookupError as exc:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado") from exc
+        entidad = repo.obtener_por_id(entidad_id)
+        # Algunos repos devuelven None directamente base sqlalchemy `get` en lugar de lanzar la excepión, evaluamos su consistencia
+        if entidad is None:
+             raise RecursoNoEncontradoError("Recurso no encontrado")
+        return entidad
 
 
     @router.delete("/{entidad_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -173,10 +166,7 @@ def construir_enrutador_crud(
         actor: ActorT = Depends(write_dependency) if write_dependency else None,
     ):
         repo = _get_repo(db)
-        try:
-            repo.eliminar(entidad_id)
-        except LookupError as exc:  # pragma: no cover
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recurso no encontrado") from exc
+        repo.eliminar(entidad_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     if descriptor:

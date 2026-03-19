@@ -1,0 +1,57 @@
+{% import "ui/macros/botones.html" as btn %}
+
+<div class="modal-header bg-light">
+  <h5 class="modal-title">🛡️ Permisos de {{ usuario.nombres }} ({{ usuario.usuario }})</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+<div class="modal-body">
+  <p class="text-muted small mb-3">Activa o desactiva cada permiso. Los cambios se aplican de forma inmediata al guardar.</p>
+
+  <form id="frmPermisos"
+        hx-post="/api/usuarios/{{ item_id }}/permisos"
+        hx-target="#modal-content"
+        hx-swap="innerHTML">
+
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered table-hover align-middle">
+        <thead class="table-light text-center">
+          <tr>
+            <th class="text-start">Módulo</th>
+            <th>👁️<br><small>Ver</small></th>
+            <th>➕<br><small>Crear</small></th>
+            <th>✏️<br><small>Editar</small></th>
+            <th>🗑️<br><small>Eliminar</small></th>
+          </tr>
+        </thead>
+        <tbody class="text-center">
+          {% for modulo in modulos %}
+          <tr>
+            <td class="text-start fw-semibold">{{ modulo.nombre }}</td>
+            <td>
+              <input class="form-check-input" type="checkbox" name="permisos_ver" value="{{ modulo.id }}"
+                     {% if usuario.permisos_ver and modulo.id in usuario.permisos_ver %}checked{% endif %}>
+            </td>
+            <td>
+              <input class="form-check-input" type="checkbox" name="permisos_crear" value="{{ modulo.id }}"
+                     {% if usuario.permisos_crear and modulo.id in usuario.permisos_crear %}checked{% endif %}>
+            </td>
+            <td>
+              <input class="form-check-input" type="checkbox" name="permisos_editar" value="{{ modulo.id }}"
+                     {% if usuario.permisos_editar and modulo.id in usuario.permisos_editar %}checked{% endif %}>
+            </td>
+            <td>
+              <input class="form-check-input" type="checkbox" name="permisos_eliminar" value="{{ modulo.id }}"
+                     {% if usuario.permisos_eliminar and modulo.id in usuario.permisos_eliminar %}checked{% endif %}>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-footer bg-light">
+      {{ btn.btn_secundario("Cancelar") }}
+      {{ btn.btn_primario("Guardar Permisos", type="submit") }}
+    </div>
+  </form>
+</div>

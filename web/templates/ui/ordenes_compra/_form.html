@@ -1,10 +1,16 @@
+<!-- Plantilla: web/templates/ui/ordenes_compra/_form.html -->
+{% import "ui/macros/botones.html" as btn %}
+{% set is_edit = p_item is defined and p_item is not none %}
 <form hx-post="{{ '/api/ordenes-compra' if modo == 'crear' else '/api/ordenes-compra/' ~ item.id }}"
     hx-target="#main-table-body" hx-swap="innerHTML"
     hx-on::after-request="if(event.detail.successful) bootstrap.Modal.getInstance(document.getElementById('editModal')).hide()">
 
     <div class="modal-header">
-        <h5 class="modal-title">{{ 'Nueva Orden de Compra' if modo == 'crear' else 'Editar Orden: ' ~ item.folio }}</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title fw-bold text-dark">
+            <i class="fas {% if is_edit %}fa-edit{% else %}fa-file-invoice-dollar{% endif %} text-muted me-2"></i>
+            {% if is_edit %}Editar OC #{{ p_item.id }}{% else %}Nueva Orden de Compra{% endif %}
+        </h5>
+        {{ btn.btn_cerrar_modal() }}
     </div>
 
     <div class="modal-body">
@@ -55,8 +61,8 @@
         </div>
     </div>
 
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button type="submit" class="btn btn-teamsa-primary">Guardar Encabezado</button>
+    <div class="modal-footer border-0 pt-0">
+        {{ btn.btn_secundario("Cancelar") }}
+        {{ btn.btn_primario("Guardar Encabezado", type="submit") }}
     </div>
 </form>

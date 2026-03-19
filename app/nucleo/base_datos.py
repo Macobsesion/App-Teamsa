@@ -31,7 +31,10 @@ def crear_tablas() -> None:
 
 
     engine = obtener_motor()
-    SQLModel.metadata.create_all(engine)
+    # PRECAUCIÓN: La creación de tablas plana está desactivada. 
+    # El modelo de datos ahora es gestionado por Alembic migrations.
+    # Usa: `alembic upgrade head` para sincronizar la BD.
+    # SQLModel.metadata.create_all(engine)
 
 
 

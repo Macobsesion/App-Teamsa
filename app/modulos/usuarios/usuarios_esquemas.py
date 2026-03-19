@@ -17,6 +17,10 @@ class UsuarioBase(BaseModel):
     rol: RolUsuario
     correo: EmailStr
     area: str
+    permisos_ver: list[str] = []
+    permisos_crear: list[str] = []
+    permisos_editar: list[str] = []
+    permisos_eliminar: list[str] = []
 
 
 class UsuarioCreate(BaseModel):
@@ -53,17 +57,23 @@ class UsuarioUpdatePartial(BaseModel):
     area: str | None = None
     rol: RolUsuario | None = None
     contrasena: str | None = None
+    permisos_ver: list[str] | None = None
+    permisos_crear: list[str] | None = None
+    permisos_editar: list[str] | None = None
+    permisos_eliminar: list[str] | None = None
+
+class UsuarioUpdatePassword(BaseModel):
+    contrasena: str
+    confirmarContrasena: str | None = None
 
     @field_validator("contrasena", mode="before")
     @classmethod
     def _v_contrasena_vacia(cls, v):
-        if v is None:
-            return v
-        try:
-            s = str(v)
-            return s if s.strip() else None
-        except Exception:
-            return None
+        if not v or not str(v).strip():
+            raise ValueError("La contraseña no puede estar vacía")
+        return str(v).strip()
+
+
 
 
 class UsuarioIdentity(BaseModel):

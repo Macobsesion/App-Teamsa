@@ -95,31 +95,37 @@ Por ahora reescribimos con macros para máxima consistencia #}
 <hr>
 
 {# Botón Editar Cotización #}
-{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
-<a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
-    ✏️ Editar Cotización
-</a>
+{% if puede_editar %}
+    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+    <a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
+        ✏️ Editar Cotización
+    </a>
+    {% endif %}
+
+    {# Botón Nueva Versión #}
+    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+    <button type="button" class="btn btn-info" onclick="crearNuevaVersion()">
+        📋 Nueva Versión
+    </button>
+    {% endif %}
 {% endif %}
 
-{# Botón Nueva Versión #}
-{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
-<button type="button" class="btn btn-info" onclick="crearNuevaVersion()">
-    📋 Nueva Versión
-</button>
+{# Botón Crear OT — disponible si tiene permiso de CREAR en modulo 'ordenes' #}
+{% if puede_crear_ordenes %}
+    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'cerrada', 'cancelada'] %}
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearOT">
+        🛠️ Crear Orden de Trabajo
+    </button>
+    {% endif %}
 {% endif %}
 
-{# Botón Crear OT — disponible en estados activos (incluyendo 'programada') #}
-{% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'cerrada', 'cancelada'] %}
-<button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearOT">
-    🛠️ Crear Orden de Trabajo
-</button>
-{% endif %}
-
-{# Botón Cerrar Cotización #}
-{% if cotizacion.estado in ['enviada', 'aceptada', 'programada'] %}
-<button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalCerrarCotizacion">
-    🔒 Cerrar Cotización
-</button>
+{# Botón Cerrar Cotización — requiere permiso EDITAR en 'cotizaciones' #}
+{% if puede_editar %}
+    {% if cotizacion.estado in ['enviada', 'aceptada', 'programada'] %}
+    <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalCerrarCotizacion">
+        🔒 Cerrar Cotización
+    </button>
+    {% endif %}
 {% endif %}
 {% endblock %}
 

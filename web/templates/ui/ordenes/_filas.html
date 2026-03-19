@@ -1,3 +1,4 @@
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% for item in items %}
 <tr>
     <td>
@@ -30,16 +31,16 @@
             {{ item.estado|replace('_', ' ')|title }}
         </span>
     </td>
-    <td>
-        <div class="btn-group btn-group-sm">
-            <a href="/ui/ordenes/{{ item.id }}/detalle" class="btn btn-sm btn-info text-white" title="Ver Detalle">
-                👁️
-            </a>
-            <a href="/api/ordenes/{{ item.id }}/pdf" class="btn btn-sm btn-secondary" target="_blank" title="PDF">
-                📄
-            </a>
-        </div>
-    </td>
+    {% set btns_extra = [] %}
+    {{ acciones(
+        ui_base, 
+        item.id, 
+        puede_editar, 
+        url_detalle='/ui/ordenes/' ~ item.id ~ '/detalle',
+        extras=btns_extra,
+        puede_eliminar=puede_eliminar,
+        delete_confirm='¿Eliminar orden de trabajo ' ~ item.numero_ot ~ '?'
+    ) }}
 </tr>
 {% endfor %}
 {% if not items %}

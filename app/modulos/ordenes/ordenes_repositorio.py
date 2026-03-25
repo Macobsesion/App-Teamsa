@@ -27,6 +27,12 @@ class RepositorioOrden(RepositorioCRUD[OrdenTrabajo]):
         self.generador_folio = generador_folio or EstrategiaFolioFechaId()
         self.campos_busqueda = {"numero_ot": "icontains", "cliente_nombre": "icontains"}
 
+    def _condiciones_busqueda_personalizada(self, valor_seguro: str) -> list:
+        """Permite buscar coincidencias en los conceptos/servicios de la orden de trabajo."""
+        return [
+            OrdenTrabajo.conceptos.any(ConceptoOrdenTrabajo.descripcion.ilike(f"%{valor_seguro}%"))
+        ]
+
     def _enriquecer_consulta(self, consulta):
         from sqlalchemy.orm import selectinload
         return consulta.options(selectinload(OrdenTrabajo.conceptos))

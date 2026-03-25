@@ -13,6 +13,12 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
         "metodo_pago", "forma_pago", "notas", "notas_privadas", "modificado_por"
     }
     campos_busqueda = {"folio": "icontains", "notas": "icontains"}
+
+    def _condiciones_busqueda_personalizada(self, valor_seguro: str) -> list:
+        """Permite buscar coincidencias en los conceptos/servicios de la orden de compra."""
+        return [
+            OrdenCompra.detalles.any(DetalleOrdenCompra.descripcion.ilike(f"%{valor_seguro}%"))
+        ]
     
     def _enriquecer_consulta(self, consulta):
         from sqlalchemy.orm import selectinload

@@ -118,6 +118,10 @@ class RepositorioCRUD(Generic[TModelo]):
         valor = valor.replace("_", "\\_")
         return valor
 
+    def _condiciones_busqueda_personalizada(self, valor_seguro: str) -> list:
+        """Hook para que las subclases agreguen condiciones OR personalizadas (ej. búsquedas en relaciones)."""
+        return []
+
     # ---- operaciones públicas ----
     def listar(
         self,
@@ -231,18 +235,23 @@ class RepositorioCRUD(Generic[TModelo]):
                 continue
 
             # Caso especial: Búsqueda multi-campo genérica
-            if campo == "q" and self.campos_busqueda:
+            if campo == "q":
                 valor_seguro = self._sanitizar_busqueda(str(valor))
-                for c_busqueda, operador in self.campos_busqueda.items():
-                    col = getattr(self.modelo, c_busqueda, None)
-                    if col is None: continue
-                    
-                    if operador == "icontains":
-                        condiciones_or.append(col.ilike(f"%{valor_seguro}%"))
-                    elif operador == "startswith":
-                        condiciones_or.append(col.ilike(f"{valor_seguro}%"))
-                    elif operador == "endswith":
-                        condiciones_or.append(col.ilike(f"%{valor_seguro}"))
+                if self.campos_busqueda:
+                    for c_busqueda, operador in self.campos_busqueda.items():
+                        col = getattr(self.modelo, c_busqueda, None)
+                        if col is None: continue
+                        
+                        if operador == "icontains":
+                            condiciones_or.append(col.ilike(f"%{valor_seguro}%"))
+                        elif operador == "startswith":
+                            condiciones_or.append(col.ilike(f"{valor_seguro}%"))
+                        elif operador == "endswith":
+                            condiciones_or.append(col.ilike(f"%{valor_seguro}"))
+                
+                cond_pers = self._condiciones_busqueda_personalizada(valor_seguro)
+                if cond_pers:
+                    condiciones_or.extend(cond_pers)
                 continue
 
             if campo in self.filtros_personalizados:

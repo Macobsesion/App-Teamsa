@@ -22,6 +22,12 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     campos_busqueda = {"numero": "icontains", "cliente_nombre": "icontains", "cliente_rfc": "icontains"}
     orden_por_defecto = ("numero", True)  # Descendente (más reciente primero)
 
+    def _condiciones_busqueda_personalizada(self, valor_seguro: str) -> list:
+        """Permite buscar coincidencias en los conceptos/servicios de la cotización."""
+        return [
+            Cotizacion.conceptos.any(ConceptoCotizacion.descripcion.ilike(f"%{valor_seguro}%"))
+        ]
+
     def _enriquecer_consulta(self, consulta):
         """Agrega eager loading del cliente y conceptos para evitar N+1 queries."""
         from sqlalchemy.orm import selectinload

@@ -9,5 +9,5 @@ class RepositorioServicioProveedor(RepositorioCRUD[ServicioProveedor]):
     campos_actualizables = {
         "proveedor_id", "codigo_sku", "descripcion", 
         "descripcion_detallada", "costo_unitario", "moneda", 
-        "unidad", "activo"
+        "unidad", "activo", "modificado_por"
     }

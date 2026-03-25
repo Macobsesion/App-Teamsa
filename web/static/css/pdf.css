@@ -53,7 +53,7 @@ body {
 }
 
 .logo {
-  max-width: 90px;
+  max-width: 95px;
   height: auto;
 }
 
@@ -125,7 +125,7 @@ body {
 }
 
 .conceptos-table th {
-  padding: 12px 10px;
+  padding: 6px 6px 6px 6px;
   text-align: left;
   font-size: 9pt;
   font-weight: 600;
@@ -174,7 +174,7 @@ body {
 .totales-container {
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .totales-table {

@@ -13,6 +13,18 @@
         {% else %}
         <span class="text-muted">ID: {{ item.proveedor_id }}</span>
         {% endif %}
+        
+        {# Lista de Detalles resumida #}
+        <div class="mt-1 d-flex flex-wrap gap-1">
+            {% for detalle in item.detalles[:5] %}
+            <span class="badge bg-light text-dark border-0 shadow-sm" style="font-size: 0.7rem; background-color: #f1f3f9 !important;">
+                📦 {{ detalle.cantidad|int if detalle.cantidad % 1 == 0 else detalle.cantidad }}x {{ detalle.descripcion[:25] }}{{ '...' if detalle.descripcion|length > 25 }}
+            </span>
+            {% endfor %}
+            {% if item.detalles|length > 5 %}
+            <span class="badge bg-light text-muted border-0" style="font-size: 0.7rem;">+{{ item.detalles|length - 5 }} más</span>
+            {% endif %}
+        </div>
     </td>
     <td>
         {% if item.estado_enum.value == 'borrador' %}

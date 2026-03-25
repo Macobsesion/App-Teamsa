@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from typing import Any, Callable, Generic, Iterable, Iterator, TypeVar
 
-from sqlmodel import Session, SQLModel, select  # type: ignore
+from sqlmodel import Session, SQLModel, select, or_  # type: ignore
 from sqlalchemy import asc, desc  # type: ignore
 
 TModelo = TypeVar("TModelo", bound=SQLModel)
@@ -224,13 +224,35 @@ class RepositorioCRUD(Generic[TModelo]):
 
     # ---- helpers internos ----
     def _aplicar_filtros(self, consulta, filtros: Mapping[str, Any]):
+        condiciones_or = []
+        
         for campo, valor in filtros.items():
+            if not valor and valor != 0:
+                continue
+
+            # Caso especial: Búsqueda multi-campo genérica
+            if campo == "q" and self.campos_busqueda:
+                valor_seguro = self._sanitizar_busqueda(str(valor))
+                for c_busqueda, operador in self.campos_busqueda.items():
+                    col = getattr(self.modelo, c_busqueda, None)
+                    if col is None: continue
+                    
+                    if operador == "icontains":
+                        condiciones_or.append(col.ilike(f"%{valor_seguro}%"))
+                    elif operador == "startswith":
+                        condiciones_or.append(col.ilike(f"{valor_seguro}%"))
+                    elif operador == "endswith":
+                        condiciones_or.append(col.ilike(f"%{valor_seguro}"))
+                continue
+
             if campo in self.filtros_personalizados:
                 consulta = self.filtros_personalizados[campo](consulta, valor)
                 continue
+            
             columna = getattr(self.modelo, campo, None)
             if columna is None:
                 continue
+            
             if campo in self.campos_filtrables:
                 if isinstance(valor, (list, tuple, set)):
                     consulta = consulta.where(columna.in_(valor))
@@ -238,8 +260,6 @@ class RepositorioCRUD(Generic[TModelo]):
                     consulta = consulta.where(columna == valor)
             elif campo in self.campos_busqueda:
                 operador = self.campos_busqueda[campo]
-                # Sanitizar para prevenir inyección SQL vía wildcards
-                # Sin esto, un usuario podría buscar '%' y obtener todos los registros
                 valor_seguro = self._sanitizar_busqueda(str(valor))
                 
                 if operador == "icontains":
@@ -248,6 +268,10 @@ class RepositorioCRUD(Generic[TModelo]):
                     consulta = consulta.where(columna.ilike(f"{valor_seguro}%"))
                 elif operador == "endswith":
                     consulta = consulta.where(columna.ilike(f"%{valor_seguro}"))
+        
+        if condiciones_or:
+            consulta = consulta.where(or_(*condiciones_or))
+            
         return consulta
 
     def _aplicar_orden(self, consulta, orden: str | None, descendente: bool | None):

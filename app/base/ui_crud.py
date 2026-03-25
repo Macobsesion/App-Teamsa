@@ -120,9 +120,12 @@ def construir_enrutador_ui(
         repo = _get_repo(db)
         filtros: dict[str, Any] = {}
         try:
+            # Búsqueda global (multi-campo definida en el repo)
             q = request.query_params.get('q')
-            if campo_busqueda and q:
-                filtros[campo_busqueda] = q
+            if q:
+                filtros['q'] = q
+            
+            # Filtros específicos por columna
             if hasattr(repo, 'campos_filtrables'):
                 for k, v in request.query_params.items():
                     if k in getattr(repo, 'campos_filtrables') and v is not None and v != '':
@@ -265,7 +268,6 @@ def construir_enrutador_ui(
             "refrescarLista": True, "modalClose": True,
             "flash": {"tipo": "success", "texto": msg_creado},
         })
-        response.headers["HX-Refresh"] = "true"
         return HTMLResponse("")
 
     @router.post("/{id}/actualizar")
@@ -344,7 +346,6 @@ def construir_enrutador_ui(
             "refrescarLista": True, "modalClose": True,
             "flash": {"tipo": "success", "texto": msg_actualizado},
         })
-        response.headers["HX-Refresh"] = "true"
         return HTMLResponse("")
 
     from sqlalchemy.exc import IntegrityError

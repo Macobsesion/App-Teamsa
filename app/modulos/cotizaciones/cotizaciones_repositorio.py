@@ -19,13 +19,16 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         "cliente_id", "estado", "notas", "notas_privadas", "metodo_pago",
         "descuento_porcentaje", "modificado_por"
     }
-    campos_busqueda = {"numero": "icontains"}
+    campos_busqueda = {"numero": "icontains", "cliente_nombre": "icontains", "cliente_rfc": "icontains"}
     orden_por_defecto = ("numero", True)  # Descendente (más reciente primero)
 
     def _enriquecer_consulta(self, consulta):
-        """Agrega eager loading del cliente para evitar N+1 queries."""
+        """Agrega eager loading del cliente y conceptos para evitar N+1 queries."""
         from sqlalchemy.orm import selectinload
-        return consulta.options(selectinload(Cotizacion.cliente))
+        return consulta.options(
+            selectinload(Cotizacion.cliente),
+            selectinload(Cotizacion.conceptos)
+        )
 
 
     def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
@@ -86,17 +89,15 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
 
     def obtener_estado_conceptos(self, cotizacion_id: int) -> dict[int, dict]:
         """
-        Obtiene el estado de OT para cada concepto de una cotización de forma encapsulada, 
-        delegando al módulo de Órdenes.
-        Retorna: {concepto_id: {"estado": "pendiente"|"completado", "numero_ot": ..., "orden_id": ...}}
+        Obtiene el estado de ejecución (OT) para cada concepto de una cotización.
+        
+        Delega al ServicioAplicacionCotizacion para mantener este repositorio
+        enfocado en acceso a datos, sin acoplarse directamente a RepositorioOrden.
+        
+        Retorna: {concepto_id: {"estado": ..., "numero_ot": ..., "orden_id": ...}}
         """
-        from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
-        
-        conceptos = self.obtener_conceptos(cotizacion_id)
-        concepto_ids = [c.id for c in conceptos if c.id is not None]
-        
-        repo_ordenes = RepositorioOrden(self.db)
-        return repo_ordenes.obtener_estado_por_conceptos_cotizacion(concepto_ids)
+        from app.modulos.cotizaciones.cotizaciones_servicios import ServicioAplicacionCotizacion
+        return ServicioAplicacionCotizacion(self.db).obtener_estado_conceptos(cotizacion_id)
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """

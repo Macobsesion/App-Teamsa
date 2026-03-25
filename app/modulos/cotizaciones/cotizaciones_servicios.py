@@ -1,116 +1,59 @@
 """
-Servicios de dominio para Cotizaciones.
+Servicio de Aplicación para Cotizaciones.
+
+Orquesta operaciones que cruzan más de un repositorio o módulo.
+Este es el punto de entrada correcto para el próximo módulo que necesite
+interactuar con Cotizaciones y Órdenes simultáneamente.
+
+Regla: Los repositorios individuales NO deben instanciarse entre sí.
+       Solo este servicio (u otro ServicioAplicacion) puede hacerlo.
 """
-from decimal import Decimal
-from datetime import date
 from sqlmodel import Session
-import uuid
 
-from app.base.servicios import ServicioDominio, FabricaImpuestos
-from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
-from app.modulos.cotizaciones.enums import EstadoCotizacion
-from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
-from app.modulos.clientes.clientes_repositorio import RepositorioCliente
+from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
+from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
 
-from app.base.servicios_documentos import ServicioDocumentoFinanciero
 
-class ServicioCreacionCotizacion(ServicioDocumentoFinanciero[Cotizacion, ConceptoCotizacion]):
+class ServicioAplicacionCotizacion:
     """
-    Servicio de Dominio encargado de la creación compleja de cotizaciones.
-    Orquesta la validación, cálculo de impuestos y persistencia.
+    Orquestador de lógica de aplicación que cruza Cotizaciones y Órdenes.
     """
-    
+
     def __init__(self, db: Session):
         self.db = db
-        self.repo_cotizacion = RepositorioCotizacion(db)
-        self.repo_concepto = RepositorioConcepto(db)
-        self.repo_cliente = RepositorioCliente(db)
-        
-    
-    def _crear_instancia_cabecera(self, data: dict) -> Cotizacion:
-        """Implementación del paso: Crear instancia base."""
-        # 1. Obtener cliente
-        cliente_id = data.get('cliente_id')
-        cliente = self.repo_cliente.obtener_por_id(cliente_id)
-        if not cliente:
-            raise ValueError(f"Cliente con ID {cliente_id} no encontrado")
-            
-        # 2. Crear Cotización
-        temp_id = f"TEMP-{uuid.uuid4()}"
-        cotizacion = Cotizacion(
-            numero=temp_id, 
-            numero_version=temp_id,
-            cliente_id=cliente_id,
-            cliente_nombre=cliente.nombre,
-            cliente_rfc=cliente.rfc,
-            cliente_direccion=cliente.direccion,
-            cliente_ciudad=cliente.ciudad,
-            cliente_cp=cliente.cp,
-            cliente_telefono=cliente.telefono,
-            cliente_email=cliente.email,
-            estado=EstadoCotizacion.BORRADOR.value,
-            metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),
-            forma_pago=data.get('forma_pago', '99'),
-            notas=data.get('notas'),
-            fecha_emision=date.today(),
-            creado_por=data.get('usuario_id', 'SISTEMA'),
-            modificado_por=data.get('usuario_id', 'SISTEMA'),
-        )
-        
-        # 3. Establecer vigencia inicial
-        cotizacion.actualizar_vigencia()
-        return cotizacion
+        self._repo_cot = RepositorioCotizacion(db)
+        self._repo_ordenes = RepositorioOrden(db)
 
-    def _generar_folio_final(self, documento: Cotizacion) -> str | None:
-        """Implementación del paso: Generar Folio."""
-        # Delegamos al repositorio la generación del string
-        # Nota: BaseDocumento tiene folio, pero Cotizacion usa numero/numero_version
-        numero_real = self.repo_cotizacion.generar_numero_desde_id(documento.id, documento.fecha_emision)
-        documento.numero = numero_real
-        documento.numero_version = numero_real
-        # Retornamos el mismo valor para que el template method asigne .folio si quisiera
-        # pero aqui lo asignamos manual a los campos especificos
-        return numero_real
-
-    def _procesar_detalles(self, documento: Cotizacion, items_data: list) -> list[ConceptoCotizacion]:
-        """Implementación del paso: Procesar Detalles."""
-        conceptos = []
-        for servicio_data in items_data:
-            # Usar Factory Method del modelo Concepto
-            concepto = ConceptoCotizacion.crear_desde_servicio(
-                cotizacion_id=documento.id,
-                servicio_id=servicio_data.get('servicio_id'),
-                codigo_sat=servicio_data['codigo_sat'],
-                descripcion=servicio_data['descripcion'],
-                unidad=servicio_data['unidad'],
-                cantidad=Decimal(str(servicio_data['cantidad'])),
-                precio_unitario=Decimal(str(servicio_data['precio_unitario'])),
-                descuento_porcentaje=Decimal(str(servicio_data.get('descuento_porcentaje', 0)))
-            )
-            conceptos.append(concepto)
-        return conceptos
-
-    def _calcular_impuestos(self, documento: Cotizacion, subtotal: Decimal) -> Decimal:
-        """Override: Usar estrategia basada en cliente (ej. Frontera)."""
-        # Necesitamos el cliente_id. Lo podemos sacar del documento
-        cliente_id = documento.cliente_id
-        cliente = self.repo_cliente.obtener_por_id(cliente_id)
-        
-        region = "MX_CENTRO"
-        if cliente and cliente.cp and cliente.cp.startswith("22"): # Ejemplo TJ
-            region = "MX_FRONTERA"
-            
-        estrategia = FabricaImpuestos.obtener_estrategia(region)
-        return estrategia.calcular(subtotal)
-
-
-    def crear_cotizacion_completa(self, data: dict, usuario_id: str) -> Cotizacion:
+    def obtener_estado_conceptos(self, cotizacion_id: int) -> dict[int, dict]:
         """
-        Wrapper de compatibilidad para el router.
-        Extrae items y datos de cabecera.
-        """
-        # Aseguramos que el usuario_id esté en los datos para la cabecera
-        data['usuario_id'] = usuario_id
-        items = data.get('servicios', []) or data.get('conceptos', [])
+        Obtiene el estado de ejecución (OT) para cada concepto de una cotización.
         
-        return self.crear_documento(data, items)
+        Centraliza la consulta cruzada que antes requería que RepositorioCotizacion
+        instanciara RepositorioOrden directamente.
+
+        Returns:
+            Dict[concepto_id, {"estado": str, "numero_ot": str, "orden_id": int}]
+        """
+        conceptos = self._repo_cot.obtener_conceptos(cotizacion_id)
+        concepto_ids = [c.id for c in conceptos if c.id is not None]
+
+        if not concepto_ids:
+            return {}
+
+        return self._repo_ordenes.obtener_estado_por_conceptos_cotizacion(concepto_ids)
+
+    def obtener_detalle_completo(self, cotizacion_id: int) -> dict:
+        """
+        Devuelve la cotización con sus conceptos y sus estados de ejecución en OT.
+        
+        Útil para el próximo módulo que necesite una vista consolidada.
+        """
+        cotizacion = self._repo_cot.obtener_por_id(cotizacion_id)
+        conceptos = self._repo_cot.obtener_conceptos(cotizacion_id)
+        estados = self.obtener_estado_conceptos(cotizacion_id)
+
+        return {
+            "cotizacion": cotizacion,
+            "conceptos": conceptos,
+            "estados_ot": estados,
+        }

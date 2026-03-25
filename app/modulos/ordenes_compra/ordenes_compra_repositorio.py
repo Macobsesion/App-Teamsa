@@ -8,7 +8,15 @@ from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, Detall
 class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
     modelo = OrdenCompra
     campos_filtrables = {"proveedor_id", "estado", "fecha_emision"}
+    campos_actualizables = {
+        "proveedor_id", "estado", "fecha_emision", "fecha_entrega_estimada",
+        "metodo_pago", "forma_pago", "notas", "notas_privadas", "modificado_por"
+    }
     campos_busqueda = {"folio": "icontains", "notas": "icontains"}
+    
+    def _enriquecer_consulta(self, consulta):
+        from sqlalchemy.orm import selectinload
+        return consulta.options(selectinload(OrdenCompra.detalles))
     
     def obtener_con_detalles(self, id_orden: int) -> OrdenCompra | None:
         """Obtiene una orden cargando ansiosamente sus detalles."""

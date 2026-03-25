@@ -15,7 +15,7 @@ class RepositorioProveedor(RepositorioCRUD[Proveedor]):
         "telefono", "direccion", "ciudad", "estado", "cp",
         "categoria", "activo", "notas", "modificado_por"
     }
-    campos_busqueda = {"nombre": "icontains"}
+    campos_busqueda = {"nombre": "icontains", "rfc": "icontains", "email": "icontains"}
     orden_por_defecto = ("nombre", False)
     
 

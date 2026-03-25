@@ -19,7 +19,17 @@ class RepositorioOrden(RepositorioCRUD[OrdenTrabajo]):
         super().__init__(db)
         self.modelo = OrdenTrabajo
         self.campos_filtrables = {'estado', 'usuario_id'}
+        self.campos_actualizables = {
+            'estado', 'usuario_id', 'tecnico_id', 'comentarios', 
+            'fecha_programada', 'hora_programada', 'duracion',
+            'modificado_por'
+        }
         self.generador_folio = generador_folio or EstrategiaFolioFechaId()
+        self.campos_busqueda = {"numero_ot": "icontains", "cliente_nombre": "icontains"}
+
+    def _enriquecer_consulta(self, consulta):
+        from sqlalchemy.orm import selectinload
+        return consulta.options(selectinload(OrdenTrabajo.conceptos))
 
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
         return datos

@@ -77,15 +77,12 @@ def actualizar_notas_privadas(
 ):
     """Actualiza únicamente las notas privadas de una cotización."""
     repo = RepositorioCotizacion(db)
-    try:
-        cotizacion = repo.actualizar_notas_privadas(
-            cotizacion_id,
-            data.get('notas_privadas'),
-            usuario.usuario
-        )
-        return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
-    except RecursoNoEncontradoError:
-        raise
+    cotizacion = repo.actualizar_notas_privadas(
+        cotizacion_id,
+        data.get('notas_privadas'),
+        usuario.usuario
+    )
+    return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
 
 
 @router_extras.post("/completa")
@@ -139,19 +136,13 @@ def cerrar_cotizacion(
     db: Session = Depends(obtener_sesion_bd),
     usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
 ):
-    cot = db.get(Cotizacion, id)
-    if not cot:
-        raise RecursoNoEncontradoError("Cotización no encontrada")
+    from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
     
-    # Obtener el estado del body (finalizada o cancelada)
-    estado = data.get('estado', 'finalizada')
-    if estado not in ['finalizada', 'cancelada']:
-        estado = 'finalizada'
+    servicio = ServicioCotizaciones(db)
+    estado_objetivo = data.get('estado', 'finalizada')
     
-    cot.estado = estado
-    db.add(cot)
-    db.commit()
-    return {"mensaje": f"Cotización cerrada como {estado}"}
+    servicio.cerrar_cotizacion(id, estado_objetivo)
+    return {"mensaje": f"Cotización cerrada como {estado_objetivo}"}
 
 
 # ---------- Descriptor ----------

@@ -50,3 +50,10 @@ class BaseDocumento(MixinDocumentoFinanciero, AuditMixin, SQLModel):
         if hasattr(self.estado_enum, "es_cancelable"):
             return self.estado_enum.es_cancelable
         return False
+
+    def actualizar_notas_privadas(self, notas: Optional[str], usuario_id: str) -> None:
+        """Encapsula la mutación de notas privadas con rastro de auditoría."""
+        from datetime import datetime
+        self.notas_privadas = notas
+        self.modificado_por = usuario_id
+        self.fecha_modificacion = datetime.now()

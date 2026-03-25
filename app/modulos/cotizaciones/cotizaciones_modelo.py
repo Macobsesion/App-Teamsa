@@ -2,9 +2,11 @@
 from datetime import date, datetime
 from decimal import Decimal
 from sqlmodel import Field, SQLModel, Relationship  # type: ignore
+from pydantic import field_validator, model_validator
 from typing import TYPE_CHECKING
 
 from app.base.auditoria import AuditMixin
+from app.base.valores import Direccion
 
 if TYPE_CHECKING:
     from app.modulos.clientes.clientes_modelo import Cliente
@@ -19,6 +21,13 @@ class Cotizacion(BaseDocumento, table=True):
     __tablename__ = "cotizaciones"
     
     id: int | None = Field(default=None, primary_key=True)
+    
+    @model_validator(mode="after")
+    def validar_fechas(self) -> "Cotizacion":
+        if self.fecha_vigencia and self.fecha_emision:
+            if self.fecha_vigencia < self.fecha_emision:
+                raise ValueError("La fecha de vigencia no puede ser anterior a la de emisión")
+        return self
     
     # Numeración
     numero: str = Field(unique=True, index=True, description="Número con versión: COT-00001 o COT-00001-B")
@@ -50,6 +59,24 @@ class Cotizacion(BaseDocumento, table=True):
     cliente: "Cliente" = Relationship(back_populates="cotizaciones")
     conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")
 
+    # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
+
+    @property
+    def direccion_cliente_vo(self) -> Direccion:
+        """Devuelve la dirección del snapshot como un Objeto de Valor."""
+        return Direccion(
+            calle=self.cliente_direccion,
+            ciudad=self.cliente_ciudad,
+            cp=self.cliente_cp
+        )
+    
+    @direccion_cliente_vo.setter
+    def direccion_cliente_vo(self, valor: Direccion) -> None:
+        """Asigna la dirección del snapshot descomponiendo el VO."""
+        self.cliente_direccion = valor.calle
+        self.cliente_ciudad = valor.ciudad
+        self.cliente_cp = valor.cp
+
     # ---- PROPIEDADES DE ESTADO (POLIMORFISMO) ----
     @property
     def estado_enum(self) -> EstadoCotizacion:
@@ -78,15 +105,10 @@ class Cotizacion(BaseDocumento, table=True):
         if self.fecha_emision:
             self.fecha_vigencia = self.fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
 
-    def actualizar_notas_privadas(self, notas: str | None, usuario_id: str) -> None:
-        """Encapsula la mutación de notas privadas."""
-        from datetime import datetime
-        self.notas_privadas = notas
-        self.modificado_por = usuario_id
-        self.fecha_modificacion = datetime.now()
 
+from app.base.base_detalle import BaseDetalleTransaccional
 
-class ConceptoCotizacion(MixinDetalleFinanciero, SQLModel, table=True):
+class ConceptoCotizacion(BaseDetalleTransaccional, table=True):
     """Concepto (item/línea) de una cotización."""
     
     id: int | None = Field(default=None, primary_key=True)
@@ -99,11 +121,9 @@ class ConceptoCotizacion(MixinDetalleFinanciero, SQLModel, table=True):
     
     # Datos del servicio copiados al momento de crear (snapshot)
     codigo_sat: str = Field(description="Código SAT del producto/servicio")
-    descripcion: str = Field(description="Descripción del concepto")
-    unidad: str = Field(description="Unidad de medida: pieza, hora, etc.")
     codigo_unidad: str = Field(default="H87", description="Código de unidad SAT")
     
-    # MIXIN: cantidad, precio_unitario, descuento_porcentaje, importe ya están definidos
+    # BaseDetalleTransaccional ya incluye: descripcion, unidad, cantidad, precio_unitario, importe, descuento_porcentaje
     
     # Relationships
     cotizacion: "Cotizacion" = Relationship(back_populates="conceptos")

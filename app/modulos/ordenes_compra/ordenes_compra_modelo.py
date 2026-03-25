@@ -2,7 +2,9 @@
 from decimal import Decimal
 from datetime import date
 from enum import Enum
+from app.base.valores import Direccion
 from sqlmodel import Field, SQLModel, Relationship
+from pydantic import field_validator, model_validator
 from typing import List, Optional, TYPE_CHECKING
 
 from app.base.documentos_modelo import BaseDocumento
@@ -27,6 +29,13 @@ class OrdenCompra(BaseDocumento, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     
+    @model_validator(mode="after")
+    def validar_fechas(self) -> "OrdenCompra":
+        if self.fecha_entrega_estimada and self.fecha_emision:
+            if self.fecha_entrega_estimada < self.fecha_emision:
+                raise ValueError("La fecha de entrega estimada no puede ser anterior a la de emisión")
+        return self
+    
     # Snapshot del Proveedor (Congelamiento Histórico)
     proveedor_nombre: str | None = Field(default=None, description="Nombre del proveedor al momento de la orden")
     proveedor_rfc: str | None = Field(default=None, max_length=13, description="RFC del proveedor")
@@ -48,29 +57,46 @@ class OrdenCompra(BaseDocumento, table=True):
     proveedor: "Proveedor" = Relationship()
     detalles: List["DetalleOrdenCompra"] = Relationship(back_populates="orden", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
+    # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
+
+    @property
+    def direccion_proveedor_vo(self) -> Direccion:
+        """Devuelve la dirección del snapshot como un Objeto de Valor."""
+        return Direccion(
+            calle=self.proveedor_direccion,
+            ciudad=self.proveedor_ciudad,
+            cp=self.proveedor_cp
+        )
+    
+    @direccion_proveedor_vo.setter
+    def direccion_proveedor_vo(self, valor: Direccion) -> None:
+        """Asigna la dirección del snapshot descomponiendo el VO."""
+        self.proveedor_direccion = valor.calle
+        self.proveedor_ciudad = valor.ciudad
+        self.proveedor_cp = valor.cp
+
     @property
     def estado_enum(self) -> EstadoOrdenCompra:
         return EstadoOrdenCompra(self.estado)
 
 
-class DetalleOrdenCompra(MixinDetalleFinanciero, SQLModel, table=True):
+from app.base.base_detalle import BaseDetalleTransaccional
+
+class DetalleOrdenCompra(BaseDetalleTransaccional, table=True):
     """Partida individual de la orden de compra."""
     __tablename__ = "detalle_orden_compra"
 
     id: int | None = Field(default=None, primary_key=True)
+
     orden_id: int = Field(foreign_key="orden_compra.id", index=True)
     
     # Referencia al catálogo de compra
     servicio_proveedor_id: int | None = Field(default=None, foreign_key="servicio_proveedor.id", index=True)
     
-    # Descripción snapshot (por si cambia el catálogo)
+    # Descripción snapshot (por si cambia el catálogo) / heredado: descripcion, unidad
     codigo_sku: str
-    descripcion: str
-    unidad: str
     
-    # Cantidades
-    # Cantidades (cantidad viene del MixinDetalleFinanciero y representa lo solicitado)
-    # cantidad_solicitada eliminada en favor de self.cantidad heredada
+    # Cantidades (cantidad viene de BaseDetalleTransaccional)
     cantidad_recibida: Decimal = Field(default=Decimal("0.0"), decimal_places=2)
     
     # Relaciones

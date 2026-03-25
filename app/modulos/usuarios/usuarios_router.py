@@ -84,7 +84,7 @@ def cambiar_password(
     repo = RepositorioUsuario(db)
     # El repositorio en _pre_procesar_cambios hashea la contraseña automáticamente
     payload = UsuarioUpdatePartial(contrasena=contrasena)
-    repo.actualizar(usuario_id, payload.dict(exclude_unset=True))
+    repo.actualizar(usuario_id, payload.model_dump(exclude_unset=True))
     
     from fastapi.responses import HTMLResponse
     resp = HTMLResponse(f"""
@@ -103,11 +103,8 @@ def cambiar_password(
 def form_permisos(id: int, request: Request, db: Session = Depends(obtener_sesion_bd), _actor=Depends(para_modulo("usuarios", "editar"))):
     """Devuelve el modal con la matriz de permisos para un usuario."""
     repo = RepositorioUsuario(db)
-    try:
-        usuario = repo.obtener_por_id(id)
-    except Exception:
-        return HTMLResponse("Usuario no encontrado", status_code=404)
-        
+    usuario = repo.obtener_por_id(id)
+    
     modulos_disponibles = [
         {"id": "usuarios", "nombre": "Usuarios"},
         {"id": "clientes", "nombre": "Clientes"},
@@ -153,7 +150,7 @@ async def guardar_permisos(
         permisos_eliminar=permisos_eliminar
     )
     
-    repo.actualizar(usuario_id, payload.dict(exclude_unset=True))
+    repo.actualizar(usuario_id, payload.model_dump(exclude_unset=True))
     
     resp = HTMLResponse("Permisos actualizados")
     resp.headers["HX-Trigger"] = "load" 

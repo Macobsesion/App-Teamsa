@@ -5,11 +5,12 @@ from decimal import Decimal
 import uuid
 from abc import ABC, abstractmethod
 
-from app.base.documentos_modelo import BaseDocumento, MixinDocumentoFinanciero
+from app.base.documentos_modelo import BaseDocumento
+from app.base.base_detalle import BaseDetalleTransaccional
 from app.base.constantes import IVA_PORCENTAJE
 
 TDocumento = TypeVar("TDocumento", bound=BaseDocumento)
-TDetalle = TypeVar("TDetalle", bound=MixinDocumentoFinanciero)
+TDetalle = TypeVar("TDetalle", bound=BaseDetalleTransaccional)
 
 class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
     """

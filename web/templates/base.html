@@ -63,6 +63,15 @@
       mostrarFlash(d.texto || 'Operación realizada', d.tipo || 'success');
     });
 
+    // Cerrar modal automáticamente cuando llega el evento HX-Trigger { "modalClose": true }
+    document.body.addEventListener('modalClose', function (e) {
+      var modalEl = document.querySelector('.modal.show');
+      if (modalEl) {
+        var modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+      }
+    });
+
     // Función global para mostrar errores premium desde JS (Wizards, manual, etc)
     window.mostrarError = function(mensaje) {
       var toastEl = document.getElementById('errorToast');

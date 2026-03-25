@@ -14,8 +14,9 @@ from app.rutas.dependencias import dp_usuario_actual
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
 from app.modulos.usuarios.usuarios_modelo import Usuario
 from app.base.excepciones import PermisoDenegadoError
+from app.base.modulos_sistema import ModuloSistema
 
-def para_modulo(modulo: str, accion: str = "editar") -> Callable:
+def para_modulo(modulo: str | ModuloSistema, accion: str = "editar") -> Callable:
     """
     Retorna la dependencia FastAPI de autorización dinámica para el módulo dado.
     accion debe ser una de: "ver", "crear", "editar", "eliminar".
@@ -51,16 +52,10 @@ def para_modulo(modulo: str, accion: str = "editar") -> Callable:
         
     return _verificar
 
-# Mapa de ruta HTML para renderizado
+# Mapa de ruta HTML para renderizado, derivado de ModuloSistema (fuente de verdad).
+# La clave usa guiones (convención URL) y el valor es el módulo del sistema.
 RUTAS_MODULO: dict[str, str] = {
-    "/usuarios":              "usuarios",
-    "/clientes":              "clientes",
-    "/servicios":             "servicios",
-    "/proveedores":           "proveedores",
-    "/cotizaciones":          "cotizaciones",
-    "/ordenes":               "ordenes",
-    "/ordenes-compra":        "ordenes_compra",
-    "/servicios-proveedores": "servicios_proveedores",
+    f"/{m.value.replace('_', '-')}": m.value for m in ModuloSistema
 }
 
-__all__ = ["para_modulo", "RUTAS_MODULO"]
+__all__ = ["para_modulo", "RUTAS_MODULO", "ModuloSistema"]

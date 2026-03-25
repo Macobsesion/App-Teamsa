@@ -15,5 +15,5 @@ class RepositorioCliente(RepositorioCRUD[Cliente]):
         "telefono", "direccion", "ciudad", "estado", "cp",
         "activo", "notas", "modificado_por"
     }
-    campos_busqueda = {"nombre": "icontains"}
+    campos_busqueda = {"nombre": "icontains", "rfc": "icontains", "email": "icontains"}
     orden_por_defecto = ("nombre", False)

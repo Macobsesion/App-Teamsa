@@ -14,7 +14,9 @@ from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
 from app.modulos.proveedores.proveedores_modelo import Proveedor
 from app.modulos.servicios_proveedores.servicios_proveedores_modelo import ServicioProveedor
-from app.modulos.ordenes_compra.ordenes_compra_esquemas import OrdenCompraCreate, OrdenCompraUpdate, OrdenCompraRead
+from app.modulos.ordenes_compra.ordenes_compra_esquemas import (
+    OrdenCompraCreate, OrdenCompraUpdate, OrdenCompraRead, OrdenCompraWizardRead
+)
 from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
 from app.modulos.ordenes_compra.ordenes_compra_servicios import ServicioCreacionOrdenCompra
 from app.modulos.ordenes_compra.pdf_generator import generar_pdf_orden_compra
@@ -35,7 +37,7 @@ def crear_orden_completa(
     return orden
 
 
-@router_extras.get("/{orden_id}/completa")
+@router_extras.get("/{orden_id}/completa", response_model=OrdenCompraWizardRead)
 def obtener_orden_completa(
     orden_id: int,
     db: Session = Depends(obtener_sesion_bd),
@@ -46,28 +48,7 @@ def obtener_orden_completa(
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
 
-    return {
-        "id": orden.id,
-        "folio": orden.folio,
-        "proveedor_id": orden.proveedor_id,
-        "fecha_emision": str(orden.fecha_emision),
-        "fecha_entrega": str(orden.fecha_entrega_estimada) if orden.fecha_entrega_estimada else "",
-        "metodo_pago": orden.metodo_pago,
-        "forma_pago": orden.forma_pago,
-        "notas": orden.notas or "",
-        "estado": orden.estado,
-        "items": [
-            {
-                "servicio_id": d.servicio_proveedor_id,
-                "codigo": d.codigo_sku,
-                "descripcion": d.descripcion,
-                "unidad": d.unidad,
-                "cantidad": float(d.cantidad),
-                "precio_unitario": float(d.precio_unitario),
-            }
-            for d in orden.detalles
-        ]
-    }
+    return orden
 
 
 @router_extras.put("/{orden_id}/actualizar-completa", response_model=OrdenCompraRead)
@@ -96,8 +77,7 @@ def actualizar_notas_privadas_oc(
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
 
-    orden.notas_privadas = data.get('notas_privadas')
-    orden.modificado_por = usuario.usuario
+    orden.actualizar_notas_privadas(data.get('notas_privadas'), usuario.usuario)
     return repo.guardar(orden)
 
 

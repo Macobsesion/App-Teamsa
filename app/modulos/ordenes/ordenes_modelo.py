@@ -2,7 +2,9 @@
 from datetime import date, datetime
 from decimal import Decimal
 from sqlmodel import Field, SQLModel, Relationship  # type: ignore
+from pydantic import field_validator
 from app.base.auditoria import AuditMixin
+from app.base.valores import Direccion
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
@@ -46,6 +48,21 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     
     # Relación con conceptos seleccionados
     conceptos: List["ConceptoOrdenTrabajo"] = Relationship(back_populates="orden")
+
+    # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
+
+    @property
+    def direccion_cliente_vo(self) -> Direccion:
+        """Devuelve la dirección del snapshot como un Objeto de Valor."""
+        return Direccion(
+            calle=self.domicilio,
+            # OT no tiene ciudad/cp en base, se podrían añadir o dejar opcionales
+        )
+    
+    @direccion_cliente_vo.setter
+    def direccion_cliente_vo(self, valor: Direccion) -> None:
+        """Asigna la dirección del snapshot descomponiendo el VO."""
+        self.domicilio = valor.calle
 
     # ---- PROPIEDADES DE ESTADO (POLIMORFISMO) ----
     @property
@@ -118,7 +135,9 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
         )
 
 
-class ConceptoOrdenTrabajo(SQLModel, table=True):
+from app.base.base_detalle import BaseDetalleTransaccional
+
+class ConceptoOrdenTrabajo(BaseDetalleTransaccional, table=True):
     """
     Concepto de cotización seleccionado para ejecutar en una OT.
     
@@ -142,12 +161,7 @@ class ConceptoOrdenTrabajo(SQLModel, table=True):
         description="Un concepto solo puede pertenecer a una OT activa"
     )
     
-    # Snapshot de datos al momento de crear la OT
-    descripcion: str = Field(description="Descripción del servicio")
-    cantidad: Decimal = Field(decimal_places=2, description="Cantidad solicitada")
-    precio_unitario: Decimal = Field(decimal_places=2, description="Precio unitario al momento de crear la OT")
-    importe: Decimal = Field(decimal_places=2, description="Importe total (cantidad × precio)")
-    unidad: str = Field(description="Unidad de medida")
+    # Snapshot de datos al momento de crear la OT / heredado: descripcion, unidad, cantidad, precio_unitario, importe
     
     # Estado irreversible: pendiente → completado
     estado: str = Field(

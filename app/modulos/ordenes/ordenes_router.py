@@ -78,21 +78,15 @@ def crear_desde_cotizacion(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Crea una OT a partir de una cotización con conceptos seleccionados y técnico opcional."""
-    try:
-        ot = servicio.crear_desde_cotizacion(
-            cotizacion_id=payload.cotizacion_id,
-            fecha_programada=payload.fecha_programada,
-            hora_programada=payload.hora_programada,
-            duracion=payload.duracion,
-            usuario=usuario.usuario,
-            concepto_ids=payload.concepto_ids,
-            tecnico_id=payload.tecnico_id,
-        )
-        return ot
-    except (RecursoNoEncontradoError, EmpalmeError, ConceptoYaAsignadoError):
-        # ReglaNegocioError y RecursoNoEncontradoError son capturadas por el app_factory
-        # Se re-lanzan para que el handler global las convierta a 409/404 correctamente
-        raise
+    return servicio.crear_desde_cotizacion(
+        cotizacion_id=payload.cotizacion_id,
+        fecha_programada=payload.fecha_programada,
+        hora_programada=payload.hora_programada,
+        duracion=payload.duracion,
+        usuario=usuario.usuario,
+        concepto_ids=payload.concepto_ids,
+        tecnico_id=payload.tecnico_id,
+    )
 
 
 

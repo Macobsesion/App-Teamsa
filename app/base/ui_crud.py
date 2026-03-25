@@ -119,7 +119,16 @@ def construir_enrutador_ui(
     ):
         repo = _get_repo(db)
         filtros: dict[str, Any] = {}
+        pagina = 1
+        LIMITE_PAGINA = 10
         try:
+            # Paginación
+            try:
+                pagina = int(request.query_params.get("pagina", 1))
+                if pagina < 1: pagina = 1
+            except ValueError:
+                pagina = 1
+                
             # Búsqueda global (multi-campo definida en el repo)
             q = request.query_params.get('q')
             if q:
@@ -132,8 +141,17 @@ def construir_enrutador_ui(
                         filtros[k] = v
         except Exception:
             filtros = {}
+            
+        total_registros = repo.contar(filtros)
+        from math import ceil
+        total_paginas = ceil(total_registros / LIMITE_PAGINA) if total_registros > 0 else 1
+        if pagina > total_paginas:
+            pagina = total_paginas
+            
+        desplazamiento = (pagina - 1) * LIMITE_PAGINA
+
         # type: ignore[attr-defined]
-        items = repo.listar(filtros)
+        items = repo.listar(filtros, limite=LIMITE_PAGINA, desplazamiento=desplazamiento)
         # Interrogamos el usuario real de DB para verificar ocultamiento de botones HTMX
         puede_editar = False
         puede_eliminar = False
@@ -154,6 +172,9 @@ def construir_enrutador_ui(
             "puede_eliminar": puede_eliminar,
             "ui_base": prefix,
             "columnas": columnas or [],
+            "pagina_actual": pagina,
+            "total_paginas": total_paginas,
+            "total_registros": total_registros,
         })
 
     @router.get("/form", response_class=HTMLResponse)

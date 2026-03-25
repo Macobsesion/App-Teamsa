@@ -21,3 +21,38 @@
     </table>
 </div>
 {% endmacro %}
+
+{% macro paginacion_htmx(pagina_actual, total_paginas, ui_base) %}
+{% if total_paginas > 1 %}
+<tr>
+    <td colspan="100" class="border-0 bg-transparent text-center pt-3">
+        <nav>
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {% if pagina_actual <= 1 %}disabled{% endif %}">
+                    <button class="page-link shadow-sm" style="border-radius: 6px 0 0 6px;"
+                            hx-get="{{ ui_base }}/filas?pagina={{ pagina_actual - 1 }}" 
+                            hx-include="[name='q']" 
+                            hx-target="#tbody-lista">Trás</button>
+                </li>
+                
+                {% for p in range(1, total_paginas + 1) %}
+                <li class="page-item {% if p == pagina_actual %}active{% endif %}">
+                    <button class="page-link shadow-sm" 
+                            hx-get="{{ ui_base }}/filas?pagina={{ p }}" 
+                            hx-include="[name='q']" 
+                            hx-target="#tbody-lista">{{ p }}</button>
+                </li>
+                {% endfor %}
+                
+                <li class="page-item {% if pagina_actual >= total_paginas %}disabled{% endif %}">
+                    <button class="page-link shadow-sm" style="border-radius: 0 6px 6px 0;"
+                            hx-get="{{ ui_base }}/filas?pagina={{ pagina_actual + 1 }}" 
+                            hx-include="[name='q']" 
+                            hx-target="#tbody-lista">Sig.</button>
+                </li>
+            </ul>
+        </nav>
+    </td>
+</tr>
+{% endif %}
+{% endmacro %}

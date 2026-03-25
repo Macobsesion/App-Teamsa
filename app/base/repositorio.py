@@ -144,6 +144,15 @@ class RepositorioCRUD(Generic[TModelo]):
             consulta = consulta.offset(desplazamiento)
         return list(self.db.exec(consulta).all())
 
+    def contar(self, filtros: Mapping[str, Any] | None = None) -> int:
+        """Devuelve el número total de registros que coinciden con los filtros."""
+        from sqlmodel import func
+        consulta = select(func.count()).select_from(self.modelo)
+        if filtros:
+            consulta = self._aplicar_filtros(consulta, filtros)
+        resultado = self.db.exec(consulta).one_or_none()
+        return resultado or 0
+
     def crear(self, **datos: Any) -> TModelo:
         """Crea la entidad usando los datos recibidos."""
         datos_procesados = self._pre_procesar_datos_creacion(datos)

@@ -1,3 +1,4 @@
+{% from 'ui/macros/tablas.html' import paginacion_htmx %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
 {% for item in items %}
 <tr>
@@ -40,3 +41,4 @@
     </td>
 </tr>
 {% endif %}
+{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}

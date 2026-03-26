@@ -92,15 +92,30 @@ def crear_desde_cotizacion(
 
 # ---------- Completar concepto (irreversible) ----------
 
-@router_extras.post("/{orden_id}/conceptos/{concepto_id}/completar", response_model=ConceptoOTRead)
+@router_extras.post("/{orden_id}/conceptos/{concepto_id}/completar")
 def completar_concepto(
+    request: Request,
     orden_id: int,
     concepto_id: int,
     servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
-    """Marca un concepto de la OT como completado. Acción irreversible."""
-    return servicio.completar_concepto(orden_id, concepto_id, usuario.usuario)
+    """Marca un concepto de la OT como completado. Retorna el parcial HTML para HTMX."""
+    concepto = servicio.completar_concepto(orden_id, concepto_id, usuario.usuario)
+    
+    # RBAC context for partial
+    per_edit = getattr(usuario, "permisos_editar", []) or []
+    puede_editar = "ordenes" in per_edit
+
+    return TEMPLATES.TemplateResponse(
+        "ui/ordenes/_fila_concepto.html",
+        {
+            "request": request,
+            "concepto": concepto,
+            "puede_editar": puede_editar,
+            "ot": None  # El parcial maneja ot.es_editable si existe, si no asume True
+        }
+    )
 
 
 # ---------- Finalizar y Cancelar OT manual ----------
@@ -137,6 +152,24 @@ def reasignar_tecnico(
 ):
     """Reasigna o quita el técnico de una OT. Valida que no haya empalme de horario."""
     return servicio.reasignar_tecnico(orden_id, payload.tecnico_id, usuario.usuario)
+
+
+@router_extras.patch("/{orden_id}/notas-privadas")
+def actualizar_notas_privadas(
+    orden_id: int,
+    data: dict,
+    db: Session = Depends(obtener_sesion_bd),
+    repo: RepositorioOrden = Depends(obtener_repo_ordenes),
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes")),
+):
+    """Actualiza únicamente las notas privadas de una OT."""
+    ot = repo.obtener_por_id(orden_id)
+    if not ot:
+        raise RecursoNoEncontradoError("Orden no encontrada")
+    
+    # repo.actualizar ya maneja auditoría y commit
+    repo.actualizar(orden_id, {"notas_privadas": data.get("notas_privadas")})
+    return {"detail": "Notas privadas actualizadas", "notas_privadas": data.get("notas_privadas")}
 
 
 # ---------- Router UI Extras ----------

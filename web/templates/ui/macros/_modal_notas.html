@@ -1,0 +1,123 @@
+{# web/templates/ui/macros/_modal_notas.html #}
+<div class="modal fade" id="modalNotasPrivadas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-bold text-dark" id="modalNotasPrivadasTitulo">
+            <i class="fas fa-lock text-muted me-2"></i>Notas Privadas
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+    </div>
+      <div class="modal-body">
+        <div class="alert alert-info alert-sm py-2 px-3 mb-3" style="font-size: 0.85rem; border-radius: 8px;">
+          <i class="fas fa-info-circle me-1"></i><strong>Nota:</strong> Estas notas son solo para uso interno y no aparecen en el PDF.
+        </div>
+        <textarea class="form-control shadow-sm" id="notasPrivadasTexto" rows="6"
+          placeholder="Escribe notas internas aquí..." style="border-radius: 10px; resize: none;"></textarea>
+        <input type="hidden" id="notasPrivadasId">
+        <input type="hidden" id="notasPrivadasModulo">
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-link text-muted text-decoration-none" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-teamsa-primary px-4" onclick="guardarNotasPrivadas()" style="border-radius: 8px;">
+            Guardar Notas
+        </button>
+    </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Configuración de endpoints por módulo
+  const MODULOS_NOTAS = {
+    'cotizaciones': { endpoint: '/api/cotizaciones', label: 'Cotización' },
+    'ordenes-compra': { endpoint: '/api/ordenes-compra', label: 'Orden de Compra' },
+    'ordenes': { endpoint: '/api/ordenes', label: 'Orden de Trabajo' }
+  };
+
+  function abrirNotasPrivadas(modulo, id, folio, notasActuales) {
+    if (!MODULOS_NOTAS[modulo]) {
+        console.error("Módulo no configurado para notas:", modulo);
+        return;
+    }
+
+    document.getElementById('modalNotasPrivadasTitulo').innerHTML = `<i class="fas fa-edit text-muted me-2"></i>Notas Privadas - ${folio}`;
+    document.getElementById('notasPrivadasTexto').value = notasActuales || '';
+    document.getElementById('notasPrivadasId').value = id;
+    document.getElementById('notasPrivadasModulo').value = modulo;
+
+    const modalElement = document.getElementById('modalNotasPrivadas');
+    const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+    modal.show();
+  }
+
+  // Event delegation genérico para tablas CRUD
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.btn-notas-privadas-generico');
+    if (btn) {
+      const modulo = btn.getAttribute('data-modulo');
+      const id = btn.getAttribute('data-id');
+      const folio = btn.getAttribute('data-folio');
+      const notas = btn.getAttribute('data-notas');
+      abrirNotasPrivadas(modulo, id, folio, notas);
+    }
+  });
+
+  async function guardarNotasPrivadas() {
+    const modulo = document.getElementById('notasPrivadasModulo').value;
+    const id = document.getElementById('notasPrivadasId').value;
+    const notas = document.getElementById('notasPrivadasTexto').value;
+
+    const config = MODULOS_NOTAS[modulo];
+    if (!config) return;
+
+    const url = `${config.endpoint}/${id}/notas-privadas`;
+
+    try {
+        const response = await fetch(url, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notas_privadas: notas })
+        });
+
+        if (response.ok) {
+          const modalElement = document.getElementById('modalNotasPrivadas');
+          const modal = bootstrap.Modal.getInstance(modalElement);
+          modal.hide();
+
+          // Notificación
+          if (window.mostrarFlash) {
+              mostrarFlash('✅ Notas privadas guardadas correctamente', 'success');
+          } else {
+              document.body.dispatchEvent(new CustomEvent('flash', {
+                detail: { texto: '✅ Notas privadas guardadas correctamente', tipo: 'success' }
+              }));
+          }
+
+          // Recargar si estamos en una tabla HTMX
+          const tbody = document.getElementById('tbody-lista');
+          if (tbody) {
+              htmx.trigger(tbody, 'load');
+          } else {
+              // Si no hay tabla (ej: vista detalle), actualizamos el atributo si existe el botón
+              const btn = document.querySelector(`.btn-notas-privadas-generico[data-id="${id}"]`);
+              if (btn) btn.setAttribute('data-notas', notas);
+              
+              // O refrescamos el contenedor de notas si existe
+              const notasDiv = document.getElementById('container-notas-privadas');
+              if (notasDiv) {
+                  notasDiv.textContent = notas || 'Sin notas registradas.';
+                  if (!notas) notasDiv.classList.add('text-muted', 'fst-italic');
+                  else notasDiv.classList.remove('text-muted', 'fst-italic');
+              }
+          }
+        } else {
+          const err = await response.json();
+          alert('❌ Error: ' + (err.detail || 'No se pudo guardar'));
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('❌ Error de red al guardar las notas');
+    }
+  }
+</script>

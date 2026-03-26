@@ -76,7 +76,9 @@
                                 <option value="">-- Quitar asignación --</option>
                                 {# El JS carga opciones desde /api/ordenes/tecnicos #}
                             </select>
-                            <button class="btn btn-sm btn-outline-primary" onclick="reasignarTecnico({{ ot.id }})">
+                            <button class="btn btn-sm btn-outline-primary" 
+                                    data-accion="reasignar" 
+                                    data-ot-id="{{ ot.id }}">
                                 Guardar
                             </button>
                         </div>
@@ -167,12 +169,13 @@
                 {% if ot.estado not in ['finalizada', 'cancelada'] and puede_editar %}
                 {# Modal o confirmación para Finalizar/Cancelar #}
                 <button type="button" class="btn btn-outline-success"
-                    onclick="cambiarEstadoOT({{ ot.id }}, 'finalizada')">
-
+                    data-accion-proceso="finalizar"
+                    data-ot-id="{{ ot.id }}">
                     ✅ Finalizar OT
                 </button>
                 <button type="button" class="btn btn-outline-danger"
-                    onclick="cambiarEstadoOT({{ ot.id }}, 'cancelada')">
+                    data-accion-proceso="cancelar"
+                    data-ot-id="{{ ot.id }}">
                     ❌ Cancelar OT
                 </button>
                 {% endif %}
@@ -192,6 +195,9 @@
     // Cargar técnicos disponibles en el select
     document.addEventListener('DOMContentLoaded', async function () {
         const selects = document.querySelectorAll('[id^="select-tecnico-"]');
+        const container = document.getElementById('ot-data-container');
+        const tecnicoActualId = container ? container.getAttribute('data-tecnico-actual') : "";
+        
         if (!selects.length) return;
 
         try {
@@ -202,8 +208,7 @@
                     const opt = document.createElement('option');
                     opt.value = t.id;
                     opt.textContent = t.nombres;
-                    // Pre-seleccionar el técnico actual si existe
-                    if (String(t.id) === '{{ ot.tecnico_id or "" }}') opt.selected = true;
+                    if (String(t.id) === tecnicoActualId) opt.selected = true;
                     select.appendChild(opt);
                 });
             });
@@ -212,10 +217,27 @@
         }
     });
 
-    async function reasignarTecnico(ordenId) {
-        const select = document.getElementById('select-tecnico-' + ordenId);
-        const tecnicoId = select.value ? parseInt(select.value) : null;
+    // Delegación de eventos para botones de acción
+    document.addEventListener('click', async function(e) {
+        // Reasignar técnico
+        const btnReasignar = e.target.closest('[data-accion="reasignar"]');
+        if (btnReasignar) {
+            const ordenId = btnReasignar.getAttribute('data-ot-id');
+            const select = document.getElementById('select-tecnico-' + ordenId);
+            const tecnicoId = select.value ? parseInt(select.value) : null;
+            await reasignarTecnico(ordenId, tecnicoId);
+        }
 
+        // Cambiar estado (Finalizar/Cancelar)
+        const btnEstado = e.target.closest('[data-accion-proceso]');
+        if (btnEstado) {
+            const ordenId = btnEstado.getAttribute('data-ot-id');
+            const accion = btnEstado.getAttribute('data-accion-proceso');
+            await cambiarEstadoOT(ordenId, accion);
+        }
+    });
+
+    async function reasignarTecnico(ordenId, tecnicoId) {
         try {
             const resp = await fetch(`/api/ordenes/${ordenId}/tecnico`, {
                 method: 'PATCH',
@@ -255,4 +277,6 @@
         }
     }
 </script>
+{# Contenedor invisible para datos persistentes (evita ruidos en IDE) #}
+<div id="ot-data-container" data-tecnico-actual="{{ ot.tecnico_id or '' }}" style="display:none;"></div>
 {% endblock %}

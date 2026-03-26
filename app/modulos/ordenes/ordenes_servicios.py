@@ -110,6 +110,7 @@ class ServicioOrdenes:
                 descripcion=concepto.descripcion,
                 cantidad=concepto.cantidad,
                 precio_unitario=concepto.precio_unitario,
+                descuento_porcentaje=concepto.descuento_porcentaje,
                 importe=concepto.importe,
                 unidad=concepto.unidad,
                 creado_por=usuario,

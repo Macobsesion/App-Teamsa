@@ -28,10 +28,10 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
             <div class="modal-body">
                 <p>¿Cómo deseas cerrar esta cotización?</p>
                 <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-success" onclick="cerrarCotizacion('finalizada')">
+                    <button type="button" class="btn btn-success" data-accion-cerrar="finalizada">
                         ✅ Finalizada (Completada exitosamente)
                     </button>
-                    <button type="button" class="btn btn-warning" onclick="cerrarCotizacion('cancelada')">
+                    <button type="button" class="btn btn-warning" data-accion-cerrar="cancelada">
                         ❌ Cancelada (No se concretó)
                     </button>
                 </div>
@@ -104,7 +104,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
     {# Botón Nueva Versión #}
     {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
-    <button type="button" class="btn btn-info" onclick="crearNuevaVersion()">
+    <button type="button" class="btn btn-info" data-accion-version="true">
         📋 Nueva Versión
     </button>
     {% endif %}
@@ -198,7 +198,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" onclick="crearOrdenTrabajo()" id="btn-confirmar-ot">
+                <button type="button" class="btn btn-success" data-accion-crear-ot="true" id="btn-confirmar-ot">
                     ✨ Confirmar y Crear OT
                 </button>
             </div>
@@ -206,7 +206,34 @@ Por ahora reescribimos con macros para máxima consistencia #}
     </div>
 </div>
 
+{# Contenedor invisible para datos persistentes (evita ruidos en IDE) #}
+<div id="cotizacion-data" data-cotizacion-id="{{ cotizacion.id }}" style="display:none;"></div>
+
 <script>
+    // ---- Datos del documento (leídos desde data-attributes) ----
+    const _cotizacionId = document.getElementById('cotizacion-data').getAttribute('data-cotizacion-id');
+
+    // ---- Delegación de eventos para acciones ----
+    document.addEventListener('click', function(e) {
+        // Cerrar cotización
+        const btnCerrar = e.target.closest('[data-accion-cerrar]');
+        if (btnCerrar) {
+            cerrarCotizacion(btnCerrar.getAttribute('data-accion-cerrar'));
+        }
+
+        // Nueva versión
+        const btnVersion = e.target.closest('[data-accion-version]');
+        if (btnVersion) {
+            crearNuevaVersion();
+        }
+
+        // Crear OT
+        const btnCrearOT = e.target.closest('[data-accion-crear-ot]');
+        if (btnCrearOT) {
+            crearOrdenTrabajo();
+        }
+    });
+
     // ---- Cerrar cotización ----
     function cerrarCotizacion(estado) {
         const modalEl = document.getElementById('modalCerrarCotizacion');
@@ -216,7 +243,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
         const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
         if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) return;
 
-        fetch('/api/cotizaciones/{{ cotizacion.id }}/cerrar', {
+        fetch(`/api/cotizaciones/${_cotizacionId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ estado: estado })
@@ -228,7 +255,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
     // ---- Nueva versión ----
     function crearNuevaVersion() {
         if (!confirm('¿Crear nueva versión de esta cotización? La cotización actual se marcará como "modificada".')) return;
-        window.location.href = `/ui/cotizaciones/wizard?version_de={{ cotizacion.id }}`;
+        window.location.href = `/ui/cotizaciones/wizard?version_de=${_cotizacionId}`;
     }
 
     // ---- Seleccionar todos los libres ----

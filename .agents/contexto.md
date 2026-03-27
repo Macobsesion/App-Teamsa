@@ -25,5 +25,19 @@ Esta aplicación es un **Sistema Administrativo y Operativo (ERP Custom)** dise�
    Los módulos de catálogo (Clientes, Proveedores, Servicios) definen sus metadatos (index=True, max_length) en Esquemas Base que heredan directamente de `SQLModel` en `_esquemas.py`. Sus tablas en `_modelo.py` proceden luego a heredar de estos Base esquivas la duplicación.
 4. **Mixins Financieros (En Transaccionales)**:
    Entidades pesadas como Cotizaciones y Ordenes extienden de Clases Base (`BaseDocumento`, `MixinDetalleFinanciero`) para aplicar lógicas polimórficas (como recalcular totales y el IVA).
-5. **Idioma**:
-   El código y la base de datos se manejan exclusivamente en **Español**.
+5. **RBAC Dinámico (Permisos por Usuario)**:
+   Se abandonó el sistema de tablas de permisos fijas por un sistema basado en **Listas JSON** dentro del modelo `Usuario` (`permisos_ver`, `permisos_crear`, etc.). Esto permite una gestión ágil desde la UI sin migraciones complejas.
+6. **Template Method en Servicios (`ServicioDocumentoFinanciero`)**:
+   La creación de documentos financieros (Cotizaciones, OCs) sigue un patrón de plantilla que estandariza la instanciación, el snapshot de cliente/proveedor, la generación de folios y el cálculo de conceptos. Todo nuevo servicio de creación DEBE heredar de esta clase base en `app/base/servicios_documentos.py`.
+7. **Paginación y Búsqueda Automatizada**:
+   El sistema de CRUD genérico integra paginación nativa a través de `RepositorioCRUD.contar()` y el enrutador de UI. Además, el buscador permite lógica personalizada mediante el hook `_condiciones_busqueda_personalizada` para realizar búsquedas en relaciones (ej: buscar cotizaciones por nombre de servicio).
+8. **Interacción HTMX y Notificaciones Premium**:
+   Se utilizan fragmentos HTML (parciales) para actualizaciones dinámicas. Los errores se notifican mediante un sistema unificado de **Toasts** inyectados desde el backend o lanzados por JS (`mostrarError()`) con estética "Premium" (barra de progreso y glassmorphism).
+
+## Reglas de Oro para la IA
+- **Nunca** uses `print()`; usa el logger de la aplicación.
+- **Nunca** uses `alert()`; usa `mostrarError(mensaje)` en el frontend.
+- **Nunca** levantes `HTTPException` en la capa de Repo o Servicio; usa excepciones de dominio.
+- **Siempre** usa el repositorio para persistencia; evita usar la sesión de SQLModel directamente si ya existe un repo.
+- **Idioma**: Mantén nombres de variables y comentarios en **Español**.
+

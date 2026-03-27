@@ -59,7 +59,8 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}-{cotizacion_id}"
     
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
-        """Calcula fecha de vigencia y asigna número provisional vacío."""
+        """Calcula fecha de vigencia y garantiza folio/número provisionales."""
+        import uuid
         datos_procesados = datos.copy()
 
         if "fecha_emision" not in datos_procesados:
@@ -71,13 +72,28 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
                 fecha_emision = date.fromisoformat(fecha_emision)
             datos_procesados["fecha_vigencia"] = fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
 
-        # Número provisional: se sobreescribe en _post_guardar con el ID real
-        if "numero" not in datos_procesados:
-            datos_procesados["numero"] = ""
-        if "numero_version" not in datos_procesados:
-            datos_procesados["numero_version"] = ""
+        # Campos obligatorios para BaseDocumento (temporales hasta _post_guardar)
+        if not datos_procesados.get("folio"):
+            datos_procesados["folio"] = str(uuid.uuid4())
+        
+        if not datos_procesados.get("numero"):
+            datos_procesados["numero"] = "TEMP-" + datos_procesados["folio"][:8]
+        if not datos_procesados.get("numero_version"):
+            datos_procesados["numero_version"] = datos_procesados["numero"]
 
         return datos_procesados
+
+    def _post_guardar(self, entidad: Cotizacion, es_nuevo: bool) -> None:
+        """Asigna el número definitivo basado en el ID real tras la creación."""
+        if es_nuevo:
+            # Generar número real: COT-YYMMDD-ID
+            nuevo_numero = self.generar_numero_desde_id(entidad.id, entidad.fecha_emision) # type: ignore
+            entidad.numero = nuevo_numero
+            entidad.numero_version = nuevo_numero
+            # Persistir cambio final
+            self.db.add(entidad)
+            self.db.commit()
+            self.db.refresh(entidad)
 
     def eliminar(self, entidad_id: int) -> None:
         """

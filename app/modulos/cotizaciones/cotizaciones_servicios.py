@@ -10,56 +10,68 @@ Regla: Los repositorios individuales NO deben instanciarse entre sí.
 """
 from sqlmodel import Session
 from decimal import Decimal
+from datetime import date
+from typing import List, Dict, Any
 
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
-from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
 from app.modulos.clientes.clientes_modelo import Cliente
+from app.base.servicios_documentos import ServicioDocumentoFinanciero
 
 
-class ServicioCreacionCotizacion:
+class ServicioCreacionCotizacion(ServicioDocumentoFinanciero[Cotizacion, ConceptoCotizacion]):
     """
-    Servicio especializado en la creación de cotizaciones completas desde el wizard.
-    Maneja la lógica de snapshot de datos del cliente y persistencia de conceptos.
+    Servicio especializado en la creación de cotizaciones completas.
+    Hereda de ServicioDocumentoFinanciero para usar el flujo estandarizado (Template Method).
     """
 
-    def __init__(self, db: Session):
-        self.db = db
-        self._repo_cot = RepositorioCotizacion(db)
-        self._repo_con = RepositorioConcepto(db)
-
-    def crear_cotizacion_completa(self, data: dict, usuario_nombre: str) -> Cotizacion:
-        """
-        Crea una cotización y sus conceptos en un solo flujo.
-        Aplica snapshot de datos del cliente para persistencia histórica.
-        """
-        datos_cot = data.copy()
-        servicios = datos_cot.pop('servicios', [])
-
+    def _crear_instancia_cabecera(self, data: Dict[str, Any]) -> Cotizacion:
+        """Paso 1: Crear instancia base con snapshot de cliente."""
         # 1. Enriquecer datos con snapshot del cliente
-        cliente = self.db.get(Cliente, datos_cot['cliente_id'])
-        if cliente:
-            datos_cot['cliente_nombre'] = cliente.nombre
-            datos_cot['cliente_rfc'] = cliente.rfc
-            datos_cot['cliente_direccion'] = cliente.direccion
-            datos_cot['cliente_ciudad'] = cliente.ciudad
-            datos_cot['cliente_cp'] = cliente.cp
-            datos_cot['cliente_telefono'] = cliente.telefono
-            datos_cot['cliente_email'] = cliente.email
-        
-        datos_cot['creado_por'] = usuario_nombre
-        datos_cot['modificado_por'] = usuario_nombre
+        cliente = self.db.get(Cliente, data['cliente_id'])
+        if not cliente:
+            from app.base.excepciones import RecursoNoEncontradoError
+            raise RecursoNoEncontradoError("Cliente no encontrado")
 
-        # 2. Crear cabecera mediante el repositorio CRUD
-        cotizacion = self._repo_cot.crear(datos_cot)
+        return Cotizacion(
+            cliente_id=data['cliente_id'],
+            cliente_nombre=cliente.nombre,
+            cliente_rfc=cliente.rfc,
+            cliente_direccion=cliente.direccion,
+            cliente_ciudad=cliente.ciudad,
+            cliente_cp=cliente.cp,
+            cliente_telefono=cliente.telefono,
+            cliente_email=cliente.email,
+            metodo_pago=data.get('metodo_pago', 'POR_DEFINIR'),
+            forma_pago=data.get('forma_pago', '99'),
+            notas=data.get('notas'),
+            notas_privadas=data.get('notas_privadas'),
+            fecha_emision=date.today(),
+            estado='borrador',
+            # El folio temporal lo asigna la clase base
+            creado_por=data.get('usuario_id', 'SISTEMA'),
+            modificado_por=data.get('usuario_id', 'SISTEMA'),
+            numero="", # Provisional
+            numero_version="" # Provisional
+        )
 
-        # 3. Crear conceptos individuales
-        for s in servicios:
-            # Nota: el RepositorioConcepto ya dispara recalcular_totales en _post_guardar,
-            # pero para eficiencia lo haremos una sola vez al final si quisiéramos.
-            # Sin embargo, siguiendo el patrón actual del repo:
-            self._repo_con.crear_concepto(
-                cotizacion_id=cotizacion.id,
+    def _generar_folio_final(self, documento: Cotizacion) -> str | None:
+        """Paso 2: Generar folio y número definitivo."""
+        from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
+        repo = RepositorioCotizacion(self.db)
+        nuevo_numero = repo.generar_numero_desde_id(documento.id, documento.fecha_emision) # type: ignore
+        documento.numero = nuevo_numero
+        documento.numero_version = nuevo_numero
+        documento.actualizar_vigencia()
+        return nuevo_numero
+
+    def _procesar_detalles(self, documento: Cotizacion, items_data: List[Dict[str, Any]]) -> List[ConceptoCotizacion]:
+        """Paso 3: Crear conceptos individuales."""
+        detalles_orm = []
+        for s in items_data:
+            detalle = ConceptoCotizacion.crear_desde_servicio(
+                cotizacion_id=documento.id,
                 servicio_id=s.get('servicio_id'),
                 codigo_sat=s.get('codigo_sat', ''),
                 descripcion=s.get('descripcion', ''),
@@ -68,12 +80,14 @@ class ServicioCreacionCotizacion:
                 precio_unitario=Decimal(str(s.get('precio_unitario', 0))),
                 descuento_porcentaje=Decimal(str(s.get('descuento_porcentaje', 0))),
             )
+            detalles_orm.append(detalle)
+        return detalles_orm
 
-        # 4. Asegurar recálculo final y refrescar entidad
-        self._repo_cot.recalcular_totales(cotizacion.id)
-        self.db.refresh(cotizacion)
-        
-        return cotizacion
+    def crear_cotizacion_completa(self, data: Dict[str, Any], usuario_nombre: str) -> Cotizacion:
+        """Wrapper de compatibilidad para el router."""
+        data['usuario_id'] = usuario_nombre
+        items = data.get('servicios', [])
+        return self.crear_documento(data, items)
 
 
 class ServicioAplicacionCotizacion:

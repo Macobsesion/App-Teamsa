@@ -113,13 +113,13 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         """
         Obtiene el estado de ejecución (OT) para cada concepto de una cotización.
         
-        Delega al ServicioAplicacionCotizacion para mantener este repositorio
+        Delega al ServicioCotizaciones para mantener este repositorio
         enfocado en acceso a datos, sin acoplarse directamente a RepositorioOrden.
         
         Retorna: {concepto_id: {"estado": ..., "numero_ot": ..., "orden_id": ...}}
         """
-        from app.modulos.cotizaciones.cotizaciones_servicios import ServicioAplicacionCotizacion
-        return ServicioAplicacionCotizacion(self.db).obtener_estado_conceptos(cotizacion_id)
+        from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
+        return ServicioCotizaciones(self.db).obtener_estado_conceptos(cotizacion_id)
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """

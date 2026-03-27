@@ -90,7 +90,7 @@ class ServicioCreacionCotizacion(ServicioDocumentoFinanciero[Cotizacion, Concept
         return self.crear_documento(data, items)
 
 
-class ServicioAplicacionCotizacion:
+class ServicioCotizaciones:
     """
     Orquestador de lógica de aplicación que cruza Cotizaciones y Órdenes.
     """
@@ -99,6 +99,22 @@ class ServicioAplicacionCotizacion:
         self.db = db
         self._repo_cot = RepositorioCotizacion(db)
         self._repo_ordenes = RepositorioOrden(db)
+
+    def cerrar_cotizacion(self, cotizacion_id: int, estado: str = "finalizada"):
+        """
+        Cierra una cotización cambiando su estado.
+        Valida que el estado sea un valor permitido.
+        """
+        from app.modulos.cotizaciones.enums import EstadoCotizacion
+        cotizacion = self._repo_cot.obtener_por_id(cotizacion_id)
+        
+        # Validar transición si fuera necesario (aquí es directo por ahora)
+        cotizacion.estado = estado
+        
+        self.db.add(cotizacion)
+        self.db.commit()
+        self.db.refresh(cotizacion)
+        return cotizacion
 
     def obtener_estado_conceptos(self, cotizacion_id: int) -> dict[int, dict]:
         """

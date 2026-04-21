@@ -1,16 +1,16 @@
-{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/tablas.html' import render_celdas, render_cuerpo_tabla %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
-{% from 'partials/rows.html' import celdas %}
-{% if items %}
-{% for item in items %}
-<tr>
-    {{ celdas(item, columnas) }}
-    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar servicio?') }}
-</tr>
-{% endfor %}
-{% else %}
-<tr>
-    <td colspan="100" class="text-center text-muted py-3">No hay servicios registrados</td>
-</tr>
-{% endif %}
-{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for item in items %}
+    <tr>
+        {{ render_celdas(item, columnas) }}
+        {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar servicio?') }}
+    </tr>
+    {% endfor %}
+    {% if not items %}
+    <tr>
+        <td colspan="100" class="text-center text-muted py-3 small">No se encontraron servicios registrados.</td>
+    </tr>
+    {% endif %}
+{% endcall %}

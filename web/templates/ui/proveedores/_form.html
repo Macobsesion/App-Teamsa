@@ -1,6 +1,6 @@
-{% import 'partials/forms.html' as f %}
+{% import 'ui/macros/forms.html' as f %}
 
-{% call f.modal_wrapper('proveedor', modo, 'frmProveedor', '/ui/proveedores', item) %}
+{% call f.modal_form_wrapper('proveedor', modo, 'frmProveedor', '/ui/proveedores', item) %}
 {{ f.field_input('nombre','Nombre', item=item, required=True) }}
 {{ f.field_input('rfc','RFC', item=item) }}
 {{ f.field_input('razon_social','Razón Social', item=item) }}
@@ -8,7 +8,7 @@
 {{ f.field_input('email','Email', item=item, type='email') }}
 {{ f.field_input('telefono','Teléfono', item=item) }}
 {{ f.field_input('direccion','Dirección', item=item) }}
-{{ f.field_input('ciudad','Ciudad', item=item) }}
+{{ f.field_select('ciudad','Estado / Ciudad', options=ui_base.selectores.get('ciudad', []), item=item) }}
 {{ f.field_input('cp','Código Postal', item=item) }}
 {{ f.field_input('categoria','Categoría', item=item) }}
 {{ f.field_textarea('notas','Notas', item=item) }}

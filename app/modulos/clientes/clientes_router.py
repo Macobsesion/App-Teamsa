@@ -5,6 +5,7 @@ from app.base.validaciones import generador_validador_unicidad
 from app.modulos.clientes.clientes_esquemas import ClienteRead, ClienteCreate, ClienteUpdate
 from app.modulos.clientes.clientes_repositorio import RepositorioCliente
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.base.catalogos import ESTADOS_MEXICO
 
 
 # ---------- Descriptor ----------
@@ -25,6 +26,7 @@ descriptor = DescriptorCRUD[RepositorioCliente, ClienteCreate, ClienteUpdate, Cl
     config_ui=ConfiguracionUI(
         columnas_incluir=["nombre", "rfc", "contacto", "email", "activo"],
         columnas_excluir={"creado_por", "modificado_por", "fecha_creacion", "fecha_modificacion"},
+        selectores={"ciudad": ESTADOS_MEXICO}
     )
 )
 

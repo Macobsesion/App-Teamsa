@@ -1,0 +1,81 @@
+{% from 'ui/macros/tablas.html' import render_cuerpo_tabla %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
+{% import 'ui/macros/components.html' as comp %}
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for item in items %}
+    <tr>
+        <td>
+            <strong>{{ item.numero_ot }}</strong>
+            <br><small class="text-muted">Ref. Cot: 
+                <a href="/ui/cotizaciones/{{ item.cotizacion_id }}/detalle" class="text-decoration-none text-secondary text-xs">
+                    <i class="fas fa-file-invoice fa-xs me-1"></i>#{{ item.cotizacion.numero if item.cotizacion else item.cotizacion_id }}
+                </a>
+            </small>
+        </td>
+        <td>
+            {{ item.fecha_programada.strftime('%d/%m/%Y') }}
+            <br><small class="text-muted">{{ item.hora_programada }} · {{ item.duracion }}h</small>
+        </td>
+        <td>
+            {{ item.cliente_nombre }}
+            <br><small class="text-muted">{{ item.domicilio|truncate(40) }}</small>
+            
+            {# Lista de Conceptos resumida #}
+            <div class="mt-1 d-flex flex-wrap gap-1">
+                {% for concepto in item.conceptos[:5] %}
+                <span class="badge badge-mini">
+                    {{ '✅' if concepto.estado == 'completado' else '🟡' }} {{ concepto.cantidad|int if concepto.cantidad % 1 == 0 else concepto.cantidad }}x {{ concepto.descripcion[:25] }}{{ '...' if concepto.descripcion|length > 25 }}
+                </span>
+                {% endfor %}
+                {% if item.conceptos|length > 5 %}
+                <span class="badge bg-light text-muted border-0 text-xs">+{{ item.conceptos|length - 5 }} más</span>
+                {% endif %}
+            </div>
+        </td>
+        <td>
+            {{ comp.status_badge(item.estado) }}
+            {% if item.esta_en_viaje %}
+            <br>
+            <span class="badge bg-info text-dark shadow-sm border border-info border-opacity-50">
+                <i class="fas fa-plane-departure me-1"></i> Viaje en Curso
+            </span>
+            {% endif %}
+        </td>
+        <td>
+            {% if item.tecnico_nombre %}
+            <span class="badge bg-info text-dark">🔧 {{ item.tecnico_nombre }}</span>
+            {% else %}
+            <span class="badge bg-light text-secondary border">Sin asignar</span>
+            {% endif %}
+        </td>
+        {% set can_edit_negocio = item.estado not in ['finalizada', 'cancelada'] %}
+        {% set btns_extra = [] %}
+        {% if es_admin %}
+            {% set _ = btns_extra.append({
+                'label': '📝', 
+                'label_full': 'Notas Privadas',
+                'extra_attrs': 'data-modulo="ordenes_trabajo" data-id="' ~ item.id ~ '" data-folio="' ~ item.numero_ot ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
+                'extra_clases': 'btn-notas-privadas-generico'
+            }) %}
+        {% endif %}
+        {{ acciones(
+            ui_base, 
+            item.id, 
+            puede_editar, 
+            url_detalle='/ui/ordenes-trabajo/' ~ item.id ~ '/detalle',
+            extras=btns_extra,
+            puede_eliminar=(puede_eliminar and can_edit_negocio),
+            delete_confirm='¿Eliminar orden de trabajo ' ~ item.numero_ot ~ '?',
+            puede_editar_negocio=False
+        ) }}
+    </tr>
+    {% endfor %}
+    {% if not items %}
+    <tr>
+        <td colspan="100" class="text-center py-3 text-muted">
+            No se encontraron órdenes de trabajo.
+        </td>
+    </tr>
+    {% endif %}
+{% endcall %}

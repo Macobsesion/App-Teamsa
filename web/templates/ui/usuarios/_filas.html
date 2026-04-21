@@ -1,38 +1,40 @@
-{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/tablas.html' import render_cuerpo_tabla %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
-{% for u in items %}
-<tr>
-  <td>
-    <strong>{{ u.usuario }}</strong>
-    <br><small class="text-muted">{{ u.nombres }}</small>
-  </td>
-  <td>
-    {% if u.rol == 'admin' %}
-    <span class="badge bg-danger">Admin</span>
-    {% else %}
-    <span class="badge bg-info text-dark">{{ u.rol|title }}</span>
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for u in items %}
+    <tr>
+      <td>
+        <strong>{{ u.usuario }}</strong>
+        <br><small class="text-muted">{{ u.nombres }}</small>
+      </td>
+      <td>
+        {% if u.rol == 'admin' %}
+        <span class="badge bg-danger">Administrador</span>
+        {% else %}
+        <span class="badge bg-info text-dark">{{ u.rol|title }}</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if u.correo %}
+        <a href="mailto:{{ u.correo }}" class="text-decoration-none small">{{ u.correo }}</a>
+        {% else %}
+        <span class="text-muted small">-</span>
+        {% endif %}
+      </td>
+      <td>{{ u.area if u.area else '-' }}</td>
+      {% set btns_extra = [
+        {'hx_get': ui_base ~ '/password?id=' ~ u.id, 'label': '🔐', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Cambiar Contraseña'},
+        {'hx_get': ui_base ~ '/permisos?id=' ~ u.id, 'label': '🛡️', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Gestionar Permisos'}
+      ] %}
+      {{ acciones(ui_base, u.id, puede_editar, extras=btns_extra, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar usuario ' ~ u.usuario ~ '?') }}
+    </tr>
+    {% endfor %}
+    {% if not items %}
+    <tr>
+      <td colspan="100" class="text-center py-3 text-muted">
+        No se encontraron usuarios.
+      </td>
+    </tr>
     {% endif %}
-  </td>
-  <td>
-    {% if u.correo %}
-    <a href="mailto:{{ u.correo }}" class="text-decoration-none small">{{ u.correo }}</a>
-    {% else %}
-    <span class="text-muted small">-</span>
-    {% endif %}
-  </td>
-  <td>{{ u.area if u.area else '-' }}</td>
-  {% set btns_extra = [
-    {'hx_get': ui_base ~ '/password?id=' ~ u.id, 'label': '🔐', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Cambiar Contraseña'},
-    {'hx_get': ui_base ~ '/permisos?id=' ~ u.id, 'label': '🛡️', 'data_bs_toggle': 'modal', 'data_bs_target': '#editModal', 'label_full': 'Gestionar Permisos'}
-  ] %}
-  {{ acciones(ui_base, u.id, puede_editar, extras=btns_extra, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar usuario ' ~ u.usuario ~ '?') }}
-</tr>
-{% endfor %}
-{% if not items %}
-<tr>
-  <td colspan="100" class="text-center py-3 text-muted">
-    No se encontraron usuarios.
-  </td>
-</tr>
-{% endif %}
-{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}
+{% endcall %}

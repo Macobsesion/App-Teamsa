@@ -24,12 +24,15 @@ TRUNCATE TABLE conceptocotizacion RESTART IDENTITY CASCADE;
 -- Detalles de órdenes de compra
 TRUNCATE TABLE detalle_orden_compra RESTART IDENTITY CASCADE;
 
+-- Detalles de órdenes de trabajo
+TRUNCATE TABLE concepto_orden_trabajo RESTART IDENTITY CASCADE;
+
 -- ============================================================================
 -- PASO 2: Eliminar registros de tablas maestras (documentos)
 -- ============================================================================
 
 -- Órdenes de trabajo
-TRUNCATE TABLE ordentrabajo RESTART IDENTITY CASCADE;
+TRUNCATE TABLE orden_trabajo RESTART IDENTITY CASCADE;
 
 -- Cotizaciones
 TRUNCATE TABLE cotizaciones RESTART IDENTITY CASCADE;
@@ -86,4 +89,6 @@ SELECT 'orden_compra', COUNT(*) FROM orden_compra
 UNION ALL
 SELECT 'detalle_orden_compra', COUNT(*) FROM detalle_orden_compra
 UNION ALL
-SELECT 'ordentrabajo', COUNT(*) FROM ordentrabajo;
+SELECT 'orden_trabajo', COUNT(*) FROM orden_trabajo
+UNION ALL
+SELECT 'concepto_orden_trabajo', COUNT(*) FROM concepto_orden_trabajo;

@@ -13,6 +13,7 @@ from app.rutas.dependencias import dp_usuario_actual
 from app.rutas.permisos import para_modulo
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.base.catalogos import ESTADOS_MEXICO
 
 router = APIRouter(prefix="/ui/cotizaciones", tags=["Cotizaciones - Wizard & Views"])
 TEMPLATES = get_templates()
@@ -21,13 +22,28 @@ TEMPLATES = get_templates()
 @router.get("/wizard")
 def mostrar_wizard_cotizacion(
     request: Request,
+    id: int | None = None,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("cotizaciones")),
+    usuario: Any = Depends(dp_usuario_actual),
 ):
     """Wizard para crear/editar cotización completa."""
+    # Validación manual de permisos por acción
+    accion = "editar" if id else "crear"
+    from app.modulos.usuarios.usuarios_modelo import Usuario
+    from sqlmodel import select
+    from app.base.excepciones import PermisoDenegadoError
+
+    u_db = db.exec(select(Usuario).where(Usuario.usuario == usuario.usuario)).first()
+    if not u_db:
+        raise RecursoNoEncontradoError("Usuario no encontrado")
+        
+    permisos = getattr(u_db, f"permisos_{accion}", []) or []
+    if "cotizaciones" not in permisos:
+        raise PermisoDenegadoError(f"No tienes permiso de {accion} para cotizaciones")
+
     return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/wizard.html",
-        {"request": request, "usuario": usuario}
+        {"request": request, "usuario": u_db, "estados": ESTADOS_MEXICO}
     )
 
 
@@ -42,7 +58,7 @@ def ver_detalle_cotizacion(
     from sqlmodel import select
     from app.modulos.clientes.clientes_modelo import Cliente
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-    from app.modulos.ordenes.ordenes_modelo import ConceptoOrdenTrabajo, OrdenTrabajo
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import ConceptoOrdenTrabajo, OrdenTrabajo
 
     repo = RepositorioCotizacion(db)
     cotizacion = db.get(Cotizacion, cotizacion_id)
@@ -50,6 +66,8 @@ def ver_detalle_cotizacion(
         raise RecursoNoEncontradoError("Cotizacion no encontrada")
 
     cliente = db.get(Cliente, cotizacion.cliente_id)
+    if not cliente:
+        raise RecursoNoEncontradoError("Cliente asociado a la cotización no encontrado")
     conceptos = repo.obtener_conceptos(cotizacion_id)
 
     # Estado de OT por concepto: {concepto_id: {"estado": "libre"|"en_ot"|"completado", "numero_ot": ...}}
@@ -60,7 +78,8 @@ def ver_detalle_cotizacion(
     per_create = getattr(usuario, "permisos_crear", []) or []
     
     puede_editar = "cotizaciones" in per_edit
-    puede_crear_ordenes = "ordenes" in per_create
+    puede_crear_ordenes = "ordenes_trabajo" in per_create
+    es_admin = getattr(usuario, "rol", "") == "admin"
 
     return TEMPLATES.TemplateResponse(
         "ui/cotizaciones/detalle.html",
@@ -73,6 +92,7 @@ def ver_detalle_cotizacion(
             "estado_conceptos": estado_conceptos,
             "puede_editar": puede_editar,
             "puede_crear_ordenes": puede_crear_ordenes,
+            "es_admin": es_admin,
         }
     )
 

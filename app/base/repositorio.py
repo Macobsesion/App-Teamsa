@@ -12,12 +12,15 @@ from typing import Any, Callable, Generic, Iterable, Iterator, TypeVar
 
 from sqlmodel import Session, SQLModel, select, or_  # type: ignore
 from sqlalchemy import asc, desc  # type: ignore
+import logging
 
 TModelo = TypeVar("TModelo", bound=SQLModel)
 
 
 from app.base.excepciones import RecursoNoEncontradoError
 from app.base.eventos import BusEventos
+
+logger = logging.getLogger("teamsa.repositorio")
 
 class RepositorioCRUD(Generic[TModelo]):
     """Repositorio CRUD genérico con filtros y actualizaciones limitadas."""
@@ -37,8 +40,10 @@ class RepositorioCRUD(Generic[TModelo]):
     def _transaccion(self) -> Iterator[None]:
         try:
             yield
+            self.db.flush()  # Asegura que se disparen las restricciones antes del commit
             self.db.commit()
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error en transaccion {self.modelo.__name__}: {str(e)}")
             self.db.rollback()
             raise
 
@@ -66,6 +71,13 @@ class RepositorioCRUD(Generic[TModelo]):
 
     def _pre_guardar(self, entidad: TModelo, es_nuevo: bool) -> None:
         """Hook para validaciones o cálculos sobre la entidad antes del commit."""
+        pass
+
+    def _validar_eliminacion(self, entidad: TModelo) -> None:
+        """
+        Hook para validar si una entidad puede ser eliminada.
+        Debe lanzar ReglaNegocioError si el borrado está prohibido por dependencias.
+        """
         pass
 
     def _post_guardar(self, entidad: TModelo, es_nuevo: bool) -> None:
@@ -122,6 +134,20 @@ class RepositorioCRUD(Generic[TModelo]):
         """Hook para que las subclases agreguen condiciones OR personalizadas (ej. búsquedas en relaciones)."""
         return []
 
+    def aplicar_seguridad_filtro(self, filtros: Mapping[str, Any], actor: Any) -> Mapping[str, Any]:
+        """
+        Hook para inyectar filtros obligatorios basados en el actor (usuario logueado).
+        Se usa para seguridad a nivel de fila (ej: técnicos solo ven sus OTs).
+        
+        Args:
+            filtros: Diccionario de filtros actual.
+            actor: Usuario logueado (modelo completo de DB o esquema identity).
+            
+        Returns:
+            Mapping actualizado con los filtros de seguridad aplicados.
+        """
+        return filtros
+
     # ---- operaciones públicas ----
     def listar(
         self,
@@ -153,9 +179,20 @@ class RepositorioCRUD(Generic[TModelo]):
         resultado = self.db.exec(consulta).one_or_none()
         return resultado or 0
 
-    def crear(self, **datos: Any) -> TModelo:
+    def crear(self, datos: Mapping[str, Any]) -> TModelo:
         """Crea la entidad usando los datos recibidos."""
-        datos_procesados = self._pre_procesar_datos_creacion(datos)
+        # Asegurar que los datos sean tratados como un dict para el hook
+        datos_dict = dict(datos)
+        datos_procesados = self._pre_procesar_datos_creacion(datos_dict)
+        
+        # BLINDAJE FINAL (Repositorio): Asegurar que los campos de auditoría no sean nulos
+        if not datos_procesados.get("creado_por"):
+            datos_procesados["creado_por"] = datos_dict.get("creado_por") or "SISTEMA"
+        if not datos_procesados.get("modificado_por"):
+            datos_procesados["modificado_por"] = datos_dict.get("modificado_por") or "SISTEMA"
+            
+        print(f">>> REPO_CREAR - Audit Check: {datos_procesados.get('creado_por')}", flush=True)
+
         entidad = self.modelo(**datos_procesados)
         self._pre_guardar(entidad, es_nuevo=True)
         guardada = self.guardar(entidad)
@@ -195,7 +232,14 @@ class RepositorioCRUD(Generic[TModelo]):
         entidad = self.db.get(self.modelo, entidad_id)
         if not entidad:
             raise RecursoNoEncontradoError(f"{self.modelo.__name__} con id {entidad_id} no encontrado")
+        
+        logger.info(f"Eliminando físicamente {self.modelo.__name__} ID: {entidad_id}")
+        
+        # Validar dependencias de negocio antes de tocar la BD
+        self._validar_eliminacion(entidad)
+        
         self._eliminar(entidad)
+        logger.info(f"Eliminación de {self.modelo.__name__} {entidad_id} completada.")
         
         # Emitir Evento de Dominio Desacoplado
         BusEventos.publicar(f"{self.modelo.__name__}.eliminado", entidad)

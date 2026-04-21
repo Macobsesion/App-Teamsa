@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Logs de Actividad — Admin{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-history me-2 text-primary"></i>Historial de Actividad</h2>
+            <p class="text-muted mb-0">Auditoría de acciones realizadas por los usuarios en el sistema.</p>
+        </div>
+        <div>
+            <span class="badge bg-light text-dark border p-2">
+                <i class="fas fa-user-shield me-1 text-success"></i> Panel de Administración
+            </span>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-logs table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4" style="width: 200px;">Fecha y Hora</th>
+                            <th style="width: 150px;">Usuario</th>
+                            <th style="width: 150px;">Acción</th>
+                            <th style="width: 180px;">Módulo</th>
+                            <th>Detalles / Recurso</th>
+                            <th class="text-end px-4">IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="px-4">
+                                <span class="text-dark fw-medium">{{ log.fecha.strftime('%d/%m/%Y %H:%M:%S') }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm me-2 bg-primary bg-opacity-10 text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-user-circle"></i>
+                                    </div>
+                                    <span class="fw-bold">{{ log.usuario }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                {% if log.accion == 'CREAR' %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-2">CREAR</span>
+                                {% elif log.accion == 'EDITAR' %}
+                                    <span class="badge bg-info-subtle text-info border border-info-subtle px-2">EDITAR</span>
+                                {% elif log.accion == 'ELIMINAR' %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2">ELIMINAR</span>
+                                {% elif 'LOGIN' in log.accion %}
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle px-2">{{ log.accion }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle px-2">{{ log.accion }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted"><i class="fas fa-cube me-1 small"></i>{{ log.modulo|title }}</span>
+                            </td>
+                            <td>
+                                <code class="text-dark bg-light px-2 py-1 rounded small">{{ log.detalles or '-' }}</code>
+                            </td>
+                            <td class="text-end px-4 text-muted small">
+                                {{ log.ip or '-' }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if not logs %}
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fs-2 text-light mb-2"></i>
+                <p class="text-muted">No hay actividad registrada aún.</p>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-footer bg-white text-center py-3">
+            <small class="text-muted">Mostrando los últimos 100 eventos sincronizados en tiempo real.</small>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -20,28 +20,15 @@ def generar_pdf_orden_compra(orden_id: int, db: Session) -> bytes:
         
     proveedor = db.get(Proveedor, orden.proveedor_id)
     
-    # Convertir imágenes a data URIs
-    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
-    # Path relativo desde este archivo: ../../../web/static/img/firma_jefe.png
-    # Pero mejor usar ruta absoluta o relativa a root del proyecto si es posible, al igual que LOGO_PDF
-    # LOGO_PDF usa absolute paths? Appears to be imported.
-    # El router usaba: Path(__file__).parent.parent.parent.parent / "web" / "static" / "img" / "firma_jefe.png"
-    # Eso es: app/modulos/ordenes_compra/../../../../web -> root/web
-    
-    base_dir = Path(__file__).resolve().parent.parent.parent.parent
+    # Resolución dinámica de rutas para assets
+    from app.base.constantes import _ROOT
     
     # Manejo robusto de firma
-    firma_path = base_dir / "web" / "static" / "img" / "firma_jefe.png"
-    try:
-        firma_data_uri = imagen_a_data_uri(firma_path)
-    except Exception:
-        firma_data_uri = ""
+    firma_path = _ROOT / "web" / "static" / "img" / "firma_jefe.png"
+    firma_data_uri = imagen_a_data_uri(firma_path)
 
     # Manejo robusto de logo
-    try:
-        logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
-    except Exception:
-        logo_data_uri = ""
+    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
     
     # Formatear fechas en español
     fecha_emision_es = formatear_fecha_español(orden.fecha_emision) if orden.fecha_emision else "N/A"

@@ -1,17 +1,17 @@
 -- Migración: Nuevo flujo de Órdenes de Trabajo
 -- Fecha: 2026-02-21
 -- Cambios:
---   1. Nuevos campos en ordentrabajo: tecnico_id, tecnico_nombre
+--   1. Nuevos campos en orden_trabajo: tecnico_id, tecnico_nombre
 --   2. Nueva tabla: concepto_orden_trabajo (conceptos seleccionados para una OT)
 
 -- ============================================================
--- 1. Campos de técnico en ordentrabajo
+-- 1. Campos de técnico en orden_trabajo
 -- ============================================================
-ALTER TABLE ordentrabajo
+ALTER TABLE orden_trabajo
     ADD COLUMN IF NOT EXISTS tecnico_id INTEGER REFERENCES usuario(id) ON DELETE SET NULL,
     ADD COLUMN IF NOT EXISTS tecnico_nombre VARCHAR;
 
-CREATE INDEX IF NOT EXISTS ix_ordentrabajo_tecnico_id ON ordentrabajo(tecnico_id);
+CREATE INDEX IF NOT EXISTS ix_orden_trabajo_tecnico_id ON orden_trabajo(tecnico_id);
 
 -- ============================================================
 -- 2. Nueva tabla concepto_orden_trabajo
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS concepto_orden_trabajo (
     id          SERIAL PRIMARY KEY,
     
     -- Relaciones
-    orden_id                INTEGER NOT NULL REFERENCES ordentrabajo(id) ON DELETE CASCADE,
+    orden_id                INTEGER NOT NULL REFERENCES orden_trabajo(id) ON DELETE CASCADE,
     concepto_cotizacion_id  INTEGER NOT NULL UNIQUE REFERENCES conceptocotizacion(id),
     -- UNIQUE garantiza que un concepto solo pueda estar en UNA OT
     

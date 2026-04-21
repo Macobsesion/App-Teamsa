@@ -189,7 +189,7 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
         """Construye la configuración que consumen las vistas HTML (Jinja/HTMX)."""
         ui = self.config_ui or ConfiguracionUI()
         mensajes_finales = {**self._mensajes_por_defecto(), **(ui.mensajes or {})}
-        topic = ui.topic or self.base_url.strip('/').replace('/', '_')
+        topic = ui.topic or self.base_url.strip('/').split('/')[-1].replace('-', '_')
         return {
             'label': self.label,
             'baseUrl': self.base_url,

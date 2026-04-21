@@ -33,30 +33,52 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         from sqlalchemy.orm import selectinload
         return consulta.options(
             selectinload(Cotizacion.cliente),
-            selectinload(Cotizacion.conceptos)
+            selectinload(Cotizacion.conceptos),
+            selectinload(Cotizacion.ordenes)
         )
 
 
+    def _obtener_siguiente_secuencia_mensual(self, fecha: date) -> int:
+        """
+        Calcula el siguiente número secuencial para el mes y año de la fecha dada.
+        """
+        from sqlalchemy import func
+        from sqlmodel import and_
+        
+        primer_dia_mes = date(fecha.year, fecha.month, 1)
+        if fecha.month == 12:
+            primer_dia_sgte_mes = date(fecha.year + 1, 1, 1)
+        else:
+            primer_dia_sgte_mes = date(fecha.year, fecha.month + 1, 1)
+            
+        # Contar cuántas cotizaciones existen en este mes
+        # Filtramos por fecha_emision dentro del mes
+        conteo = self.db.exec(
+            select(func.count(Cotizacion.id))
+            .where(
+                and_(
+                    Cotizacion.fecha_emision >= primer_dia_mes,
+                    Cotizacion.fecha_emision < primer_dia_sgte_mes,
+                    Cotizacion.cotizacion_original_id == None # Solo contamos 'madres', no versiones
+                )
+            )
+        ).first() or 0
+        
+        return conteo + 1
+
     def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
         """
-        Genera el número de cotización basado en el ID y la fecha.
+        Genera el número de cotización basado en la secuencia mensual.
         
-        Formato: COT-YYMMDD-ID
-        Ejemplo: COT-260116-23 (año 26, mes 01, día 16, ID 23)
-        
-        Args:
-            cotizacion_id: ID de la cotización en la BD
-            fecha_emision: Fecha de emisión de la cotización
-            
-        Returns:
-            Número en formato COT-YYMMDD-ID
+        Formato: COT-YYMMNN
+        Ejemplo: COT-260401
         """
+        from app.base.folios import EstrategiaFolioMensual
         from app.base.constantes import PREFIJO_NUMERO_COTIZACION
         
-        # Formato: COT-YYMMDD-ID
-        # Ejemplo: COT-260116 + 23 = COT-260116-23
-        fecha_str = fecha_emision.strftime("%y%m%d")
-        return f"{PREFIJO_NUMERO_COTIZACION}-{fecha_str}-{cotizacion_id}"
+        secuencia = self._obtener_siguiente_secuencia_mensual(fecha_emision)
+        estrategia = EstrategiaFolioMensual()
+        return estrategia.generar(PREFIJO_NUMERO_COTIZACION, fecha_emision, secuencia)
     
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
         """Calcula fecha de vigencia y garantiza folio/número provisionales."""
@@ -86,14 +108,19 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     def _post_guardar(self, entidad: Cotizacion, es_nuevo: bool) -> None:
         """Asigna el número definitivo basado en el ID real tras la creación."""
         if es_nuevo:
-            # Generar número real: COT-YYMMDD-ID
-            nuevo_numero = self.generar_numero_desde_id(entidad.id, entidad.fecha_emision) # type: ignore
-            entidad.numero = nuevo_numero
-            entidad.numero_version = nuevo_numero
-            # Persistir cambio final
+            # Generar número real: COT-YYMMNN
+            # Si es una versión (tiene cotizacion_original_id), hereda el número pero con letra
+            if entidad.cotizacion_original_id:
+                madre = self.obtener_por_id(entidad.cotizacion_original_id)
+                entidad.numero = f"{madre.numero}-{entidad.version_letra}"
+            else:
+                nuevo_numero = self.generar_numero_desde_id(entidad.id, entidad.fecha_emision) # type: ignore
+                entidad.numero = nuevo_numero
+            
+            entidad.numero_version = entidad.numero
+            # Persistir cambio final sin cerrar transacción
             self.db.add(entidad)
-            self.db.commit()
-            self.db.refresh(entidad)
+            self.db.flush() 
 
     def eliminar(self, entidad_id: int) -> None:
         """
@@ -123,19 +150,25 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """
-        Recalcula subtotal, descuento, IVA y total basándose en los conceptos.
-        Delega la lógica al modelo (Encapsulamiento).
+        Recalcula los totales de la cabecera consultando los conceptos frescos de la BD.
+        Evita estados inconsistentes de la relación en sesión tras borrados masivos.
         """
+        from app.modulos.cotizaciones.cotizaciones_modelo import ConceptoCotizacion
+        
         cotizacion = self.db.get(Cotizacion, cotizacion_id)
         if not cotizacion:
             return
         
-        # Lógica encapsulada en el modelo
-        cotizacion.recalcular_totales()
+        # Consulta directa a la base de datos para obtener lo que realmente existe
+        conceptos = self.db.exec(
+            select(ConceptoCotizacion).where(ConceptoCotizacion.cotizacion_id == cotizacion_id)
+        ).all()
+        
+        # Usar lógica del mixin financiero en el modelo
+        cotizacion.calcular_totales(conceptos) # type: ignore
         
         self.db.add(cotizacion)
-        self.db.commit()
-        self.db.refresh(cotizacion)
+        self.db.flush()
 
     def obtener_versiones_familia(self, id_cotizacion_madre: int) -> list[tuple[int, str]]:
         """
@@ -184,27 +217,31 @@ class RepositorioConcepto(RepositorioCRUD[ConceptoCotizacion]):
         RepositorioCotizacion(self.db).recalcular_totales(entidad.cotizacion_id)
 
     def crear_concepto(
-        self,
-        cotizacion_id: int,
-        servicio_id: int | None,
-        codigo_sat: str,
-        descripcion: str,
-        unidad: str,
-        cantidad: Decimal,
-        precio_unitario: Decimal,
-        descuento_porcentaje: Decimal = Decimal("0.00"),
+        self, 
+        cotizacion_id: int, 
+        servicio_id: int | None, 
+        codigo_sat: str, 
+        descripcion: str, 
+        unidad: str, 
+        cantidad: float | Decimal, 
+        precio_unitario: float | Decimal, 
+        descuento_porcentaje: float | Decimal = 0,
+        viatico_id: int | None = None
     ) -> ConceptoCotizacion:
-        """Crea un concepto y recalcula totales de la cotización padre."""
-        concepto = ConceptoCotizacion.crear_desde_servicio(
+        """Helper para inyectar conceptos desde otros módulos."""
+        concepto = ConceptoCotizacion(
             cotizacion_id=cotizacion_id,
             servicio_id=servicio_id,
+            viatico_id=viatico_id,
             codigo_sat=codigo_sat,
             descripcion=descripcion,
             unidad=unidad,
-            cantidad=cantidad,
-            precio_unitario=precio_unitario,
-            descuento_porcentaje=descuento_porcentaje,
+            cantidad=Decimal(str(cantidad)),
+            precio_unitario=Decimal(str(precio_unitario)),
+            descuento_porcentaje=Decimal(str(descuento_porcentaje)),
+            importe=Decimal("0.00")
         )
+        concepto.calcular_importe()
         return self.guardar(concepto)
 
     def eliminar_concepto(self, concepto_id: int, cotizacion_id: int) -> None:

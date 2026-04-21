@@ -5,65 +5,74 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
 #}
 <nav class="navbar navbar-expand-lg navbar-dark navbar-teamsa mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="/usuarios">
-      <img src="/static/img/teamsa_logo.png" alt="TEAMSA" height="30" class="d-inline-block align-text-top me-2">
-      TEAMSA
+    <a class="navbar-brand d-flex align-items-center" href="/usuarios">
+      <img src="/static/images/teamsa_logo.webp" alt="TEAMSA" height="35"
+        class="d-inline-block align-text-top me-2 navbar-logo">
+      <span class="fw-bold">TEAMSA</span>
     </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="navbarNav">
-        {% if usuario %}
-        <ul class="navbar-nav me-auto">
-          <!-- Usuarios /  Inicio -->
-          {% if 'usuarios' in (usuario.permisos_ver or []) %}
-          <li class="nav-item">
-            <a class="nav-link {{ 'active' if request.url.path == '/usuarios' else '' }}" href="/usuarios">Usuarios</a>
-          </li>
-          {% endif %}
- 
-          <!-- Módulo Ventas -->
-          {% set v_perm = usuario.permisos_ver or [] %}
-          {% if 'cotizaciones' in v_perm or 'ordenes' in v_perm or 'clientes' in v_perm or 'servicios' in v_perm %}
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/cotizaciones', '/clientes', '/servicios', '/ordenes')) else '' }}"
-              href="#" role="button" data-bs-toggle="dropdown">
-              Ventas
-            </a>
-            <ul class="dropdown-menu">
-              {% if 'cotizaciones' in v_perm %}<li><a class="dropdown-item" href="/cotizaciones">📄 Cotizaciones</a></li>{% endif %}
-              {% if 'ordenes' in v_perm %}<li><a class="dropdown-item" href="/ordenes">🛠️ Órdenes de Trabajo</a></li>{% endif %}
-              {% if 'clientes' in v_perm or 'servicios' in v_perm %}
-              <li>
-                <hr class="dropdown-divider">
-              </li>
-              {% endif %}
-              {% if 'clientes' in v_perm %}<li><a class="dropdown-item" href="/clientes">👥 Clientes</a></li>{% endif %}
-              {% if 'servicios' in v_perm %}<li><a class="dropdown-item" href="/servicios">🔧 Servicios (Catálogo)</a></li>{% endif %}
-            </ul>
-          </li>
-          {% endif %}
- 
-          <!-- Módulo Compras -->
-          {% if 'ordenes_compra' in v_perm or 'proveedores' in v_perm or 'servicios_proveedores' in v_perm %}
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/ordenes-compra', '/proveedores', '/servicios-proveedores')) else '' }}"
-              href="#" role="button" data-bs-toggle="dropdown">
-              Compras
-            </a>
-            <ul class="dropdown-menu">
-              {% if 'ordenes_compra' in v_perm %}<li><a class="dropdown-item" href="/ordenes-compra">📦 Órdenes de Compra</a></li>{% endif %}
-              {% if 'proveedores' in v_perm or 'servicios_proveedores' in v_perm %}
-              <li>
-                <hr class="dropdown-divider">
-              </li>
-              {% endif %}
-              {% if 'proveedores' in v_perm %}<li><a class="dropdown-item" href="/proveedores">🏭 Proveedores</a></li>{% endif %}
-              {% if 'servicios_proveedores' in v_perm %}<li><a class="dropdown-item" href="/servicios-proveedores">📑 Productos/Servicios proveedores</a></li>{% endif %}
-            </ul>
-          </li>
-          {% endif %}
-        </ul>
+      {% if usuario %}
+      <ul class="navbar-nav me-auto">
+        <!-- Usuarios /  Inicio -->
+        {% if 'usuarios' in (usuario.permisos_ver or []) %}
+        <li class="nav-item">
+          <a class="nav-link {{ 'active' if request.url.path == '/usuarios' else '' }}" href="/usuarios">Usuarios</a>
+        </li>
+        {% endif %}
+
+        <!-- Módulo Ventas -->
+        {% set v_perm = usuario.permisos_ver or [] %}
+        {% if 'cotizaciones' in v_perm or 'ordenes_trabajo' in v_perm or 'clientes' in v_perm or 'servicios' in v_perm
+        or 'viaticos' in v_perm %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/cotizaciones', '/clientes', '/servicios', '/ordenes-trabajo', '/viaticos')) else '' }}"
+            href="#" role="button" data-bs-toggle="dropdown">
+            Ventas
+          </a>
+          <ul class="dropdown-menu">
+            {% if 'cotizaciones' in v_perm %}<li><a class="dropdown-item" href="/cotizaciones">📄 Cotizaciones</a></li>
+            {% endif %}
+            {% if 'viaticos' in v_perm %}<li><a class="dropdown-item" href="/viaticos">🚗 Viáticos</a></li>{% endif %}
+            {% if 'ordenes_trabajo' in v_perm %}<li><a class="dropdown-item" href="/ordenes-trabajo">🛠️ Órdenes de
+                Trabajo</a></li>{% endif %}
+            {% if 'clientes' in v_perm or 'servicios' in v_perm %}
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            {% endif %}
+            {% if 'clientes' in v_perm %}<li><a class="dropdown-item" href="/clientes">👥 Clientes</a></li>{% endif %}
+            {% if 'servicios' in v_perm %}<li><a class="dropdown-item" href="/servicios">🔧 Servicios (Catálogo)</a>
+            </li>{% endif %}
+          </ul>
+        </li>
+        {% endif %}
+
+        <!-- Módulo Compras -->
+        {% if 'ordenes_compra' in v_perm or 'proveedores' in v_perm or 'servicios_proveedores' in v_perm %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/ordenes-compra', '/proveedores', '/servicios-proveedores')) else '' }}"
+            href="#" role="button" data-bs-toggle="dropdown">
+            Compras
+          </a>
+          <ul class="dropdown-menu">
+            {% if 'ordenes_compra' in v_perm %}<li><a class="dropdown-item" href="/ordenes-compra">📦 Órdenes de
+                Compra</a></li>{% endif %}
+            {% if 'proveedores' in v_perm or 'servicios_proveedores' in v_perm %}
+            <li>
+              <hr class="dropdown-divider">
+            </li>
+            {% endif %}
+            {% if 'proveedores' in v_perm %}<li><a class="dropdown-item" href="/proveedores">🏭 Proveedores</a></li>{%
+            endif %}
+            {% if 'servicios_proveedores' in v_perm %}<li><a class="dropdown-item" href="/servicios-proveedores">📑
+                Productos/Servicios proveedores</a></li>{% endif %}
+          </ul>
+        </li>
+        {% endif %}
+      </ul>
 
       <ul class="navbar-nav ms-auto">
         <li class="nav-item dropdown">
@@ -75,8 +84,8 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
           </ul>
         </li>
       </ul>
-        {% endif %}
-      </div>
+      {% endif %}
     </div>
+  </div>
   </div>
 </nav>

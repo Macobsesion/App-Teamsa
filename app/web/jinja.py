@@ -38,7 +38,13 @@ def fmt_time(value: Any) -> str:
 
 
 def fmt_none(value: Any, fallback: str = "") -> str:
-    return fallback if value is None else str(value)
+    """Evita la visualización de None o el string literal 'None'."""
+    if value is None:
+        return fallback
+    str_val = str(value).strip().lower()
+    if not str_val or str_val in ("none", "null", "undefined"):
+        return fallback
+    return str(value)
 
 
 def fmt_fecha_es(value: Any) -> str:
@@ -61,18 +67,48 @@ def register_jinja_filters(templates: Jinja2Templates) -> None:
     env.filters["fmt_time"] = fmt_time
     env.filters["fmt_none"] = fmt_none
     env.filters["fmt_fecha_es"] = fmt_fecha_es
+
+    def fmt_date(value: Any, format: str = "%d/%m/%Y") -> str:
+        """Formatea fecha/datetime de forma segura. Si es None, devuelve '-'."""
+        if value is None:
+            return "-"
+        if isinstance(value, (datetime, date)):
+            return value.strftime(format)
+        return str(value)
+    env.filters["fmt_date"] = fmt_date
+    
+    def fmt_currency(value: Any) -> str:
+        if value is None:
+            return "0.00"
+        try:
+            # Saneamiento previo si es string basura
+            if isinstance(value, str) and value.strip().lower() in ("none", "null"):
+                return "0.00"
+            return "{:,.2f}".format(float(value))
+        except (ValueError, TypeError):
+            return str(value)
+    env.filters["fmt_currency"] = fmt_currency
     # Helper global para obtener atributos o claves dinámicamente desde plantillas
     def getv(obj, name, default=""):
         try:
             if obj is None:
                 return default
-            # Mapping (dict-like)
             if hasattr(obj, "get"):
-                return obj.get(name, getattr(obj, name, default))
-            return getattr(obj, name, default)
+                val = obj.get(name, getattr(obj, name, default))
+            else:
+                val = getattr(obj, name, default)
+            
+            # Filtro agresivo contra basura 'none' o nulos
+            if val is None:
+                return default
+            if isinstance(val, str) and (not val.strip() or val.strip().lower() in ("none", "null", "undefined")):
+                return default
+                
+            return val
         except Exception:
             return default
     env.globals["getv"] = getv
+    env.globals["now"] = datetime.now
 
 
 @lru_cache

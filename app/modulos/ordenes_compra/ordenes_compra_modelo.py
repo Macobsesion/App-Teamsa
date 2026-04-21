@@ -9,6 +9,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 from app.base.documentos_modelo import BaseDocumento
 from app.base.mixins_financieros import MixinDetalleFinanciero
+from app.base.mixins_snapshots import SnapshotProveedorMixin
 from typing import TYPE_CHECKING
 from enum import Enum
 
@@ -23,11 +24,29 @@ class EstadoOrdenCompra(str, Enum):
     RECIBIDA = "recibida" # Completa
     CANCELADA = "cancelada"
 
-class OrdenCompra(BaseDocumento, table=True):
+    @property
+    def es_editable(self) -> bool:
+        """Determina si la OC puede ser editada."""
+        return self == EstadoOrdenCompra.BORRADOR
+
+    @property
+    def es_cancelable(self) -> bool:
+        """Determina si la OC puede ser cancelada."""
+        return self not in (EstadoOrdenCompra.CANCELADA, EstadoOrdenCompra.RECIBIDA)
+
+class OrdenCompra(SnapshotProveedorMixin, BaseDocumento, table=True):
     """Encabezado de la Orden de Compra."""
     __tablename__ = "orden_compra"
 
     id: int | None = Field(default=None, primary_key=True)
+    
+    # MIXIN: SnapshotProveedorMixin incluye proveedor_nombre, proveedor_rfc, etc. y direccion_proveedor_vo
+    
+    # Proveedor Relación Viva (Para métricas y catálogos)
+    proveedor_id: int = Field(foreign_key="proveedor.id", index=True)
+    
+    # Datos generales
+    fecha_entrega_estimada: date | None = None
     
     @model_validator(mode="after")
     def validar_fechas(self) -> "OrdenCompra":
@@ -36,44 +55,11 @@ class OrdenCompra(BaseDocumento, table=True):
                 raise ValueError("La fecha de entrega estimada no puede ser anterior a la de emisión")
         return self
     
-    # Snapshot del Proveedor (Congelamiento Histórico)
-    proveedor_nombre: str | None = Field(default=None, description="Nombre del proveedor al momento de la orden")
-    proveedor_rfc: str | None = Field(default=None, max_length=13, description="RFC del proveedor")
-    proveedor_direccion: str | None = Field(default=None, description="Dirección capturada")
-    proveedor_ciudad: str | None = Field(default=None, description="Ciudad capturada")
-    proveedor_cp: str | None = Field(default=None, max_length=5, description="Código postal capturado")
-    proveedor_telefono: str | None = Field(default=None, description="Teléfono capturado")
-    proveedor_email: str | None = Field(default=None, description="Email capturado")
-    
-    # Proveedor Relación Viva (Para métricas y catálogos)
-    proveedor_id: int = Field(foreign_key="proveedor.id", index=True)
-    
-    # Datos generales
-    fecha_entrega_estimada: date | None = None
-    
     # MIXIN: BaseDocumento incluye fecha_emision, folio, estado, metodo_pago, forma_pago, notas, notas_privadas
     
     # Relaciones
     proveedor: "Proveedor" = Relationship()
     detalles: List["DetalleOrdenCompra"] = Relationship(back_populates="orden", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-
-    # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
-
-    @property
-    def direccion_proveedor_vo(self) -> Direccion:
-        """Devuelve la dirección del snapshot como un Objeto de Valor."""
-        return Direccion(
-            calle=self.proveedor_direccion,
-            ciudad=self.proveedor_ciudad,
-            cp=self.proveedor_cp
-        )
-    
-    @direccion_proveedor_vo.setter
-    def direccion_proveedor_vo(self, valor: Direccion) -> None:
-        """Asigna la dirección del snapshot descomponiendo el VO."""
-        self.proveedor_direccion = valor.calle
-        self.proveedor_ciudad = valor.ciudad
-        self.proveedor_cp = valor.cp
 
     @property
     def estado_enum(self) -> EstadoOrdenCompra:

@@ -47,13 +47,16 @@ En la UI se usa HTML renderizado en servidor con Jinja y HTMX para intercambiar 
   - Invitados/Testimonios: `web/templates/ui/invitados/_filas.html`, `_form.html`; `web/templates/ui/testimonios/_filas.html`, `_form.html`
 
 - Filtros y helpers Jinja: `app/web/jinja.py`
-  - `fmt_dt` (datetime/date ISO), `fmt_time` (time), `fmt_none` (fallback para None), `fmt_fecha_es` (fechas en español como "5 de diciembre de 2025"). `get_templates()` registra los filtros y devuelve una instancia compartida para render.
+  - `fmt_date` (datetime/date ISO de forma segura), `fmt_currency` (formato moneda con símbolo), `fmt_dt` (ISO extendido), `fmt_time` (hora), `fmt_none` (fallback para None).
+  - Estos filtros son **obligatorios** para evitar errores 500 cuando un campo es `None`.
+  - `get_templates()` registra los filtros y devuelve una instancia compartida para render.
    - `getv(obj, name)`: acceso seguro a atributos o claves para plantillas dinámicas.
 
 - Macros Jinja reutilizables:
-  - `web/templates/partials/forms.html` macros de inputs (`field_input`, `field_select`, `field_file`, …)
-  - `web/templates/partials/actions.html` macro `acciones(...)` para la columna Acciones (Editar/Eliminar y extras). Se usa en todas las tablas.
-  - `web/templates/partials/rows.html` macro `celdas(item, columnas)` que pinta celdas a partir del descriptor. Soporta listas (join) y `horario_habitual` con `fmt_time`.
+  - `web/templates/ui/macros/components.html`: Componentes **Premium** para vistas de detalle (`status_badge`, `money`, `info_row`, `totals_row`).
+  - `web/templates/partials/forms.html`: Macros de inputs (`field_input`, `field_select`, `field_file`, …).
+  - `web/templates/partials/actions.html`: Macro `acciones(...)` para la columna Acciones en listados.
+  - `web/templates/partials/rows.html`: Macro `celdas(item, columnas)` que pinta celdas automáticas en listados.
 
 - Estáticos: `web/static/css/app.css:1`, `web/static/img/*`, `web/static/js/autenticacion.js:1` (maneja el login).
 
@@ -223,8 +226,9 @@ Listo: tendrás operaciones de listar/crear/editar/eliminar funcionando con una 
 - ¿Dónde personalizo los textos flash?
   - Al construir el UI puedes pasarlos en `DescriptorUI`; si no, se derivan del `label` automáticamente.
 
-- ¿Cómo formateo fechas y horas en las tablas?
-  - Usa filtros `fmt_dt` (ISO), `fmt_time` (hora), o `fmt_fecha_es` (español) en los parciales.
+- ¿Cómo formateo fechas y horas en las tablas y detalles?
+  - **REGLA DE ORO**: Usa siempre filtros de seguridad: `| fmt_date` para fechas, `| fmt_currency` para dinero, `| fmt_none` para textos opcionales.
+  - NUNCA uses métodos de Python como `.strftime()` ya que rompen la página (Error 500) si el dato es nulo.
 
 - ¿Cómo protejo una página por rol?
   - Añade `Depends(exigir_roles('admin', ...))` en la ruta HTML y/o en los routers API/UI.

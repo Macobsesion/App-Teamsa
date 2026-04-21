@@ -1,9 +1,11 @@
-"""Repositorio para Órdenes de Compra."""
-from sqlmodel import select
-from typing import List
+from datetime import date
+from typing import List, Mapping, Any
+from sqlmodel import select, func
 
 from app.base.repositorio import RepositorioCRUD
+from app.base.folios import GeneradorFolio, EstrategiaFolioMensual
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
+from app.base.constantes import PREFIJO_NUMERO_ORDEN_COMPRA
 
 class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
     modelo = OrdenCompra
@@ -14,6 +16,26 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
     }
     campos_busqueda = {"folio": "icontains", "notas": "icontains"}
 
+    def actualizar(self, entidad_id: int, cambios: Mapping[str, Any]) -> OrdenCompra:
+        entidad_bd = self.obtener_por_id(entidad_id)
+        
+        # Guard de Estado: ¿Es editable?
+        from app.base.excepciones import ReglaNegocioError
+        if not entidad_bd.es_editable:
+            raise ReglaNegocioError(f"La orden de compra {entidad_bd.folio} está en estado '{entidad_bd.estado}' y ya no permite ediciones.")
+            
+        return super().actualizar(entidad_id, cambios)
+
+    def eliminar(self, entidad_id: int) -> None:
+        entidad_bd = self.obtener_por_id(entidad_id)
+        
+        # Guard de Estado: ¿Es cancelable/eliminable?
+        from app.base.excepciones import ReglaNegocioError
+        if not entidad_bd.es_cancelable:
+            raise ReglaNegocioError(f"La orden de compra {entidad_bd.folio} está en estado '{entidad_bd.estado}' y no puede ser eliminada.")
+            
+        return super().eliminar(entidad_id)
+
     def _condiciones_busqueda_personalizada(self, valor_seguro: str) -> list:
         """Permite buscar coincidencias en los conceptos/servicios de la orden de compra."""
         return [
@@ -23,6 +45,47 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
     def _enriquecer_consulta(self, consulta):
         from sqlalchemy.orm import selectinload
         return consulta.options(selectinload(OrdenCompra.detalles))
+    
+    def _obtener_siguiente_secuencia_mensual(self, fecha: date) -> int:
+        """Obtiene el siguiente número secuencial para el mes/año dado."""
+        primer_dia = fecha.replace(day=1)
+        # Cálculo robusto del primer día del siguiente mes
+        if primer_dia.month == 12:
+            ultimo_dia = primer_dia.replace(year=primer_dia.year + 1, month=1)
+        else:
+            ultimo_dia = primer_dia.replace(month=primer_dia.month + 1)
+
+        statement = select(func.count(OrdenCompra.id)).where(
+            OrdenCompra.fecha_emision >= primer_dia,
+            OrdenCompra.fecha_emision < ultimo_dia
+        )
+        count = self.db.exec(statement).one()
+        return count + 1
+
+    def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
+        """Asigna un folio temporal para evitar violaciones de NOT NULL antes del commit final."""
+        import uuid
+        datos_procesados = datos.copy()
+        if not datos_procesados.get("folio"):
+            datos_procesados["folio"] = f"TEMP-{uuid.uuid4().hex[:8]}"
+        return datos_procesados
+
+    def generar_numero_desde_id(self, fecha: date | None = None) -> str:
+        """Genera el folio con formato OC-YYMMNN."""
+        fecha_eval = fecha or date.today()
+        secuencia = self._obtener_siguiente_secuencia_mensual(fecha_eval)
+        
+        estrategia = EstrategiaFolioMensual()
+        return estrategia.generar(prefijo=PREFIJO_NUMERO_ORDEN_COMPRA, fecha=fecha_eval, secuencia=secuencia)
+
+    def _post_guardar(self, entidad: OrdenCompra, es_nuevo: bool) -> None:
+        """Si es nueva, asigna el folio secuencial mensual."""
+        es_temporal = entidad.folio and entidad.folio.startswith("TEMP-")
+        if es_nuevo and (not entidad.folio or es_temporal):
+            entidad.folio = self.generar_numero_desde_id(entidad.fecha_emision)
+            self.db.add(entidad)
+            self.db.commit()
+            self.db.refresh(entidad)
     
     def obtener_con_detalles(self, id_orden: int) -> OrdenCompra | None:
         """Obtiene una orden cargando ansiosamente sus detalles."""

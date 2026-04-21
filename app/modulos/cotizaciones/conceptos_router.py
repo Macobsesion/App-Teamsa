@@ -62,7 +62,7 @@ def agregar_concepto_htmx(
         unidad=unidad,
         cantidad=Decimal(str(cantidad)),
         precio_unitario=Decimal(str(precio_unitario)),
-        descuento_porcentaje=Decimal(str(descuento_porcentaje)),
+        descuento_porcentaje=Decimal(str(descuento_porcentaje))
     )
     
     # Devolver lista actualizada
@@ -118,7 +118,7 @@ def agregar_concepto_api(
         descripcion=concepto.descripcion,
         unidad=concepto.unidad,
         cantidad=concepto.cantidad,
-        precio_unitario=concepto.precio_unitario,
+        precio_unitario=concepto.precio_unitario
     )
 
 

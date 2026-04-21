@@ -1,7 +1,7 @@
 import pytest
 from decimal import Decimal
 from datetime import date
-from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
+from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 from app.modulos.cotizaciones.enums import EstadoCotizacion
 from tests.factories import CotizacionFactory, ConceptoCotizacionFactory, ClienteFactory
 
@@ -39,7 +39,7 @@ def cotizacion_con_cliente(session):
 def test_crear_ot_desde_cotizacion(admin_client, session, cotizacion_con_cliente):
     """
     Verifica que se puede crear una OT usando el endpoint especializado.
-    Endpoint real: POST /api/ordenes/crear-desde-cotizacion
+    Endpoint real: POST /api/ordenes-trabajo/crear-desde-cotizacion
     """
     assert cotizacion_con_cliente.id is not None, "La cotización debe tener ID"
 
@@ -50,7 +50,7 @@ def test_crear_ot_desde_cotizacion(admin_client, session, cotizacion_con_cliente
         "duracion": 2
     }
 
-    response = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    response = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
 
     if response.status_code not in [200, 201]:
         print(f"DEBUG OT: {response.status_code} - {response.json()}")
@@ -63,12 +63,12 @@ def test_crear_ot_desde_cotizacion(admin_client, session, cotizacion_con_cliente
 
 def test_listar_ordenes(admin_client, session):
     """Verifica que el listado de órdenes funcione."""
-    response = admin_client.get("/api/ordenes")
+    response = admin_client.get("/api/ordenes-trabajo")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
 
 def test_obtener_orden_inexistente(admin_client, session):
     """Verificar 404 para orden que no existe."""
-    response = admin_client.get("/api/ordenes/999999")
+    response = admin_client.get("/api/ordenes-trabajo/999999")
     assert response.status_code == 404

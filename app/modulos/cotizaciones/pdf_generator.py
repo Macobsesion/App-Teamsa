@@ -6,6 +6,8 @@ from app.base.generador_pdf import GeneradorPDF
 
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
+from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+from app.modulos.viaticos.viaticos_modelo import Viatico
 from app.modulos.clientes.clientes_modelo import Cliente
 from app.base.constantes import FORMATO_FECHA_LARGA, IVA_DESCRIPCION, LOGO_PDF
 from app.base.utilidades_fecha import formatear_fecha_español
@@ -13,13 +15,19 @@ from sqlmodel import Session  # type: ignore
 
 
 def imagen_a_data_uri(ruta_imagen: Path) -> str:
-    """Convierte imagen a data URI de forma robusta."""
+    """Convierte imagen a data URI detectando el tipo MIME automáticamente."""
+    import mimetypes
     if not ruta_imagen.exists():
         return ""
     try:
+        mime_type, _ = mimetypes.guess_type(str(ruta_imagen))
+        if not mime_type:
+            # Fallback seguro
+            mime_type = "image/png"
+            
         with open(ruta_imagen, 'rb') as f:
             imagen_base64 = base64.b64encode(f.read()).decode('utf-8')
-            return f"data:image/png;base64,{imagen_base64}"
+            return f"data:{mime_type};base64,{imagen_base64}"
     except Exception:
         return ""
 
@@ -46,8 +54,11 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
     conceptos = repo.obtener_conceptos(cotizacion_id)
     
     # Formatear fechas en español
+    # Resolución dinámica de rutas para assets
+    from app.base.constantes import _ROOT
+    
     logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
-    firma_path = Path(__file__).parent.parent.parent.parent / "web" / "static" / "img" / "firma_jefe.png"
+    firma_path = _ROOT / "web" / "static" / "images" / "firma_jefe.png" # Corregido a 'images' si ahí están los assets
     firma_data_uri = imagen_a_data_uri(firma_path)
     
     # Formatear fechas en español
@@ -67,3 +78,33 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
     
     # Generar PDF a través del generador central
     return GeneradorPDF.generar_pdf("pdf/cotizacion.html", contexto)
+
+
+
+def generar_pdf_viatico(viatico_id: int, db: Session) -> bytes:
+    """
+    Genera un PDF del reporte de viáticos.
+    """
+    from app.modulos.cotizaciones.viaticos_modelo import Viatico
+    from app.modulos.usuarios.usuarios_modelo import Usuario
+    from app.modulos.clientes.clientes_modelo import Cliente
+
+    viatico = db.get(Viatico, viatico_id)
+    if not viatico:
+        raise ValueError(f"Viático {viatico_id} no encontrado")
+
+    responsable = db.get(Usuario, viatico.responsable_id)
+    cliente = db.get(Cliente, viatico.cliente_id)
+
+    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
+
+    contexto = {
+        "viatico": viatico,
+        "responsable": responsable,
+        "cliente": cliente.nombre if cliente else "N/A",
+        "logo_path": logo_data_uri,
+        "fecha_inicio_formateada": formatear_fecha_español(viatico.fecha_creacion),
+        "fecha_fin_formateada": formatear_fecha_español(viatico.fecha_creacion), # Simplificación
+    }
+
+    return GeneradorPDF.generar_pdf("pdf/viatico.html", contexto)

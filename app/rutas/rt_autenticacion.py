@@ -14,6 +14,7 @@ from app.nucleo.cls_autenticacion import GestorAutenticacion, obtener_gestor_aut
 from app.nucleo.configuracion import settings
 from app.nucleo.sesion import establecer_cookie_sesion, eliminar_cookie_sesion
 from app.rutas.dependencias import dp_obtener_sesion_db
+from app.base.logs_servicio import ServicioLogs
 
 router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
@@ -40,6 +41,8 @@ def login(
     # Verifica la contraseña contra el hash almacenado en DB
     if not usuario or not gestor_autenticacion.verificar_contrasena(txtPassword, usuario.contrasena):
         logger.warning("Login fallido para usuario '%s'", txtNombre)
+        # Registrar intento fallido
+        ServicioLogs.registrar(db, usuario=txtNombre, accion="LOGIN_FALLIDO", modulo="auth", detalles="Contraseña incorrecta o usuario inexistente")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos",
@@ -51,6 +54,8 @@ def login(
     max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     establecer_cookie_sesion(response, token, max_age)
     logger.info("Login exitoso de '%s' (rol=%s)", usuario.usuario, usuario.rol)
+    # Registrar log de actividad
+    ServicioLogs.registrar(db, usuario=usuario.usuario, accion="LOGIN", modulo="auth", detalles=f"Rol: {usuario.rol}")
     return {"token_type": "cookie", "expires_in": max_age, "rol": usuario.rol}  # type: ignore[return-value]
 
 

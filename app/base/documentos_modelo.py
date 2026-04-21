@@ -13,7 +13,7 @@ class BaseDocumento(MixinDocumentoFinanciero, AuditMixin, SQLModel):
     """
     # Campos comunes de negocio
     fecha_emision: date = Field(default_factory=date.today)
-    estado: str = Field(index=True)
+    estado: str = Field(default="borrador", index=True)
     
     # Datos de pago
     metodo_pago: str = Field(default="POR_DEFINIR", description="Método de pago SAT")

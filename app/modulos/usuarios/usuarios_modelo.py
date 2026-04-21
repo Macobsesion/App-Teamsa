@@ -12,17 +12,10 @@ from app.base.auditoria import AuditMixin
 
 
 
-class Usuario(AuditMixin, SQLModel, table=True):
+from app.modulos.usuarios.usuarios_esquemas import UsuarioBase
+
+class Usuario(UsuarioBase, AuditMixin, table=True):
     id: int | None = Field(default=None, primary_key=True)
-    usuario: str = Field(unique=True, index=True)
     # Atributo Python sin tilde; columna física con nombre "contraseña"
     contrasena: str = Field(sa_column=Column("contraseña", String))
-    nombres: str
-    rol: str = Field(default="funcionario")
-    correo: str = Field(default="")
-    area: str | None = None
-    
-    permisos_ver: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    permisos_crear: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    permisos_editar: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    permisos_eliminar: list[str] = Field(default_factory=list, sa_column=Column(JSON))
+

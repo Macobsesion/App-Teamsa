@@ -27,14 +27,17 @@ def crear_tablas() -> None:
     from app.modulos.servicios.servicios_modelo import Servicio  # noqa: F401
     from app.modulos.proveedores.proveedores_modelo import Proveedor  # noqa: F401
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion  # noqa: F401
-    from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo  # noqa: F401
-
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo  # noqa: F401
 
     engine = obtener_motor()
     # PRECAUCIÓN: La creación de tablas plana está desactivada. 
     # El modelo de datos ahora es gestionado por Alembic migrations.
     # Usa: `alembic upgrade head` para sincronizar la BD.
     # SQLModel.metadata.create_all(engine)
+
+
+# Alias para compatibilidad con el arranque de la aplicación
+inicializar_bd = crear_tablas
 
 
 

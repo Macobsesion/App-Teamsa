@@ -11,6 +11,9 @@ from pydantic import PostgresDsn, computed_field # type: ignore
 from pydantic_core import MultiHostUrl # type: ignore
 
 class Settings(BaseSettings):
+    PROJECT_NAME: str = "App-Teamsa"
+    DEBUG: bool = True
+    
     # Configuración de la Base de Datos
     POSTGRES_SERVER: str
     POSTGRES_USER: str

@@ -30,13 +30,19 @@ def obtener_columnas_schema(
         if nombre in exclude_set:
             continue
         info = props.get(nombre)
-        if not isinstance(info, dict):
-            continue
-        columnas.append({
-            "campo": nombre,
-            "titulo": info.get("title", nombre.replace("_", " ").title()),
-            "tipo": info.get("type"),
-        })
+        if isinstance(info, dict):
+            columnas.append({
+                "campo": nombre,
+                "titulo": info.get("title", nombre.replace("_", " ").title()),
+                "tipo": info.get("type"),
+            })
+        else:
+            # Columna virtual (no en el schema)
+            columnas.append({
+                "campo": nombre,
+                "titulo": nombre.replace("_", " ").title(),
+                "tipo": "string",
+            })
     return columnas
 
 

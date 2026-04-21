@@ -1,5 +1,5 @@
 {% extends 'layouts/documento_detalle.html' %}
-{% import 'partials/components.html' as comp %}
+{% import 'ui/macros/components.html' as comp %}
 
 {% block header_title %}Cotización {{ cotizacion.numero }}{% endblock %}
 
@@ -9,7 +9,7 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(cotizacion.estado) }}
+{{ comp.status_badge(cotizacion.estado, extra_class='fs-5') }}
 {% endblock %}
 
 {% block items_content %}
@@ -48,7 +48,7 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
 {% block totals_content %}
 {# Usamos el parcial existente o lo reescribimos con macros.
 Por ahora reescribimos con macros para máxima consistencia #}
-<table class="table table-sm mb-0">
+<table class="table mb-0">
     {{ comp.totals_row('Subtotal', cotizacion.subtotal) }}
     {{ comp.totals_row('Descuento', cotizacion.descuento_global) }}
     {{ comp.totals_row('IVA (16%)', cotizacion.iva) }}
@@ -57,9 +57,8 @@ Por ahora reescribimos con macros para máxima consistencia #}
 {% endblock %}
 
 {% block info_content %}
-{{ comp.info_row('Fecha Emisión', cotizacion.fecha_emision.strftime('%d/%m/%Y')) }}
-{{ comp.info_row('Fecha Vigencia', cotizacion.fecha_vigencia.strftime('%d/%m/%Y') if cotizacion.fecha_vigencia else
-'N/A') }}
+{{ comp.info_row('Fecha Emisión', cotizacion.fecha_emision | fmt_date) }}
+{{ comp.info_row('Fecha Vigencia', cotizacion.fecha_vigencia | fmt_date) }}
 {{ comp.info_row('Método de Pago', cotizacion.metodo_pago) }}
 {# Forma de pago con lógica custom #}
 <tr>
@@ -158,9 +157,15 @@ Por ahora reescribimos con macros para máxima consistencia #}
                             <label class="form-label fw-semibold">Hora Inicio <span class="text-danger">*</span></label>
                             <input type="time" class="form-control" name="hora_programada" required>
                         </div>
-                        <div class="col-sm-4">
-                            <label class="form-label fw-semibold">Duración (horas)</label>
-                            <input type="number" class="form-control" name="duracion" value="1" min="1" max="24">
+                        <div class="col-sm-5">
+                            <label class="form-label fw-semibold">Duración</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="duracion" value="1" min="1" max="24" id="duracion-valor">
+                                <select class="form-select" name="unidad_duracion" id="duracion-unidad" style="max-width: 100px;" onchange="ajustarMaxDuracion()">
+                                    <option value="horas" selected>Horas</option>
+                                    <option value="dias">Días</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -235,20 +240,43 @@ Por ahora reescribimos con macros para máxima consistencia #}
     });
 
     // ---- Cerrar cotización ----
-    function cerrarCotizacion(estado) {
+    function cerrarCotizacion(estado, forzar = false) {
         const modalEl = document.getElementById('modalCerrarCotizacion');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
         const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
-        if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) return;
+        
+        // Si no es forzado, pedimos confirmación simple inicial
+        if (!forzar && !confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) return;
 
         fetch(`/api/cotizaciones/${_cotizacionId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado: estado })
+            body: JSON.stringify({ 
+                estado: estado, 
+                forzar: forzar,
+                motivo: `Cerrada como ${estadoTexto} por el usuario` 
+            })
         }).then(async res => {
-            if (res.ok) location.reload();
+            if (res.ok) {
+                location.reload();
+            } else if (res.status === 409 || res.status === 422 || res.status === 400) {
+                const err = await res.json();
+                if (err.codigo === 'REQUIERE_CONFIRMACION_CASCADA') {
+                    if (confirm(err.detail || err.mensaje)) {
+                        // El usuario aceptó la cascada destructiva
+                        cerrarCotizacion(estado, true);
+                    }
+                } else {
+                    alert(err.detail || err.mensaje || 'Error al cerrar cotización');
+                }
+            } else {
+                alert('Error inesperado al cerrar cotización');
+            }
+        }).catch(err => {
+            console.error(err);
+            alert('Error de conexión');
         });
     }
 
@@ -269,7 +297,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
         const select = document.getElementById('select-tecnico-modal');
         if (select.children.length === 1) {  // solo la opción vacía
             try {
-                const resp = await fetch('/api/ordenes/tecnicos');
+                const resp = await fetch('/api/ordenes-trabajo/tecnicos');
                 const tecnicos = await resp.json();
                 tecnicos.forEach(t => {
                     const opt = document.createElement('option');
@@ -284,6 +312,17 @@ Por ahora reescribimos con macros para máxima consistencia #}
         actualizarResumenConceptos();
     });
 
+    function ajustarMaxDuracion() {
+        const unidad = document.getElementById('duracion-unidad').value;
+        const valorInput = document.getElementById('duracion-valor');
+        if (unidad === 'horas') {
+            valorInput.max = 24;
+            if (parseInt(valorInput.value) > 24) valorInput.value = 24;
+        } else {
+            valorInput.removeAttribute('max');
+        }
+    }
+
     function actualizarResumenConceptos() {
         const checks = document.querySelectorAll('.concepto-check:checked');
         const container = document.getElementById('conceptos-modal-resumen');
@@ -296,12 +335,30 @@ Por ahora reescribimos con macros para máxima consistencia #}
             btnConfirmar.classList.add('btn-warning');
         } else {
             let html = '<ul class="list-unstyled mb-0">';
+            let tieneViaticos = false;
             checks.forEach(cb => {
                 const fila = cb.closest('tr');
                 const desc = fila.querySelector('td:nth-child(2) strong')?.textContent?.trim() || '—';
-                html += `<li>✅ <small>${desc}</small></li>`;
+                const viaticoId = fila.getAttribute('data-viatico-id');
+                html += `<li>✅ <small>${desc}</small>${viaticoId ? ' <span class="badge bg-info text-dark" style="font-size: 0.6rem;">🗺️ Viático</span>' : ''}</li>`;
+                if (viaticoId) tieneViaticos = true;
             });
             html += '</ul>';
+
+            if (tieneViaticos) {
+                html += `
+                <div class="alert alert-info mt-2 mb-0 py-2 border-primary" style="font-size: 0.75rem;">
+                    <i class="fas fa-info-circle me-1"></i> Se detectó un concepto de <strong>Viáticos</strong>. 
+                    Te recomendamos seleccionar duración en <strong>"Días"</strong> para sincronizar las fechas del viaje.
+                </div>`;
+                // Sugerir cambio a días si no estaba puesto
+                const unidadSelect = document.getElementById('duracion-unidad');
+                if (unidadSelect.value === 'horas') {
+                    unidadSelect.value = 'dias';
+                    ajustarMaxDuracion();
+                }
+            }
+
             container.innerHTML = html;
             btnConfirmar.classList.add('btn-success');
             btnConfirmar.classList.remove('btn-warning');
@@ -316,7 +373,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
     });
 
     // ---- Crear OT ----
-    async function crearOrdenTrabajo() {
+    async function crearOrdenTrabajo(fuerza = false) {
         const form = document.getElementById('formCrearOT');
         if (!form.reportValidity()) return;
 
@@ -332,8 +389,10 @@ Por ahora reescribimos con macros para máxima consistencia #}
             fecha_programada: form.fecha_programada.value,
             hora_programada: form.hora_programada.value.substring(0, 5),  // "HH:MM"
             duracion: parseInt(form.duracion.value),
+            unidad_duracion: form.unidad_duracion.value,
             concepto_ids: conceptoIds,
             tecnico_id: tecnicoId ? parseInt(tecnicoId) : null,
+            fuerza: fuerza
         };
 
         const btn = document.getElementById('btn-confirmar-ot');
@@ -341,7 +400,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
         btn.textContent = '⏳ Creando...';
 
         try {
-            const resp = await fetch('/api/ordenes/crear-desde-cotizacion', {
+            const resp = await fetch('/api/ordenes-trabajo/crear-desde-cotizacion', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -349,14 +408,14 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
             if (resp.ok) {
                 const json = await resp.json();
-                window.location.href = `/ui/ordenes/${json.id}/detalle`;
+                window.location.href = `/ui/ordenes-trabajo/${json.id}/detalle`;
             } else {
                 const err = await resp.json();
                 const alertaEmpalme = document.getElementById('alerta-empalme');
                 const alertaMsg = document.getElementById('alerta-empalme-msg');
 
                 alertaEmpalme.classList.remove('d-none');
-                alertaMsg.textContent = err.detail || 'No se pudo crear la OT';
+                alertaMsg.innerHTML = `${err.detail || 'No se pudo crear la OT'} <br><button type="button" class="btn btn-outline-danger mt-2" onclick="crearOrdenTrabajo(true)">⚠️ Asignar de todos modos</button>`;
                 btn.disabled = false;
                 btn.textContent = '✨ Confirmar y Crear OT';
             }

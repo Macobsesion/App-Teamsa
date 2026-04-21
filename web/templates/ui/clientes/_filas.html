@@ -1,39 +1,41 @@
-{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/tablas.html' import render_cuerpo_tabla %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
-{% for item in items %}
-<tr>
-    <td>
-        <strong>{{ item.nombre }}</strong>
-        {% if item.razon_social and item.razon_social != item.nombre %}
-        <br><small class="text-muted">{{ item.razon_social }}</small>
-        {% endif %}
-    </td>
-    <td>
-        <span class="font-monospace">{{ item.rfc if item.rfc else '-' }}</span>
-    </td>
-    <td>{{ item.contacto if item.contacto else '-' }}</td>
-    <td>
-        {% if item.email %}
-        <a href="mailto:{{ item.email }}" class="text-decoration-none small">{{ item.email }}</a>
-        {% else %}
-        -
-        {% endif %}
-    </td>
-    <td class="text-center">
-        {% if item.activo %}
-        <span class="badge bg-success">Activo</span>
-        {% else %}
-        <span class="badge bg-secondary">Inactivo</span>
-        {% endif %}
-    </td>
-    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar cliente ' ~ item.nombre ~ '?') }}
-</tr>
-{% endfor %}
-{% if not items %}
-<tr>
-    <td colspan="100" class="text-center py-3 text-muted">
-        No se encontraron clientes.
-    </td>
-</tr>
-{% endif %}
-{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for item in items %}
+    <tr>
+        <td>
+            <strong>{{ item.nombre }}</strong>
+            {% if item.razon_social and item.razon_social != item.nombre %}
+            <br><small class="text-muted">{{ item.razon_social }}</small>
+            {% endif %}
+        </td>
+        <td>
+            <span class="font-monospace">{{ item.rfc | fmt_none('-') }}</span>
+        </td>
+        <td>{{ item.contacto | fmt_none('-') }}</td>
+        <td>
+            {% if item.email %}
+            <a href="mailto:{{ item.email }}" class="text-decoration-none small">{{ item.email }}</a>
+            {% else %}
+            -
+            {% endif %}
+        </td>
+        <td class="text-center">
+            {% if item.activo %}
+            <span class="badge bg-success">Activo</span>
+            {% else %}
+            <span class="badge bg-secondary">Inactivo</span>
+            {% endif %}
+        </td>
+        {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Eliminar cliente ' ~ item.nombre ~ '?') }}
+    </tr>
+    {% endfor %}
+    {% if not items %}
+    <tr>
+        <td colspan="100" class="text-center py-3 text-muted">
+            No se encontraron clientes.
+        </td>
+    </tr>
+    {% endif %}
+{% endcall %}

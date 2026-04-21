@@ -1,53 +1,41 @@
-{% import 'partials/forms.html' as f %}
+{% import 'ui/macros/forms.html' as f %}
 
-{% call f.modal_wrapper('usuario', modo, 'frmUsuario', '/ui/usuarios', item) %}
+{% call f.modal_form_wrapper('usuario', modo, 'frmUsuario', '/ui/usuarios', item) %}
 {% if modo == 'crear' %}{{ f.field_input('usuario','Usuario', required=True) }}{% endif %}
 {{ f.field_input('nombres','Nombres', item=item, required=True) }}
 {{ f.field_input('correo','Correo', item=item, type='email', required=True) }}
 {% set areas = [
-{'id':'Administración','nombre':'Administración'},
-{'id':'Dirección','nombre':'Dirección'},
-{'id':'ECO','nombre':'ECO'},
-{'id':'HI','nombre':'HI'},
-{'id':'HIDRO','nombre':'HIDRO'},
-{'id':'IND','nombre':'IND'},
-{'id':'MED','nombre':'MED'},
-{'id':'TI','nombre':'TI'}
+  {'id':'Administración','nombre':'Administración'},
+  {'id':'Dirección','nombre':'Dirección'},
+  {'id':'ECO','nombre':'ECO'},
+  {'id':'HI','nombre':'HI'},
+  {'id':'HIDRO','nombre':'HIDRO'},
+  {'id':'IND','nombre':'IND'},
+  {'id':'MED','nombre':'MED'},
+  {'id':'TI','nombre':'TI'}
 ] %}
 {{ f.field_select('area','Área', areas, item=item) }}
 {% set roles = [
-{'id':'tecnico','nombre':'Técnico'},
-{'id':'admin','nombre':'Admin'},
-{'id':'funcionario','nombre':'Funcionario'}
+  {'id':'tecnico','nombre':'Técnico'},
+  {'id':'admin','nombre':'Administrador'},
+  {'id':'funcionario','nombre':'Funcionario'}
 ] %}
 {{ f.field_select('rol','Rol', roles, item=item, required=True) }}
-{# En edición la contraseña se cambia con el botón con candado dedicado. En creación, sí se pide #}
+
+{# En creación se pide contraseña #}
 {% if modo == 'crear' %}
 {{ f.field_input('contrasena','Contraseña temporal', type='password', required=True, attrs='autocomplete="new-password"') }}
-{{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=True,
-attrs='autocomplete="new-password"') }}
+{{ f.field_input('confirmarContrasena','Confirmar contraseña', type='password', required=True, attrs='autocomplete="new-password"') }}
 <script>
-  // Validar al crear
   setTimeout(() => {
-    var form = document.getElementById('frmUsuario');
-    var p = form.querySelector('input[name="contrasena"]');
-    var c = form.querySelector('input[name="confirmarContrasena"]');
-    var btn = form.querySelector('button[type="submit"]');
-    function validate() {
-      btn.disabled = (p.value !== c.value) || !p.value;
-    }
+    const form = document.getElementById('frmUsuario');
+    const p = form.querySelector('input[name="contrasena"]');
+    const c = form.querySelector('input[name="confirmarContrasena"]');
+    const btn = form.querySelector('button[type="submit"]');
+    const validate = () => { btn.disabled = (p.value !== c.value) || !p.value; };
     p.addEventListener('input', validate);
     c.addEventListener('input', validate);
   }, 100);
 </script>
 {% endif %}
-
-<script>
-  (function () {
-    var f = document.getElementById('frmUsuario');
-    if (!f) return;
-    var btn = f.querySelector('button[type="submit"]');
-    /* Eliminada la validación manual de contraseñas ya que ahora vive en su propio modal */
-  })();
-</script>
 {% endcall %}

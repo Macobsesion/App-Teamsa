@@ -1,6 +1,6 @@
-/* Ajustes globales de UI de TEAMSA */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-:root {
+/* Ajustes globales de UI de TEAMSA */:root {
   /* Paleta Corporativa */
   /* 1. Enfasis y letras del navbar */
   --teamsa-primary: #4148C3;
@@ -24,43 +24,56 @@
 
 body {
   background-color: #f5f7fa;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   color: var(--teamsa-text-dark);
 }
 
-/* Navbar Premium - Fondo Claro, Letras #4148C3 */
+h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--teamsa-primary);
+  margin-bottom: 1.5rem;
+}
+
+/* Navbar Premium - Fondo Corporativo Azul, Letras Blancas */
 .navbar-teamsa {
-  background: white;
-  /*Fondo limpio para resaltar letras*/
-  border-bottom: 3px solid var(--teamsa-light-bg);
-  /* Detalle sutil color #5 */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--teamsa-primary-dark);
+  border-bottom: 2px solid var(--teamsa-accent);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   padding-top: 0.5rem;
   padding-bottom: 0.5rem;
 }
 
 .navbar-teamsa .navbar-brand {
-  color: var(--teamsa-primary) !important;
-  /* Color #1 */
+  color: white !important;
   font-weight: 700;
-  font-size: 1.5rem;
-  letter-spacing: 0.5px;
+  font-size: 1.6rem;
+  letter-spacing: 1px;
+}
+
+.navbar-logo {
+  filter: brightness(0) invert(1);
+  /* Convierte el logo azul en blanco puro */
+  transition: transform 0.3s ease;
+}
+
+.navbar-logo:hover {
+  transform: scale(1.05);
 }
 
 .navbar-teamsa .nav-link {
-  color: var(--teamsa-primary) !important;
-  /* Color #1 */
-  font-weight: 500;
-  transition: all 0.2s;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 400; /* Limpio, sin negritas */
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  padding-left: 1.2rem;
+  padding-right: 1.2rem;
 }
 
 .navbar-teamsa .nav-link:hover,
 .navbar-teamsa .nav-link.active {
-  color: var(--teamsa-primary-dark) !important;
-  /* Color #2 */
-  font-weight: 700;
-  background-color: var(--teamsa-light-bg);
-  /* Color #5 sutil en hover */
+  color: white !important;
+  background-color: rgba(255, 255, 255, 0.1);
   border-radius: 5px;
 }
 
@@ -97,10 +110,6 @@ body {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
   background-color: white;
-}
-
-.card:hover {
-  /* box-shadow: 0 5px 15px rgba(0,0,0,0.1); */
 }
 
 .card-header {
@@ -280,4 +289,196 @@ footer.teamsa-footer {
   margin-top: 8rem;
   /* Mayor espacio vertical */
   color: var(--teamsa-text-dark);
+}
+
+/* Ajustes de Visibilidad Solicitados */
+.navbar-toggler {
+  border: 1px solid var(--teamsa-primary) !important;
+  padding: 0.25rem 0.5rem;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(65, 72, 195, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+}
+
+.table-primary td, .table-primary th {
+  color: #084298 !important;
+  background-color: #e2e3ff !important; /* Un poco mas oscuro que light-bg para contraste */
+}
+
+.table-primary strong, .table-primary h5 {
+  color: var(--teamsa-primary) !important;
+}
+
+/* ========================================
+   Design System: Utilidades Tipográficas
+   ======================================== */
+.text-2xs { font-size: 0.6rem !important; }
+.text-xs  { font-size: 0.7rem !important; }
+.text-sm  { font-size: 0.8rem !important; }
+.text-md  { font-size: 0.9rem !important; }
+
+/* ========================================
+   Componentes: Badge Mini (Conceptos en tablas)
+   ======================================== */
+.badge-mini {
+  font-size: 0.7rem;
+  font-weight: 500;
+  background-color: #f0f2f5 !important;
+  color: #495057;
+  border: 1px solid #e9ecef;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+/* ========================================
+   Componentes: Alertas Premium
+   ======================================== */
+.alert-premium-danger {
+  background: rgba(220, 53, 69, 0.05);
+  border: 1px solid rgba(220, 53, 69, 0.15);
+  border-left: 4px solid #dc3545;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  color: var(--teamsa-text-dark);
+}
+
+.alert-premium-info {
+  background: rgba(65, 72, 195, 0.05);
+  border: 1px solid rgba(65, 72, 195, 0.15);
+  border-left: 4px solid var(--teamsa-primary);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  color: var(--teamsa-text-dark);
+}
+
+.alert-premium-warning {
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-left: 4px solid #ffc107;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  color: var(--teamsa-text-dark);
+}
+
+/* ========================================
+   Componentes: Status Badge (Animación)
+   ======================================== */
+@keyframes status-pulse {
+  0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(240, 147, 43, 0.4); }
+  70%  { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(240, 147, 43, 0); }
+  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(240, 147, 43, 0); }
+}
+
+/* ========================================
+   Layout: Login
+   ======================================== */
+.login-bg {
+  min-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card {
+  max-width: 420px;
+  width: 100%;
+  border-radius: 16px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* ========================================
+   Componentes: Gradiente Corporativo
+   (Reutilizable: headers de cards, botones PDF)
+   ======================================== */
+.bg-teamsa-gradient {
+  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+  color: white;
+}
+
+.text-teamsa-primary {
+  color: var(--teamsa-primary) !important;
+}
+
+/* ========================================
+   Logs Admin: Badges de acción
+   ======================================== */
+.bg-success-subtle  { background-color: rgba(25, 135, 84, 0.1) !important; }
+.bg-info-subtle     { background-color: rgba(13, 202, 240, 0.1) !important; }
+.bg-danger-subtle   { background-color: rgba(220, 53, 69, 0.1) !important; }
+.bg-warning-subtle  { background-color: rgba(255, 193, 7, 0.1) !important; }
+.bg-secondary-subtle { background-color: rgba(108, 117, 125, 0.1) !important; }
+
+/* ========================================
+   Logs Admin: Tabla compacta
+   ======================================== */
+.table-logs th {
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #6c757d;
+}
+
+.table-logs td {
+  font-size: 0.9rem;
+}
+
+/* ========================================
+   Componentes: Modal Header Corporativo
+   (Para modales con fondo de color TEAMSA)
+   ======================================== */
+.modal-header-teamsa {
+  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+  color: white;
+  border-bottom: none;
+}
+
+.modal-header-teamsa .btn-close {
+  filter: brightness(0) invert(1);
+}
+
+.modal-header-teamsa .modal-title {
+  color: white;
+}
+
+/* ========================================
+   Calculadora: Tipografía estandarizada
+   ======================================== */
+/* Títulos de sección (ej: "Logística de Traslado", "Desglose de Alimentos") */
+.calc-section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #6c757d;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* Labels de campos en calculadora */
+.calc-label {
+  font-size: 0.78rem;
+  color: #6c757d;
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+/* Color para totales y subtotales */
+.text-total-primary {
+  color: var(--teamsa-primary) !important;
+}
+
+/* ========================================
+   Tablas: Utilidades de diseño
+   ======================================== */
+.bg-light-teamsa {
+  background-color: #f8f9fa !important;
+  border-bottom: 2px solid #e9ecef !important;
+}
+
+.shadow-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }

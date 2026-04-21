@@ -16,9 +16,10 @@ from app.modulos.clientes.clientes_router import descriptor as clientes_descript
 from app.modulos.servicios.servicios_router import descriptor as servicios_descriptor
 from app.modulos.proveedores.proveedores_router import descriptor as proveedores_descriptor
 from app.modulos.cotizaciones.cotizaciones_router import descriptor as cotizaciones_descriptor
-from app.modulos.ordenes.ordenes_router import descriptor as ordenes_descriptor
+from app.modulos.ordenes_trabajo.ordenes_trabajo_router import descriptor as ordenes_descriptor
 from app.modulos.servicios_proveedores.servicios_proveedores_router import descriptor as servicios_proveedores_descriptor
 from app.modulos.ordenes_compra.ordenes_compra_router import descriptor as ordenes_compra_descriptor
+from app.modulos.viaticos.viaticos_router import descriptor as viaticos_descriptor
 
 from app.rutas.permisos import para_modulo
 
@@ -37,10 +38,13 @@ def render_crud_page(request: Request, *, template: str, descriptor, ui_base: st
     perms_create = getattr(usuario, "permisos_crear", []) or []
     perms_delete = getattr(usuario, "permisos_eliminar", []) or []
     
-    # Para la UI, respetamos estrictamente los checkboxes (incluso para admins)
+    # Para la UI, consultamos sus arrays JSON de permisos
     puede_editar = modulo in perms_edit
     puede_crear = modulo in perms_create
     puede_eliminar = modulo in perms_delete
+    
+    # Calcular tópico para refrescos HTMX (consistente con factory_modulo)
+    topic = (descriptor.config_ui.topic if descriptor.config_ui else None) or modulo
     
     return templates.TemplateResponse(
         template,
@@ -48,6 +52,7 @@ def render_crud_page(request: Request, *, template: str, descriptor, ui_base: st
             "request": request,
             "crud_config": descriptor.frontend_config(),
             "ui_base": ui_base,
+            "topic": topic,
             "puede_editar": puede_editar,
             "puede_crear": puede_crear,
             "puede_eliminar": puede_eliminar,
@@ -97,9 +102,9 @@ def pagina_listado_cotizaciones(request: Request, usuario=Depends(para_modulo("c
     return render_crud_page(request, template="crud_page.html", descriptor=cotizaciones_descriptor, ui_base="/ui/cotizaciones", usuario=usuario, modulo="cotizaciones")
 
 
-@router.get("/ordenes", response_class=HTMLResponse)
-def pagina_listado_ordenes(request: Request, usuario=Depends(para_modulo("ordenes", "ver"))):
-    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_descriptor, ui_base="/ui/ordenes", usuario=usuario, modulo="ordenes")
+@router.get("/ordenes-trabajo", response_class=HTMLResponse)
+def pagina_listado_ordenes(request: Request, usuario=Depends(para_modulo("ordenes_trabajo", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=ordenes_descriptor, ui_base="/ui/ordenes-trabajo", usuario=usuario, modulo="ordenes_trabajo")
 
 
 @router.get("/servicios-proveedores", response_class=HTMLResponse)
@@ -109,3 +114,7 @@ def pagina_servicios_proveedores(request: Request, usuario=Depends(para_modulo("
 @router.get("/ordenes-compra", response_class=HTMLResponse)
 def pagina_ordenes_compra(request: Request, usuario=Depends(para_modulo("ordenes_compra", "ver"))):
     return render_crud_page(request, template="crud_page.html", descriptor=ordenes_compra_descriptor, ui_base="/ui/ordenes-compra", usuario=usuario, modulo="ordenes_compra")
+
+@router.get("/viaticos", response_class=HTMLResponse)
+def pagina_listado_viaticos(request: Request, usuario=Depends(para_modulo("viaticos", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=viaticos_descriptor, ui_base="/ui/viaticos", usuario=usuario, modulo="viaticos")

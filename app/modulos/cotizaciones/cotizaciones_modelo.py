@@ -3,24 +3,29 @@ from datetime import date, datetime
 from decimal import Decimal
 from sqlmodel import Field, SQLModel, Relationship  # type: ignore
 from pydantic import field_validator, model_validator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from app.base.auditoria import AuditMixin
 from app.base.valores import Direccion
 
 if TYPE_CHECKING:
     from app.modulos.clientes.clientes_modelo import Cliente
+    from app.modulos.viaticos.viaticos_modelo import Viatico
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 
-
+from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionBase
 from app.modulos.cotizaciones.enums import EstadoCotizacion
 from app.base.documentos_modelo import BaseDocumento
 from app.base.mixins_financieros import MixinDetalleFinanciero
 
-class Cotizacion(BaseDocumento, table=True):
+class Cotizacion(CotizacionBase, BaseDocumento, table=True):
     """Cotizacion comercial con conceptos dinámicos."""
     __tablename__ = "cotizaciones"
     
     id: int | None = Field(default=None, primary_key=True)
+    
+    # Configuración para evitar errores de Pydantic v2 con Value Objects no anotados en el namespace
+    model_config = {"ignored_types": (Direccion,)} # type: ignore
     
     @model_validator(mode="after")
     def validar_fechas(self) -> "Cotizacion":
@@ -29,55 +34,18 @@ class Cotizacion(BaseDocumento, table=True):
                 raise ValueError("La fecha de vigencia no puede ser anterior a la de emisión")
         return self
     
-    # Numeración
-    numero: str = Field(unique=True, index=True, description="Número con versión: COT-00001 o COT-00001-B")
-    numero_version: str = Field(unique=True, index=True, description="Alias de numero (para compatibilidad)")
-    
-    # Versionamiento
-    version_letra: str | None = Field(default=None, description="Letra de versión: None=original, B, C, etc.")
-    cotizacion_original_id: int | None = Field(default=None, foreign_key="cotizaciones.id", index=True, description="ID de la cotización original si es versión")
-    
-    # Datos de negocio específicos
-    fecha_vigencia: date | None = Field(default=None, description="Fecha límite de validez de la oferta")
-    
-    # Snapshot del Cliente (Congelamiento Histórico)
-    cliente_nombre: str | None = Field(default=None, description="Nombre del cliente al momento de elaborar el documento")
-    cliente_rfc: str | None = Field(default=None, max_length=13, description="RFC capturado")
-    cliente_direccion: str | None = Field(default=None, description="Dirección capturada")
-    cliente_ciudad: str | None = Field(default=None, description="Ciudad capturada")
-    cliente_cp: str | None = Field(default=None, max_length=5, description="Código postal capturado")
-    cliente_telefono: str | None = Field(default=None, description="Teléfono capturado")
-    cliente_email: str | None = Field(default=None, description="Email capturado")
-    
-    # Relación Viva con cliente (para búsquedas, reportes y métricas)
-    cliente_id: int = Field(foreign_key="cliente.id", index=True)
-    
-    # Estado (flujo de negocio)
+    # MIXIN/BASE: CotizacionBase ya incluye numero, version, snapshots de cliente, etc.
     # MIXIN: BaseDocumento ya incluye fecha_emision, estado, metodo_pago, forma_pago, notas, notas_privadas, folio
     
     # Relationship (para cargar conceptos)
     cliente: "Cliente" = Relationship(back_populates="cotizaciones")
     conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")
+    ordenes: list["OrdenTrabajo"] = Relationship(back_populates="cotizacion")
 
     # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
 
-    @property
-    def direccion_cliente_vo(self) -> Direccion:
-        """Devuelve la dirección del snapshot como un Objeto de Valor."""
-        return Direccion(
-            calle=self.cliente_direccion,
-            ciudad=self.cliente_ciudad,
-            cp=self.cliente_cp
-        )
-    
-    @direccion_cliente_vo.setter
-    def direccion_cliente_vo(self, valor: Direccion) -> None:
-        """Asigna la dirección del snapshot descomponiendo el VO."""
-        self.cliente_direccion = valor.calle
-        self.cliente_ciudad = valor.ciudad
-        self.cliente_cp = valor.cp
-
-    # ---- PROPIEDADES DE ESTADO (POLIMORFISMO) ----
+    # MIXIN/BASE: CotizacionBase ya incluye numero, version, snapshots de cliente, etc.
+    # MIXIN: BaseDocumento ya incluye fecha_emision, estado, metodo_pago, forma_pago, notas, notas_privadas, folio
     @property
     def estado_enum(self) -> EstadoCotizacion:
         """Devuelve el estado como objeto Enum."""
@@ -86,6 +54,16 @@ class Cotizacion(BaseDocumento, table=True):
     @property
     def puede_crear_ot(self) -> bool:
         return self.estado_enum.permite_crear_ot
+
+    @property
+    def estado_visual(self) -> str:
+        """Determina el estado visual de la cotización basado en sus OTs activas."""
+        # Regla: Solo si tiene OTs activas y alguna está 'En curso' o 'en_curso'
+        if self.estado in [EstadoCotizacion.ACEPTADA.value, EstadoCotizacion.PROGRAMADA.value]:
+            for ot in self.ordenes:
+                if ot.estado_visual == "en_curso" or ot.estado == "en_curso":
+                    return "en_curso"
+        return self.estado
 
 
     # ---- MÉTODOS DE DOMINIO (ENCAPSULAMIENTO) ----
@@ -105,6 +83,43 @@ class Cotizacion(BaseDocumento, table=True):
         if self.fecha_emision:
             self.fecha_vigencia = self.fecha_emision + timedelta(days=VIGENCIA_DIAS_DEFAULT)
 
+    @classmethod
+    def crear_desde_wizard(
+        cls, 
+        cliente: "Cliente", 
+        metodo_pago: str, 
+        forma_pago: str, 
+        notas: str | None = None, 
+        usuario_id: str = "sistema"
+    ) -> "Cotizacion":
+        """
+        Factory method para crear una cotización capturando el snapshot del cliente.
+        Garantiza que folio y numero sean únicos temporalmente mediante UUID.
+        """
+        import uuid
+        from app.modulos.cotizaciones.enums import EstadoCotizacion
+        
+        # Generar identificadores temporales únicos para evitar colisiones en el flush
+        uid = str(uuid.uuid4())
+        folio_temp = f"TEMP-{uid}"
+        numero_temp = f"TEMP-{uid[:8]}"
+
+        instancia = cls(
+            cliente_id=cliente.id,  # type: ignore
+            metodo_pago=metodo_pago,
+            forma_pago=forma_pago,
+            notas=notas,
+            estado=EstadoCotizacion.BORRADOR.value,
+            folio=folio_temp,
+            numero=numero_temp,
+            numero_version=numero_temp,
+            fecha_emision=date.today(),
+            creado_por=usuario_id,
+        )
+        instancia.capturar_datos_cliente(cliente)
+        instancia.actualizar_vigencia()
+        return instancia
+
 
 from app.base.base_detalle import BaseDetalleTransaccional
 
@@ -119,6 +134,9 @@ class ConceptoCotizacion(BaseDetalleTransaccional, table=True):
     # Relación con servicio (opcional, para trazabilidad)
     servicio_id: int | None = Field(default=None, foreign_key="servicio.id", index=True)
     
+    # Relación con viático (opcional, para automatización de cancelaciones)
+    viatico_id: int | None = Field(default=None, foreign_key="viaticos.id", index=True)
+    
     # Datos del servicio copiados al momento de crear (snapshot)
     codigo_sat: str = Field(description="Código SAT del producto/servicio")
     codigo_unidad: str = Field(default="H87", description="Código de unidad SAT")
@@ -127,6 +145,7 @@ class ConceptoCotizacion(BaseDetalleTransaccional, table=True):
     
     # Relationships
     cotizacion: "Cotizacion" = Relationship(back_populates="conceptos")
+    viatico: Optional["Viatico"] = Relationship()
 
     @classmethod
     def crear_desde_servicio(
@@ -138,7 +157,8 @@ class ConceptoCotizacion(BaseDetalleTransaccional, table=True):
         cantidad: Decimal,
         precio_unitario: Decimal,
         descuento_porcentaje: Decimal = Decimal("0.00"),
-        cotizacion_id: int | None = None
+        cotizacion_id: int | None = None,
+        viatico_id: int | None = None
     ) -> "ConceptoCotizacion":
         """
         Factory Method para crear un concepto encapsulando la lógica de cálculo inicial.
@@ -152,6 +172,7 @@ class ConceptoCotizacion(BaseDetalleTransaccional, table=True):
             cantidad=cantidad,
             precio_unitario=precio_unitario,
             descuento_porcentaje=descuento_porcentaje,
+            viatico_id=viatico_id,
             importe=Decimal("0.00") # Se recalcula abajo
         )
         # Usar lógica del mixin

@@ -1,58 +1,122 @@
 {# web/templates/ui/macros/tablas.html #}
 
-{% macro tabla_crud(config, ui_base) %}
-<div class="table-responsive">
-    <table class="table table-striped table-sm">
-        <thead>
-            <tr>
-                {% if config and config.columnas %}
-                {% for col in config.columnas %}
-                <th>{{ col.titulo if col.titulo else col.campo|title }}</th>
-                {% endfor %}
-                {% endif %}
-                <th style="width:150px;">Acciones</th>
-            </tr>
-        </thead>
-        <tbody id="tbody-lista" hx-get="{{ ui_base }}/filas" hx-trigger="load, refrescarLista from:body" hx-swap="innerHTML">
-            <tr>
-                <td colspan="100" class="text-center">Cargando...</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+{% macro render_celdas(item, columnas) %}
+  {# Render genérico de celdas basado en `columnas` del descriptor. #}
+  {% for col in columnas %}
+    {% set name = col.campo %}
+    {% set val = getv(item, name) %}
+    <td class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }}">
+      {# Formatos avanzados siguiendo el Design System #}
+      {% if val is iterable and (val is not string) %}
+        {{ val|join(', ') }}
+      {% elif col.tipo == 'time' %}
+        <span class="text-secondary"><i class="far fa-clock me-1"></i>{{ val|fmt_time }}</span>
+      {% elif col.tipo == 'money' %}
+        <span class="fw-bold text-dark">$ {{ "{:,.2f}".format(val|float) }}</span>
+      {% elif col.tipo == 'date' %}
+        <span class="text-muted"><i class="far fa-calendar-alt me-1"></i>{{ val | fmt_date }}</span>
+      {% else %}
+        {{ val | fmt_none }}
+      {% endif %}
+    </td>
+  {% endfor %}
 {% endmacro %}
 
-{% macro paginacion_htmx(pagina_actual, total_paginas, ui_base) %}
-{% if total_paginas > 1 %}
-<tr>
-    <td colspan="100" class="border-0 bg-transparent text-center pt-3">
-        <nav>
-            <ul class="pagination pagination-sm justify-content-center mb-0">
-                <li class="page-item {% if pagina_actual <= 1 %}disabled{% endif %}">
-                    <button class="page-link shadow-sm" style="border-radius: 6px 0 0 6px;"
-                            hx-get="{{ ui_base }}/filas?pagina={{ pagina_actual - 1 }}" 
-                            hx-include="[name='q']" 
-                            hx-target="#tbody-lista">⬅️</button>
-                </li>
-                
-                {% for p in range(1, total_paginas + 1) %}
-                <li class="page-item {% if p == pagina_actual %}active{% endif %}">
-                    <button class="page-link shadow-sm" 
-                            hx-get="{{ ui_base }}/filas?pagina={{ p }}" 
-                            hx-include="[name='q']" 
-                            hx-target="#tbody-lista">{{ p }}</button>
-                </li>
-                {% endfor %}
-                
-                <li class="page-item {% if pagina_actual >= total_paginas %}disabled{% endif %}">
-                    <button class="page-link shadow-sm" style="border-radius: 0 6px 6px 0;"
-                            hx-get="{{ ui_base }}/filas?pagina={{ pagina_actual + 1 }}" 
-                            hx-include="[name='q']" 
-                            hx-target="#tbody-lista">➡️</button>
-                </li>
-            </ul>
+{% macro table_header(id, columnas, include_actions=true) %}
+  <table class="table table-hover align-middle mb-0" id="{{ id }}">
+    <thead class="bg-light-teamsa border-bottom shadow-xs">
+        <tr>
+            {% for col in columnas %}
+            <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold text-secondary">
+                {{ col.etiqueta }}
+            </th>
+            {% endfor %}
+            {% if include_actions %}
+            <th class="text-center text-uppercase text-xs fw-bold text-secondary" style="width: 100px;">Acciones</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody id="tbody-lista">
+        {{ caller() if caller }}
+    </tbody>
+  </table>
+{% endmacro %}
+
+{% macro render_tabla_crud(config, ui_base) %}
+  {% set container_id = "tabla-container-" ~ (ui_base|string).strip('/').replace('/', '-') %}
+  <div id="{{ container_id }}" class="table-responsive shadow-sm" 
+       hx-get="{{ ui_base }}/filas" hx-trigger="load" 
+       hx-target="this" hx-swap="innerHTML">
+      {# Se renderiza inicialmente el esqueleto con spinner #}
+      {{ render_cuerpo_tabla(config.columnas, [], 1, 1, ui_base, loading=true) }}
+  </div>
+{% endmacro %}
+
+{% macro render_cuerpo_tabla(columnas, items, actual, total, base, loading=false) %}
+  <table class="table table-hover align-middle mb-0">
+      <thead class="bg-light-teamsa border-bottom shadow-xs">
+          <tr>
+              {% for col in columnas %}
+              <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold text-secondary px-3 py-3">
+                  {{ col.etiqueta }}
+              </th>
+              {% endfor %}
+              <th class="text-center text-uppercase text-xs fw-bold text-secondary py-3" style="width: 120px;">Acciones</th>
+          </tr>
+      </thead>
+      <tbody id="tbody-lista">
+          {% if loading %}
+          <tr>
+              <td colspan="100" class="text-center py-5">
+                  <div class="spinner-border text-teamsa-primary spinner-border-sm me-2" role="status"></div>
+                  <span class="text-muted text-sm">Cargando datos...</span>
+              </td>
+          </tr>
+          {% else %}
+              {{ caller() if caller }}
+          {% endif %}
+      </tbody>
+      {% if not loading %}
+          {{ render_paginacion_htmx(actual, total, base) }}
+      {% endif %}
+  </table>
+{% endmacro %}
+
+{% macro render_paginacion_htmx(actual, total, base) %}
+  {% if total > 1 %}
+  <tfoot class="border-top bg-light-teamsa">
+    <tr>
+      <td colspan="100" class="p-0">
+        <nav class="d-flex justify-content-between align-items-center px-3 py-2">
+          <div class="text-muted text-xs">
+            Página <strong class="text-teamsa-primary">{{ actual }}</strong> de {{ total }}
+          </div>
+          <ul class="pagination pagination-sm mb-0">
+            <li class="page-item {{ 'disabled' if actual == 1 }}">
+              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual - 1 }}" hx-target="closest .table-responsive">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+            </li>
+            {% for p in range(1, total + 1) %}
+              {% if p == actual %}
+              <li class="page-item active"><span class="page-link bg-teamsa-gradient">{{ p }}</span></li>
+              {% else %}
+              <li class="page-item">
+                <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ p }}" hx-target="closest .table-responsive">
+                  {{ p }}
+                </button>
+              </li>
+              {% endif %}
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if actual == total }}">
+              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual + 1 }}" hx-target="closest .table-responsive">
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </li>
+          </ul>
         </nav>
-    </td>
-</tr>
-{% endif %}
+      </td>
+    </tr>
+  </tfoot>
+  {% endif %}
 {% endmacro %}

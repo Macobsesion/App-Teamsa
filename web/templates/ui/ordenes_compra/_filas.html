@@ -1,77 +1,67 @@
-{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/tablas.html' import render_cuerpo_tabla %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
-{% for item in items %}
-<tr>
-    <td>
-        <strong>{{ item.folio }}</strong>
-    </td>
-    <td>
-        {{ item.fecha_emision.strftime('%d/%m/%Y') }}
-    </td>
-    <td>
-        {% if item.proveedor %}
-        {{ item.proveedor.nombre }}
-        {% else %}
-        <span class="text-muted">ID: {{ item.proveedor_id }}</span>
-        {% endif %}
-        
-        {# Lista de Detalles resumida #}
-        <div class="mt-1 d-flex flex-wrap gap-1">
-            {% for detalle in item.detalles[:5] %}
-            <span class="badge bg-light text-dark border-0 shadow-sm" style="font-size: 0.7rem; background-color: #f1f3f9 !important;">
-                📦 {{ detalle.cantidad|int if detalle.cantidad % 1 == 0 else detalle.cantidad }}x {{ detalle.descripcion[:25] }}{{ '...' if detalle.descripcion|length > 25 }}
-            </span>
-            {% endfor %}
-            {% if item.detalles|length > 5 %}
-            <span class="badge bg-light text-muted border-0" style="font-size: 0.7rem;">+{{ item.detalles|length - 5 }} más</span>
+{% import 'ui/macros/components.html' as comp %}
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for item in items %}
+    <tr>
+        <td>
+            <strong>{{ item.folio }}</strong>
+        </td>
+        <td>
+            {{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}
+        </td>
+        <td>
+            {% if item.proveedor %}
+            {{ item.proveedor.nombre }}
+            {% else %}
+            <span class="text-muted">ID: {{ item.proveedor_id }}</span>
             {% endif %}
-        </div>
-    </td>
-    <td>
-        {% if item.estado_enum.value == 'borrador' %}
-        <span class="badge bg-secondary">Borrador</span>
-        {% elif item.estado_enum.value == 'emitida' %}
-        <span class="badge bg-primary">Emitida</span>
-        {% elif item.estado_enum.value == 'parcial' %}
-        <span class="badge bg-warning text-dark">Parcial</span>
-        {% elif item.estado_enum.value == 'recibida' %}
-        <span class="badge bg-success">Recibida</span>
-        {% elif item.estado_enum.value == 'cancelada' %}
-        <span class="badge bg-danger">Cancelada</span>
-        {% else %}
-        <span class="badge bg-light text-dark">{{ item.estado }}</span>
-        {% endif %}
-    </td>
-    <td class="text-end font-monospace">
-        ${{ "%.2f"|format(item.total) }} <small>{{ item.moneda }}</small>
-    </td>
-    {% set can_edit_negocio = item.estado == 'borrador' %}
-    {% set btns_extra = [
-        {
-            'label': '📝', 
-            'label_full': 'Notas Privadas',
-            'extra_attrs': 'data-modulo="ordenes-compra" data-id="' ~ item.id ~ '" data-folio="' ~ item.folio ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
-            'extra_clases': 'btn-notas-privadas-generico'
-        }
-    ] %}
-    {{ acciones(
-        ui_base, 
-        item.id, 
-        puede_editar, 
-        url_detalle='/ui/ordenes-compra/' ~ item.id ~ '/detalle',
-        url_editar='/ui/ordenes-compra/wizard?id=' ~ item.id,
-        extras=btns_extra,
-        puede_eliminar=puede_eliminar and item.estado == 'borrador',
-        delete_confirm='¿Eliminar orden de compra ' ~ item.folio ~ '?',
-        puede_editar_negocio=can_edit_negocio
-    ) }}
-</tr>
-{% endfor %}
-{% if not items %}
-<tr>
-    <td colspan="6" class="text-center py-3 text-muted">
-        No hay órdenes de compra registradas.
-    </td>
-</tr>
-{% endif %}
-{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}
+            
+            {# Lista de Detalles resumida #}
+            <div class="mt-1 d-flex flex-wrap gap-1">
+                {% for detalle in item.detalles[:5] %}
+                <span class="badge badge-mini">
+                    📦 {{ detalle.cantidad|int if detalle.cantidad % 1 == 0 else detalle.cantidad }}x {{ detalle.descripcion[:25] }}{{ '...' if detalle.descripcion|length > 25 }}
+                </span>
+                {% endfor %}
+                {% if item.detalles|length > 5 %}
+                <span class="badge bg-light text-muted border-0 text-xs">+{{ item.detalles|length - 5 }} más</span>
+                {% endif %}
+            </div>
+        </td>
+        <td>
+            {{ comp.status_badge(item.estado) }}
+        </td>
+        <td class="text-end font-monospace">
+            ${{ item.total | fmt_currency }} <small>{{ item.moneda }}</small>
+        </td>
+        {% set btns_extra = [
+            {
+                'label': '📝', 
+                'label_full': 'Notas Privadas',
+                'extra_attrs': 'data-modulo="ordenes-compra" data-id="' ~ item.id ~ '" data-folio="' ~ item.folio ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
+                'extra_clases': 'btn-notas-privadas-generico'
+            }
+        ] %}
+        {{ acciones(
+            ui_base, 
+            item.id, 
+            puede_editar, 
+            url_detalle='/ui/ordenes-compra/' ~ item.id ~ '/detalle',
+            url_editar='/ui/ordenes-compra/wizard?id=' ~ item.id,
+            extras=btns_extra,
+            puede_eliminar=(puede_eliminar and item.es_cancelable),
+            delete_confirm='¿Eliminar orden de compra ' ~ item.folio ~ '?',
+            puede_editar_negocio=item.es_editable
+        ) }}
+    </tr>
+    {% endfor %}
+    {% if not items %}
+    <tr>
+        <td colspan="100" class="text-center py-3 text-muted">
+            No hay órdenes de compra registradas.
+        </td>
+    </tr>
+    {% endif %}
+{% endcall %}

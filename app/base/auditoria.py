@@ -28,6 +28,26 @@ class AuditMixin(SQLModel, table=False):
         },
     )
     # Usuario que creó el registro
-    creado_por: str
+    creado_por: str = Field(sa_column_kwargs={"nullable": False})
     # Usuario que modificó por última vez el registro
     modificado_por: str | None = Field(default=None)
+
+
+from sqlalchemy import event
+from app.nucleo.contexto import obtener_usuario_actual
+
+@event.listens_for(AuditMixin, "before_insert", propagate=True)
+def _audit_before_insert(mapper, connection, target: AuditMixin):
+    """Gatillo automático: asegura que creado_por y modificado_por tengan valor."""
+    usuario = obtener_usuario_actual() or "SISTEMA"
+    if not target.creado_por:
+        target.creado_por = usuario
+    if not target.modificado_por:
+        target.modificado_por = usuario
+
+@event.listens_for(AuditMixin, "before_update", propagate=True)
+def _audit_before_update(mapper, connection, target: AuditMixin):
+    """Gatillo automático: actualiza modificado_por en cada cambio."""
+    # Solo actualizar si no fue establecido manualmente en esta operación
+    usuario = obtener_usuario_actual() or "SISTEMA"
+    target.modificado_por = usuario

@@ -1,6 +1,6 @@
-{% import 'partials/forms.html' as f %}
+{% import 'ui/macros/forms.html' as f %}
 
-{% call f.modal_wrapper('servicio de proveedor', modo, 'frmServicioProveedor', '/ui/servicios-proveedores', item) %}
+{% call f.modal_form_wrapper('servicio de proveedor', modo, 'frmServicioProveedor', '/ui/servicios-proveedores', item) %}
 
 {# Selector de Proveedor dinámico #}
 <div class="mb-3">

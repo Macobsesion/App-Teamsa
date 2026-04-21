@@ -14,7 +14,7 @@ class TipoPeticion(str, Enum):
 class EstadoCotizacion(str, Enum):
     """Estados del flujo de una cotización."""
     BORRADOR = "borrador"
-    ENVIADA = "enviada"
+    EMITIDA = "emitida"
     ACEPTADA = "aceptada"
     RECHAZADA = "rechazada"
     COBRADO = "cobrado"

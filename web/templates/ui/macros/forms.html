@@ -1,0 +1,90 @@
+{# web/templates/ui/macros/forms.html #}
+{# Macros estandarizadas para formularios en toda la aplicación TEAMSA #}
+
+{% macro field_input(name, label, item=None, type='text', required=False, value=None, attrs='', placeholder='') %}
+<div class="mb-3">
+  <label class="form-label calc-label fw-bold">{{ label }}</label>
+  <input class="form-control" name="{{ name }}" id="{{ name }}" type="{{ type }}" 
+    placeholder="{{ placeholder }}"
+    value="{{ value if value is not none else (getv(item, name) | fmt_none if item else '') }}" 
+    {% if required %}required{% endif %} {{ attrs|safe }}>
+</div>
+{% endmacro %}
+
+{% macro field_textarea(name, label, item=None, required=False, rows=3, placeholder='') %}
+<div class="mb-3">
+  <label class="form-label calc-label fw-bold">{{ label }}</label>
+  <textarea class="form-control" name="{{ name }}" id="{{ name }}" rows="{{ rows }}" 
+    placeholder="{{ placeholder }}"
+    {% if required %}required{% endif %}>{{ getv(item, name) if item else '' }}</textarea>
+</div>
+{% endmacro %}
+
+{% macro field_select(name, label, options, item=None, required=False, multiple=False, value_attr='id', 
+label_attr='nombre', empty_label='-- Selecciona --', attrs='') %}
+{% set selected = (getv(item, name) if item else ( [] if multiple else '' )) %}
+<div class="mb-3">
+  <label class="form-label calc-label fw-bold">{{ label }}</label>
+  <select class="form-select" name="{{ name }}" id="{{ name }}" {% if multiple %} multiple {% endif %} 
+    {% if required %} required {% endif %} {{ attrs|safe }}>
+    {% if not multiple %}
+    <option value="">{{ empty_label }}</option>
+    {% endif %}
+    {% for opt in options %}
+    {% set val = getv(opt, value_attr) %}
+    {% set lbl = getv(opt, label_attr) %}
+    {% if multiple %}
+    <option value="{{ val }}" {{ 'selected' if (selected and (val in selected)) else '' }}>{{ lbl }}</option>
+    {% else %}
+    <option value="{{ val }}" {{ 'selected' if (selected==val) else '' }}>{{ lbl }}</option>
+    {% endif %}
+    {% endfor %}
+  </select>
+</div>
+{% endmacro %}
+
+{% macro field_checkbox(name, label, item=None, default_checked=True) %}
+{% set es_crear = (modo == 'crear') %}
+{% set is_checked = (es_crear and default_checked) or (item and getv(item, name)) %}
+<div class="form-check mb-3">
+  <input class="form-check-input" type="checkbox" name="{{ name }}" id="{{ name }}" 
+    {% if is_checked %}checked{% endif %}>
+  <label class="form-check-label calc-label" for="{{ name }}">{{ label }}</label>
+</div>
+{% endmacro %}
+
+{% macro modal_form_wrapper(titulo_entidad, modo, form_id, base_url, item=None) %}
+{% import "ui/macros/botones.html" as btn %}
+{% set es_crear = (modo == 'crear') %}
+{% set form_url = base_url + ('/crear' if es_crear else '/' + item.id|string + '/actualizar') %}
+
+<div class="modal-header modal-header-teamsa">
+  <h5 class="modal-title">{{ ('Crear ' if es_crear else 'Editar ') + titulo_entidad }}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+</div>
+
+<div class="modal-body p-4">
+  {% if error %}
+  <div class="alert alert-premium-danger d-flex align-items-center mb-4 shadow-sm">
+      <div class="fs-4 me-3">🚫</div>
+      <div>
+          <div class="fw-bold text-danger">Atención</div>
+          <div class="text-secondary small">{{ error }}</div>
+      </div>
+  </div>
+  {% endif %}
+
+  <form id="{{ form_id }}" hx-target="#modal-content" hx-swap="innerHTML" hx-post="{{ form_url }}">
+    {% if not es_crear and item %}
+    <input type="hidden" name="id" value="{{ item.id }}">
+    {% endif %}
+
+    {{ caller() }}
+
+    <div class="modal-footer px-0 pb-0 pt-3 border-top-0 mt-2 bg-transparent justify-content-end gap-2">
+      <button type="button" class="btn btn-light border px-4" data-bs-dismiss="modal">Cancelar</button>
+      {{ btn.btn_primario("Guardar", type="submit", extra_clases="px-4") }}
+    </div>
+  </form>
+</div>
+{% endmacro %}

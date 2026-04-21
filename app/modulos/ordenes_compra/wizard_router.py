@@ -22,13 +22,28 @@ TEMPLATES = get_templates()
 @router.get("/wizard")
 def mostrar_wizard_orden_compra(
     request: Request,
+    id: int | None = None,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra")),
+    usuario: Any = Depends(dp_usuario_actual),
 ):
     """Wizard para crear/editar orden de compra completa con proveedores."""
+    # Validación manual de permisos por acción
+    accion = "editar" if id else "crear"
+    from app.modulos.usuarios.usuarios_modelo import Usuario
+    from sqlmodel import select
+    from app.base.excepciones import PermisoDenegadoError
+
+    u_db = db.exec(select(Usuario).where(Usuario.usuario == usuario.usuario)).first()
+    if not u_db:
+        raise RecursoNoEncontradoError("Usuario no encontrado")
+        
+    permisos = getattr(u_db, f"permisos_{accion}", []) or []
+    if "ordenes_compra" not in permisos:
+        raise PermisoDenegadoError(f"No tienes permiso de {accion} para ordenes_compra")
+
     return TEMPLATES.TemplateResponse(
         "ui/ordenes_compra/wizard.html",
-        {"request": request, "usuario": usuario}
+        {"request": request, "usuario": u_db}
     )
 
 
@@ -40,7 +55,10 @@ def ver_detalle_orden(
     usuario = Depends(para_modulo("ordenes_compra", "ver")),
 ):
     """Vista de detalle de una orden de compra."""
-    orden = db.get(OrdenCompra, orden_id)
+    from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
+    repo = RepositorioOrdenCompra(db)
+    orden = repo.obtener_por_id(orden_id)
+    
     if not orden:
         raise RecursoNoEncontradoError("Orden de Compra no encontrada")
     

@@ -20,6 +20,7 @@ from app.modulos.ordenes_compra.ordenes_compra_esquemas import (
 from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
 from app.modulos.ordenes_compra.ordenes_compra_servicios import ServicioCreacionOrdenCompra
 from app.modulos.ordenes_compra.pdf_generator import generar_pdf_orden_compra
+from app.modulos.ordenes_compra import wizard_router
 
 
 # Router para endpoints custom (creación compleja)
@@ -29,7 +30,7 @@ router_extras = APIRouter(prefix="/api/ordenes-compra", tags=["Ordenes Compra - 
 def crear_orden_completa(
     datos: dict = Body(...),
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra"))
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra", "crear"))
 ):
     """Crea una orden de compra completa con detalles."""
     servicio = ServicioCreacionOrdenCompra(db)
@@ -126,5 +127,5 @@ descriptor = DescriptorCRUD[
 router = crear_modulo_crud_estandar(
     descriptor=descriptor,
     nombre_modulo="ordenes_compra",
-    routers_adicionales=[router_extras]
+    routers_prioritarios=[router_extras, wizard_router.router]
 )

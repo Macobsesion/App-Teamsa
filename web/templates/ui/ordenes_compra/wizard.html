@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% from 'ui/macros/wizard_components.html' import indicador_progreso, tarjeta_totales %}
+{% import 'ui/macros/forms.html' as f %}
 
 {% block title %}Nueva Orden de Compra{% endblock %}
 
@@ -8,45 +9,41 @@
     <div class="row justify-content-center">
         <div class="col-lg-10">
             {# Wizard Header #}
-            <div class="card shadow-sm mb-4">
+            <div class="card shadow-sm mb-4 border-0">
                 <div class="card-body">
                     <h3 class="mb-4" id="wizard-titulo">📦 Nueva Orden de Compra</h3>
-
-                    {# Progress Steps mediante Macro #}
                     {{ indicador_progreso(['Proveedor', 'Productos', 'Revisión']) }}
                 </div>
             </div>
 
             {# Wizard Content #}
-            <div class="card shadow-sm">
-                <div class="card-body">
+            <div class="card shadow-sm border-0 overflow-hidden">
+                <div class="card-body p-4">
                     {# Step 1: Proveedor #}
                     <div class="wizard-content" id="step-1">
-                        <h5 class="mb-3">🏭 Información del Proveedor</h5>
+                        <div class="alert alert-premium-info mb-4 py-2">
+                            <i class="fas fa-info-circle me-2"></i>Selecciona un proveedor para cargar su catálogo de productos.
+                        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Proveedor *</label>
-                            <select class="form-select" id="proveedor-select" required
-                                onchange="cargarServiciosProveedor()">
+                        <div class="mb-4">
+                            <label class="form-label calc-label fw-bold">Proveedor *</label>
+                            <select class="form-select" id="proveedor-select" required onchange="cargarServiciosProveedor()">
                                 <option value="">-- Seleccionar proveedor --</option>
                             </select>
-                            <div class="form-text">Selecciona un proveedor para cargar su catálogo de productos.</div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha Emisión</label>
-                                <input type="date" class="form-control" id="fecha-emision">
+                                {{ f.field_input('fecha-emision', 'Fecha Emisión', type='date') }}
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Fecha Entrega (Estimada)</label>
-                                <input type="date" class="form-control" id="fecha-entrega">
+                                {{ f.field_input('fecha-entrega', 'Fecha Entrega (Estimada)', type='date') }}
                             </div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Método de Pago SAT</label>
+                                <label class="form-label calc-label fw-bold">Método de Pago SAT</label>
                                 <select class="form-select" id="metodo-pago">
                                     <option value="POR_DEFINIR" selected>Por definir</option>
                                     <option value="PUE">PUE - Pago en Una Sola Exhibición</option>
@@ -55,7 +52,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Forma de Pago SAT</label>
+                                <label class="form-label calc-label fw-bold">Forma de Pago SAT</label>
                                 <select class="form-select" id="forma-pago">
                                     <option value="99" selected>99 - Por definir</option>
                                     <option value="01">01 - Efectivo</option>
@@ -68,111 +65,105 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Notas</label>
-                            <textarea class="form-control" id="notas" rows="2"></textarea>
-                        </div>
+                        {{ f.field_textarea('notas', 'Notas Públicas', rows=2) }}
                     </div>
 
                     {# Step 2: Productos #}
                     <div class="wizard-content d-none" id="step-2">
-                        <h5 class="mb-3">🛒 Agregar Productos</h5>
+                        <h5 class="mb-3 text-teamsa-primary fw-bold"><i class="fas fa-cart-plus me-2"></i>Agregar Productos</h5>
 
-                        <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <div class="alert alert-warning d-none" id="alerta-proveedor">
+                        <div class="card bg-light border-0 mb-4">
+                            <div class="card-body p-3">
+                                <div class="alert alert-premium-warning d-none" id="alerta-proveedor">
                                     Primero seleccione un proveedor en el paso 1.
                                 </div>
                                 <div class="row g-2">
                                     <div class="col-md-4">
-                                        <label class="form-label">Producto / Servicio</label>
-                                        <select class="form-select" id="servicio-select">
+                                        <label class="form-label text-xs fw-bold">Producto / Servicio</label>
+                                        <select class="form-select form-select-sm" id="servicio-select">
                                             <option value="">-- Seleccionar del catálogo --</option>
                                         </select>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Cantidad</label>
-                                        <input type="number" class="form-control" id="cantidad-input" value="1" min="1"
-                                            step="1">
+                                        <label class="form-label text-xs fw-bold">Cantidad</label>
+                                        <input type="number" class="form-control form-control-sm" id="cantidad-input" value="1" min="1">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Precio Unit.</label>
-                                        <input type="number" class="form-control" id="precio-input" step="0.01">
+                                        <label class="form-label text-xs fw-bold">Precio Unit.</label>
+                                        <input type="number" class="form-control form-control-sm" id="precio-input" step="0.01">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Descuento %</label>
-                                        <input type="number" class="form-control" id="descuento-input" value="0" min="0"
-                                            max="100" step="1">
+                                        <label class="form-label text-xs fw-bold">Descuento %</label>
+                                        <input type="number" class="form-control form-control-sm" id="descuento-input" value="0" min="0" max="100">
                                     </div>
                                     <div class="col-md-2 d-flex align-items-end">
-                                        <button type="button" class="btn btn-teamsa-primary w-100"
-                                            onclick="agregarItem()">+
-                                            Agregar</button>
+                                        <button type="button" class="btn btn-teamsa-primary btn-sm w-100 py-1" onclick="agregarItem()">
+                                            <i class="fas fa-plus me-1"></i>Agregar
+                                        </button>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="items-lista">
+                        <div id="items-lista" class="mb-4">
                             <p class="text-muted text-center py-4">No hay productos agregados</p>
                         </div>
 
                         <div class="mt-3 text-end">
-                            <h5>Total Estimado: <span id="total-step-2">$0.00</span></h5>
+                            <div class="text-muted text-xs mb-1">Total Parcial (sin IVA)</div>
+                            <h5 class="text-teamsa-primary fw-bold" id="total-step-2">$0.00</h5>
                         </div>
                     </div>
 
                     {# Step 3: Resumen #}
                     <div class="wizard-content d-none" id="step-3">
-                        <h5 class="mb-3">📝 Revisión Final</h5>
+                        <h5 class="mb-3 text-teamsa-primary fw-bold"><i class="fas fa-file-invoice me-2"></i>Revisión Final</h5>
 
-                        <div class="card mb-3">
-                            <div class="card-header bg-primary text-white">
-                                <h6 class="mb-0">Datos Generales</h6>
+                        <div class="card border mb-3">
+                            <div class="card-header bg-teamsa-gradient text-white py-2">
+                                <h6 class="mb-0 text-sm">Datos Generales</h6>
                             </div>
-                            <div class="card-body">
-                                <div class="row">
+                            <div class="card-body p-3">
+                                <div class="row text-sm">
                                     <div class="col-md-6">
-                                        <p><strong>Proveedor:</strong> <span id="resumen-proveedor">-</span></p>
-                                        <p><strong>Fecha Emisión:</strong> <span id="resumen-fecha">-</span></p>
-                                        <p><strong>Fecha Estimada Entrega:</strong> <span
-                                                id="resumen-fecha-entrega">-</span></p>
+                                        <p class="mb-1"><strong>Proveedor:</strong> <span id="resumen-proveedor">-</span></p>
+                                        <p class="mb-1"><strong>Emisión:</strong> <span id="resumen-fecha">-</span></p>
+                                        <p class="mb-0"><strong>Entrega:</strong> <span id="resumen-fecha-entrega">-</span></p>
                                     </div>
-                                    <div class="col-md-6">
-                                        <p><strong>Método de Pago:</strong> <span id="resumen-metodo-pago">-</span></p>
-                                        <p><strong>Condiciones de Pago:</strong> <span
-                                                id="resumen-condiciones-pago">-</span></p>
+                                    <div class="col-md-6 border-start ps-4">
+                                        <p class="mb-1"><strong>Método de Pago:</strong> <span id="resumen-metodo-pago">-</span></p>
+                                        <p class="mb-0"><strong>Condiciones:</strong> <span id="resumen-condiciones-pago">-</span></p>
                                     </div>
                                 </div>
-                                <p class="mb-0"><strong>Notas:</strong> <span id="resumen-notas">-</span></p>
+                                <hr class="my-2">
+                                <p class="mb-0 text-xs text-muted"><strong>Notas:</strong> <span id="resumen-notas">-</span></p>
                             </div>
                         </div>
 
-                        <div class="card mb-3">
-                            <div class="card-header bg-secondary text-white">
-                                <h6 class="mb-0">Partidas</h6>
+                        <div class="card border mb-4">
+                            <div class="card-header bg-light py-2">
+                                <h6 class="mb-0 text-sm">Detalle de Partidas</h6>
                             </div>
                             <div class="card-body p-0">
                                 <div id="resumen-items-tabla"></div>
                             </div>
                         </div>
 
-                        {# Tarjeta de Totales mediante Macro #}
                         {{ tarjeta_totales() }}
                     </div>
 
                     {# Navigation Buttons #}
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary" id="btn-prev" onclick="prevStep()" disabled>←
-                            Anterior</button>
+                    <div class="d-flex justify-content-between mt-5 border-top pt-4">
+                        <button type="button" class="btn btn-light border px-4" id="btn-prev" disabled>
+                            <i class="fas fa-chevron-left me-2"></i>Anterior
+                        </button>
                         <div>
-                            <a href="/ordenes-compra" class="btn btn-outline-secondary me-2">Cancelar</a>
-                            <button type="button" class="btn btn-teamsa-primary" id="btn-next"
-                                onclick="nextStep()">Siguiente
-                                →</button>
-                            <button type="button" class="btn btn-success d-none" id="btn-submit"
-                                onclick="submitOrden()">
-                                <span id="btn-submit-text">✓ Generar Orden de Compra</span>
+                            <a href="/ordenes-compra" class="btn btn-link text-muted me-3 text-decoration-none">Cancelar</a>
+                            <button type="button" class="btn btn-teamsa-primary px-5" id="btn-next">
+                                Siguiente<i class="fas fa-chevron-right ms-2"></i>
+                            </button>
+                            <button type="button" class="btn btn-success px-5 d-none" id="btn-submit" onclick="submitOrden()">
+                                <i class="fas fa-check-circle me-2"></i><span id="btn-submit-text">Generar Orden</span>
                             </button>
                         </div>
                     </div>
@@ -182,30 +173,46 @@
     </div>
 </div>
 
+{% endblock %}
 
-
+{% block customJS %}
+<script src="/static/js/wizard_manager.js"></script>
 <script>
-    // Estado del Wizard
-    const wizardState = {
-        step: 1,
-        proveedor_id: null,
-        fecha_emision: new Date().toISOString().split('T')[0],
-        fecha_entrega: '',
-        metodo_pago: 'POR_DEFINIR',
-        forma_pago: '99',
-        notas: '',
-        items: [] // { servicio_id, codigo, descripcion, cantidad, precio_unitario, descuento_porcentaje, unidad }
-    };
+    // Inicializar el controlador del wizard usando la nueva clase compartida
+    const wiz = new TEAMSA.DocumentWizard({
+        initialState: {
+            step: 1,
+            proveedor_id: null,
+            fecha_emision: new Date().toISOString().split('T')[0],
+            fecha_entrega: '',
+            metodo_pago: 'POR_DEFINIR',
+            forma_pago: '99',
+            notas: '',
+            items: []
+        },
+        selectors: {
+            proveedores: 'proveedor-select',
+            catalogo: 'servicio-select'
+        },
+        endpoints: {
+            proveedores: '/api/proveedores/select',
+            catalogo: '/api/servicios-proveedores/select' // Dinámico, ver cargarServiciosProveedor
+        },
+        callbacks: {
+            onItemsChange: () => {
+                renderItems();
+                const totales = wiz.calcularTotales();
+                document.getElementById('total-step-2').textContent = `$${totales.subtotal.toFixed(2)}`;
+            }
+        }
+    });
 
-    let proveedoresData = [];
     let catalogoProductos = [];
-
-    // Variables para modo edición
+    let proveedoresData = [];
     let modoEdicion = false;
     let ordenId = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
-        // Detectar modo edición via ?id=X en URL
+    document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
         ordenId = urlParams.get('id');
         modoEdicion = ordenId !== null;
@@ -215,121 +222,52 @@
             document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
         }
 
-        document.getElementById('fecha-emision').value = wizardState.fecha_emision;
-        cargarProveedores();
+        document.getElementById('fecha-emision').value = wiz.state.fecha_emision;
+        
+        // Cargar proveedores iniciales
+        proveedoresData = await wiz.cargarSelector('proveedores', p => ({ val: p.id, text: p.nombre }));
 
-        // Si es modo edición, cargar datos después de los catálogos
         if (modoEdicion) {
             setTimeout(() => cargarOrdenParaEditar(ordenId), 500);
         }
+
+        // Inicializar UI de pasos (TeamSAWizard maneja el cambio visual)
+        new TeamSAWizard({
+            totalSteps: 3,
+            onValidateStep: (step) => {
+                if (step === 1) {
+                    const pid = document.getElementById('proveedor-select').value;
+                    if (!pid) { mostrarFlash("Selecciona un proveedor", "error"); return false; }
+                    wiz.state.proveedor_id = parseInt(pid);
+                    wiz.state.fecha_emision = document.getElementById('fecha-emision').value;
+                    wiz.state.fecha_entrega = document.getElementById('fecha-entrega').value;
+                    wiz.state.metodo_pago = document.getElementById('metodo-pago').value;
+                    wiz.state.forma_pago = document.getElementById('forma-pago').value;
+                    wiz.state.notas = document.getElementById('notas').value;
+                } else if (step === 2) {
+                    if (wiz.state.items.length === 0) { mostrarFlash("Agrega al menos un producto", "error"); return false; }
+                    renderResumen();
+                }
+                return true;
+            }
+        });
     });
-
-    async function cargarProveedores() {
-        try {
-            const resp = await fetch('/api/proveedores/select'); // Asumimos que existe o usaremos el endpoint de lista
-            // Si no existe endpoint select, usamos el de lista normal por ahora
-            // TODO: Crear endpoint select optimizado en provider router si falla
-            if (!resp.ok) throw new Error("Error cargando proveedores");
-            const data = await resp.json();
-            proveedoresData = data;
-
-            const sel = document.getElementById('proveedor-select');
-            data.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.nombre;
-                sel.appendChild(opt);
-            });
-        } catch (e) {
-            console.error(e);
-        }
-    }
 
     async function cargarServiciosProveedor() {
-        const proveedorId = document.getElementById('proveedor-select').value;
-        wizardState.proveedor_id = proveedorId;
-        catalogoProductos = [];
-
-        const sel = document.getElementById('servicio-select');
-        sel.innerHTML = '<option value="">Cargando...</option>';
-
-        if (!proveedorId) {
-            sel.innerHTML = '<option value="">-- Seleccionar del catálogo --</option>';
-            return;
-        }
-
-        try {
-            // Usar endpoint /select con filtro de proveedor_id (igual que cotizaciones usa /api/servicios/select)
-            const resp = await fetch(`/api/servicios-proveedores/select?proveedor_id=${proveedorId}`);
-            if (!resp.ok) {
-                throw new Error('Error al cargar catálogo');
-            }
-            const data = await resp.json();
-            catalogoProductos = data;
-
-            sel.innerHTML = '<option value="">-- Seleccionar producto --</option>';
-            catalogoProductos.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = `[${p.codigo_sku}] ${p.descripcion} ($${p.costo_unitario})`;
-                sel.appendChild(opt);
-            });
-        } catch (e) {
-            sel.innerHTML = '<option value="">Error cargando catálogo</option>';
-            console.error(e);
-        }
+        const pid = document.getElementById('proveedor-select').value;
+        if (!pid) return;
+        
+        wiz.config.endpoints.catalogo = `/api/servicios-proveedores/select?proveedor_id=${pid}`;
+        catalogoProductos = await wiz.cargarSelector('catalogo', p => ({ 
+            val: p.id, 
+            text: `[${p.codigo_sku}] ${p.descripcion} ($${p.costo_unitario})` 
+        }));
     }
 
-    // Listener para actualizar precio al elegir producto
     document.getElementById('servicio-select').addEventListener('change', (e) => {
-        const id = parseInt(e.target.value);
-        const prod = catalogoProductos.find(p => p.id === id);
-        if (prod) {
-            document.getElementById('precio-input').value = prod.costo_unitario;
-        }
+        const prod = catalogoProductos.find(p => p.id == e.target.value);
+        if (prod) document.getElementById('precio-input').value = prod.costo_unitario;
     });
-
-    function nextStep() {
-        if (wizardState.step === 1) {
-            const pid = document.getElementById('proveedor-select').value;
-            if (!pid) return mostrarError("Selecciona un proveedor");
-            wizardState.proveedor_id = parseInt(pid);
-            wizardState.fecha_emision = document.getElementById('fecha-emision').value;
-            wizardState.fecha_entrega = document.getElementById('fecha-entrega').value;
-            wizardState.metodo_pago = document.getElementById('metodo-pago').value;
-            wizardState.forma_pago = document.getElementById('forma-pago').value;
-            wizardState.notas = document.getElementById('notas').value;
-        } else if (wizardState.step === 2) {
-            if (wizardState.items.length === 0) return mostrarError("Agrega al menos un producto");
-            renderResumen();
-        }
-
-        wizardState.step++;
-        updateUI();
-    }
-
-    function prevStep() {
-        wizardState.step--;
-        updateUI();
-    }
-
-    function updateUI() {
-        document.querySelectorAll('.wizard-content').forEach(el => el.classList.add('d-none'));
-        document.getElementById(`step-${wizardState.step}`).classList.remove('d-none');
-
-        document.querySelectorAll('.wizard-step').forEach(el => {
-            const s = parseInt(el.dataset.step);
-            el.classList.remove('active', 'completed');
-            if (s === wizardState.step) el.classList.add('active');
-            else if (s < wizardState.step) el.classList.add('completed');
-        });
-
-        document.getElementById('btn-prev').disabled = wizardState.step === 1;
-
-        const isLast = wizardState.step === 3;
-        document.getElementById('btn-next').classList.toggle('d-none', isLast);
-        document.getElementById('btn-submit').classList.toggle('d-none', !isLast);
-    }
 
     function agregarItem() {
         const sid = document.getElementById('servicio-select').value;
@@ -337,11 +275,10 @@
         const precio = parseFloat(document.getElementById('precio-input').value);
         const desc = parseFloat(document.getElementById('descuento-input').value) || 0;
 
-        if (!sid || cant <= 0 || isNaN(precio)) return mostrarError("Datos inválidos");
+        if (!sid || cant <= 0 || isNaN(precio)) return mostrarFlash("Datos incompatibles", "error");
 
         const prod = catalogoProductos.find(p => p.id == sid);
-
-        wizardState.items.push({
+        wiz.agregarItem({
             servicio_id: parseInt(sid),
             codigo: prod ? prod.codigo_sku : 'MANUAL',
             descripcion: prod ? prod.descripcion : 'Producto manual',
@@ -351,237 +288,107 @@
             descuento_porcentaje: desc
         });
 
-        renderItems();
-        // Reset inputs
+        // Reset
         document.getElementById('servicio-select').value = "";
         document.getElementById('cantidad-input').value = 1;
         document.getElementById('precio-input').value = "";
         document.getElementById('descuento-input').value = 0;
     }
 
-    function eliminarItem(idx) {
-        wizardState.items.splice(idx, 1);
-        renderItems();
-    }
-
     function renderItems() {
         const container = document.getElementById('items-lista');
-        let html = '<div class="table-responsive"><table class="table table-sm table-striped"><thead><tr><th style="width:10%">SKU</th><th>Desc</th><th class="text-center" style="width:10%">Cant</th><th class="text-end" style="width:15%">Precio</th><th class="text-center" style="width:12%">Desc. %</th><th class="text-end" style="width:15%">Total</th><th></th></tr></thead><tbody>';
-        let total = 0;
+        if (!wiz.state.items.length) {
+            container.innerHTML = '<p class="text-center text-muted py-4">No hay productos agregados</p>';
+            return;
+        }
 
-        wizardState.items.forEach((item, i) => {
-            const sub = item.cantidad * item.precio_unitario;
-            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
-            const filaTotal = sub - desc;
-            total += filaTotal;
+        let html = '<div class="table-responsive"><table class="table text-sm"><thead><tr class="text-muted"><th style="width:10%">SKU</th><th>Descripción</th><th class="text-center" style="width:10%">Cant</th><th class="text-end" style="width:15%">Precio</th><th class="text-center" style="width:12%">Desc %</th><th class="text-end" style="width:15%">Total</th><th style="width:50px"></th></tr></thead><tbody>';
+        
+        wiz.state.items.forEach((item, i) => {
+            const fila = (item.cantidad * item.precio_unitario) * (1 - (item.descuento_porcentaje / 100));
             html += `<tr>
-                <td class="align-middle">${item.codigo}</td>
-                <td>
-                    <input type="text" class="form-control form-control-sm" value="${item.descripcion}" 
-                        onchange="actualizarItem(${i}, 'descripcion', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm text-center" value="${item.cantidad}" 
-                        min="1" step="1"
-                        oninput="actualizarItemNumerico(${i}, 'cantidad', this.value)">
-                </td>
-                <td>
-                    <input type="number" class="form-control form-control-sm text-end" value="${item.precio_unitario}" 
-                        min="0" step="0.01"
-                        oninput="actualizarItemNumerico(${i}, 'precio_unitario', this.value)">
-                </td>
-                <td>
-                    <div class="input-group input-group-sm">
-                        <input type="number" class="form-control form-control-sm text-center" value="${item.descuento_porcentaje || 0}" 
-                            min="0" max="100" step="1"
-                            oninput="actualizarItemNumerico(${i}, 'descuento_porcentaje', this.value)">
-                        <span class="input-group-text">%</span>
-                    </div>
-                </td>
-                <td class="align-middle text-end fw-bold" id="total-item-${i}">$${filaTotal.toFixed(2)}</td>
-                <td class="align-middle text-center"><button class="btn btn-sm btn-outline-danger py-0" onclick="eliminarItem(${i})">×</button></td>
+                <td class="align-middle text-2xs">${item.codigo}</td>
+                <td><input type="text" class="form-control form-control-sm" value="${item.descripcion}" onchange="wiz.actualizarItem(${i}, 'descripcion', this.value)"></td>
+                <td><input type="number" class="form-control form-control-sm text-center" value="${item.cantidad}" oninput="wiz.actualizarItem(${i}, 'cantidad', this.value, true)"></td>
+                <td><input type="number" class="form-control form-control-sm text-end" value="${item.precio_unitario}" oninput="wiz.actualizarItem(${i}, 'precio_unitario', this.value, true)"></td>
+                <td><input type="number" class="form-control form-control-sm text-center" value="${item.descuento_porcentaje}" oninput="wiz.actualizarItem(${i}, 'descuento_porcentaje', this.value, true)"></td>
+                <td class="align-middle text-end fw-bold">$${fila.toFixed(2)}</td>
+                <td class="align-middle text-center"><button class="btn btn-link text-danger p-0" onclick="wiz.eliminarItem(${i})"><i class="fas fa-trash-alt"></i></button></td>
             </tr>`;
         });
         html += '</tbody></table></div>';
-        container.innerHTML = wizardState.items.length ? html : '<p class="text-center text-muted">Vacio</p>';
-        document.getElementById('total-step-2').textContent = `$${total.toFixed(2)}`;
-    }
-
-    function actualizarItem(index, campo, valor) {
-        wizardState.items[index][campo] = valor;
-    }
-
-    function actualizarItemNumerico(index, campo, valor) {
-        const numValor = parseFloat(valor);
-        if (isNaN(numValor) || numValor < 0) return;
-
-        if (campo === 'cantidad' && numValor < 1) return;
-        if (campo === 'descuento_porcentaje' && numValor > 100) return;
-
-        wizardState.items[index][campo] = numValor;
-
-        const item = wizardState.items[index];
-        const sub = item.cantidad * item.precio_unitario;
-        const desc = sub * ((item.descuento_porcentaje || 0) / 100);
-        const filaTotal = sub - desc;
-
-        const totalElement = document.getElementById(`total-item-${index}`);
-        if (totalElement) {
-            totalElement.textContent = `$${filaTotal.toFixed(2)}`;
-        }
-
-        recalcularTotalTotal();
-    }
-
-    function recalcularTotalTotal() {
-        let total = 0;
-        wizardState.items.forEach(item => {
-            const sub = item.cantidad * item.precio_unitario;
-            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
-            total += (sub - desc);
-        });
-        document.getElementById('total-step-2').textContent = `$${total.toFixed(2)}`;
+        container.innerHTML = html;
     }
 
     function renderResumen() {
-        const prov = proveedoresData.find(p => p.id == wizardState.proveedor_id);
-        document.getElementById('resumen-proveedor').textContent = prov?.nombre || 'Error';
-        document.getElementById('resumen-fecha').textContent = wizardState.fecha_emision || '-';
-        document.getElementById('resumen-fecha-entrega').textContent = wizardState.fecha_entrega || '-';
-
-        // Método de Pago (SAT)
-        const metodosMap = {
-            'POR_DEFINIR': 'Por definir',
-            'PUE': 'PUE - Pago en Una Sola Exhibición',
-            'PPD': 'PPD - Pago en Parcialidades o Diferido',
-            'PIP': 'PIP - Pago Inicial y Parcialidades'
-        };
-        document.getElementById('resumen-metodo-pago').textContent = metodosMap[wizardState.metodo_pago] || wizardState.metodo_pago;
-
-        // Condiciones de Pago (Forma de Pago SAT)
-        const formasMap = {
-            '99': '99 - Por definir',
-            '01': '01 - Efectivo',
-            '02': '02 - Cheque nominativo',
-            '03': '03 - Transferencia electrónica',
-            '04': '04 - Tarjeta de crédito',
-            '05': '05 - Monedero electrónico',
-            '28': '28 - Tarjeta de débito'
-        };
-        document.getElementById('resumen-condiciones-pago').textContent = formasMap[wizardState.forma_pago] || wizardState.forma_pago;
-
-        document.getElementById('resumen-notas').textContent = wizardState.notas || '-';
-
-        let html = '<table class="table table-bordered mb-0"><thead><tr class="table-light"><th>Descripción</th><th class="text-center">Cant.</th><th class="text-end">P. Unit</th><th class="text-center">Desc %</th><th class="text-end">Importe</th></tr></thead><tbody>';
-        let subtotalGlobal = 0;
-        let descuentoGlobal = 0;
-        wizardState.items.forEach(item => {
-            const sub = item.cantidad * item.precio_unitario;
-            const desc = sub * ((item.descuento_porcentaje || 0) / 100);
-            const filaTotal = sub - desc;
-
-            subtotalGlobal += sub;
-            descuentoGlobal += desc;
-
-            html += `<tr><td>${item.descripcion}</td><td class="text-center">${item.cantidad}</td><td class="text-end">$${item.precio_unitario.toFixed(2)}</td><td class="text-center">${item.descuento_porcentaje || 0}%</td><td class="text-end">$${filaTotal.toFixed(2)}</td></tr>`;
+        const totals = wiz.calcularTotales();
+        const prov = proveedoresData.find(p => p.id == wiz.state.proveedor_id);
+        
+        document.getElementById('resumen-proveedor').textContent = prov?.nombre || '-';
+        document.getElementById('resumen-fecha').textContent = wiz.state.fecha_emision;
+        document.getElementById('resumen-fecha-entrega').textContent = wiz.state.fecha_entrega || 'N/A';
+        document.getElementById('resumen-notas').textContent = wiz.state.notas || '-';
+        
+        // Tablar resumida
+        let html = '<table class="table table-sm mb-0"><thead><tr class="table-light text-xs"><th>Concepto</th><th class="text-center">Cant</th><th class="text-end">P.Unit</th><th class="text-end">Total</th></tr></thead><tbody>';
+        wiz.state.items.forEach(it => {
+            const tot = (it.cantidad * it.precio_unitario) * (1 - (it.descuento_porcentaje / 100));
+            html += `<tr class="text-sm"><td>${it.descripcion}</td><td class="text-center">${it.cantidad}</td><td class="text-end">$${it.precio_unitario.toFixed(2)}</td><td class="text-end fw-bold">$${tot.toFixed(2)}</td></tr>`;
         });
         html += '</tbody></table>';
         document.getElementById('resumen-items-tabla').innerHTML = html;
 
-        const baseIva = subtotalGlobal - descuentoGlobal;
-        const iva = baseIva * 0.16;
-        const totalGlobal = baseIva + iva;
-
-        document.getElementById('resumen-subtotal').textContent = subtotalGlobal.toFixed(2);
-        document.getElementById('resumen-descuento').textContent = descuentoGlobal.toFixed(2);
-        document.getElementById('resumen-iva').textContent = iva.toFixed(2);
-        document.getElementById('resumen-total').textContent = totalGlobal.toFixed(2);
+        document.getElementById('resumen-subtotal').textContent = totals.subtotal.toFixed(2);
+        document.getElementById('resumen-descuento').textContent = totals.descuentoTotal.toFixed(2);
+        document.getElementById('resumen-iva').textContent = totals.iva.toFixed(2);
+        document.getElementById('resumen-total').textContent = totals.total.toFixed(2);
     }
 
     async function submitOrden() {
+        if (!confirm("¿Deseas finalizar la orden de compra?")) return;
+        
         const btn = document.getElementById('btn-submit');
-        btn.disabled = true;
-        btn.innerHTML = modoEdicion ? 'Guardando...' : 'Generando...';
+        const url = modoEdicion ? `/api/ordenes-compra/${ordenId}/actualizar-completa` : '/api/ordenes-compra/completa';
+        const method = modoEdicion ? 'PUT' : 'POST';
 
         try {
-            let url, method;
-            if (modoEdicion) {
-                url = `/api/ordenes-compra/${ordenId}/actualizar-completa`;
-                method = 'PUT';
-            } else {
-                url = '/api/ordenes-compra/completa';
-                method = 'POST';
-            }
-
-            const resp = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(wizardState)
-            });
-
-            if (!resp.ok) {
-                const err = await resp.json();
-                throw new Error(err.detail || 'Error al guardar');
-            }
-
-            const data = await resp.json();
-            if (modoEdicion) {
-                alert('✅ Orden de Compra actualizada correctamente');
-                window.location.href = `/ui/ordenes-compra/${ordenId}/detalle`;
-            } else {
-                alert('✅ Orden de Compra generada exitosamente. Folio: ' + data.folio);
-                window.location.href = '/ordenes-compra';
-            }
+            btn.disabled = true;
+            const data = await wiz.guardar(url, method);
+            mostrarFlash('✅ Orden procesada exitosamente', 'success');
+            window.location.href = '/ui/ordenes-compra';
         } catch (e) {
-            mostrarError('Error: ' + e.message);
+            mostrarFlash(e.message, 'error');
             btn.disabled = false;
-            btn.innerHTML = `<span id="btn-submit-text">${modoEdicion ? '💾 Guardar Cambios' : '✓ Generar Orden de Compra'}</span>`;
         }
     }
 
     async function cargarOrdenParaEditar(id) {
         try {
-            const response = await fetch(`/api/ordenes-compra/${id}/completa`);
-            if (!response.ok) throw new Error('Orden no encontrada');
+            const resp = await fetch(`/api/ordenes-compra/${id}/completa`);
+            const orden = await resp.json();
 
-            const orden = await response.json();
-
-            // Cargar paso 1
-            wizardState.proveedor_id = orden.proveedor_id;
-            wizardState.fecha_emision = orden.fecha_emision;
-            wizardState.fecha_entrega = orden.fecha_entrega || '';
-            wizardState.metodo_pago = orden.metodo_pago;
-            wizardState.forma_pago = orden.forma_pago;
-            wizardState.notas = orden.notas;
+            Object.assign(wiz.state, {
+                proveedor_id: orden.proveedor_id,
+                fecha_emision: orden.fecha_emision,
+                fecha_entrega: orden.fecha_entrega || '',
+                metodo_pago: orden.metodo_pago,
+                forma_pago: orden.forma_pago,
+                notas: orden.notas,
+                items: orden.items.map(i => ({...i, descuento_porcentaje: i.descuento_porcentaje || 0}))
+            });
 
             document.getElementById('proveedor-select').value = orden.proveedor_id;
-            document.getElementById('proveedor-select').disabled = true;  // Bloqueado en edición
+            document.getElementById('proveedor-select').disabled = true;
             document.getElementById('fecha-emision').value = orden.fecha_emision;
             document.getElementById('fecha-entrega').value = orden.fecha_entrega || '';
             document.getElementById('metodo-pago').value = orden.metodo_pago;
             document.getElementById('forma-pago').value = orden.forma_pago;
             document.getElementById('notas').value = orden.notas;
 
-            // Cargar servicios del proveedor para el catálogo
             await cargarServiciosProveedor();
-
-            // Cargar items existentes
-            if (orden.items && orden.items.length > 0) {
-                wizardState.items = orden.items.map(i => ({
-                    servicio_id: i.servicio_id,
-                    codigo: i.codigo,
-                    descripcion: i.descripcion,
-                    unidad: i.unidad,
-                    cantidad: i.cantidad,
-                    precio_unitario: i.precio_unitario,
-                    descuento_porcentaje: i.descuento_porcentaje || 0
-                }));
-                renderItems();
-            }
-        } catch (error) {
-            console.error('Error cargando orden:', error);
-            mostrarError('Error al cargar la orden para editar');
-            window.location.href = '/ordenes-compra';
+            renderItems();
+        } catch (e) {
+            mostrarFlash("Error al cargar orden", "error");
         }
     }
 </script>

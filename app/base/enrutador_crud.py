@@ -1,15 +1,13 @@
-"""Enrutador CRUD genérico (nombres en español)."""
-from __future__ import annotations
-
+import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Generic, Optional, TypeVar, Dict
-from fastapi import APIRouter, Depends, Response, status, Query, Body  # type: ignore
-from fastapi import Request
-from pydantic import BaseModel  # type: ignore
-from sqlmodel import Session  # type: ignore
+from fastapi import APIRouter, Depends, Response, status, Query, Body, Request
+from pydantic import BaseModel
+from sqlmodel import Session
 
 from app.base.repositorio import RepositorioCRUD
 from app.base.excepciones import ReglaNegocioError, RecursoNoEncontradoError
+from app.base.logs_servicio import ServicioLogs
 
 RepoT = TypeVar("RepoT", bound=RepositorioCRUD)
 ReadSchemaT = TypeVar("ReadSchemaT", bound=BaseModel)
@@ -17,25 +15,17 @@ CreateSchemaT = TypeVar("CreateSchemaT", bound=BaseModel)
 UpdateSchemaT = TypeVar("UpdateSchemaT", bound=BaseModel)
 ActorT = TypeVar("ActorT")
 
+logger = logging.getLogger("teamsa.api_crud")
 
 @dataclass
 class GanchosCRUD(Generic[RepoT, CreateSchemaT, UpdateSchemaT, ActorT]):
-    """Colección de funciones de orquestación para el ciclo CRUD.
-
-    - preparar_creacion: transforma el payload de creación (p. ej., normaliza campos)
-    - preparar_actualizacion: filtra y transforma cambios permitidos en PATCH
-    - extra_kwargs_*: agrega kwargs adicionales (auditoría, hashing, etc.)
-    - validar_unicidad: retorna un mensaje de conflicto si el recurso ya existe
-    """
-
+    """Colección de funciones de orquestación para el ciclo CRUD."""
     preparar_creacion: Callable[[CreateSchemaT, ActorT], dict[str, Any]]
     preparar_actualizacion: Callable[[UpdateSchemaT, ActorT], dict[str, Any]]
-    extra_kwargs_creacion: Callable[[CreateSchemaT, ActorT], dict[str, Any]] = lambda _payload, _actor: {}
-    extra_kwargs_actualizacion: Callable[[UpdateSchemaT, ActorT], dict[str, Any]] = lambda _payload, _actor: {}
+    extra_kwargs_creacion: Callable[[CreateSchemaT, ActorT], dict[str, Any]] = lambda _p, _a: {}
+    extra_kwargs_actualizacion: Callable[[UpdateSchemaT, ActorT], dict[str, Any]] = lambda _p, _a: {}
     validar_unicidad: Optional[Callable[[RepoT, CreateSchemaT], Optional[str]]] = None
-    # Validación opcional para actualización (JSON API): retorna mensaje de error o None
     validar_actualizacion: Optional[Callable[[RepoT, UpdateSchemaT, int], Optional[str]]] = None
-
 
 def construir_enrutador_crud(
     *,
@@ -48,21 +38,12 @@ def construir_enrutador_crud(
     hooks: GanchosCRUD[RepoT, CreateSchemaT, UpdateSchemaT, ActorT],
     obtener_sesion: Callable[..., Session],
     list_dependencies: Optional[list[Depends]] = None,
-    write_dependency: Optional[Callable[..., ActorT]] = None,
+    create_dependency: Optional[Callable[..., ActorT]] = None,
+    update_dependency: Optional[Callable[..., ActorT]] = None,
+    delete_dependency: Optional[Callable[..., ActorT]] = None,
     descriptor: Optional[Any] = None,
 ) -> APIRouter:
-    """Crea un APIRouter CRUD (JSON) para un módulo.
-
-    Parámetros clave:
-    - prefix/tag: prefijo de rutas y etiqueta OpenAPI.
-    - repo_factory: construye el repositorio con una `Session`.
-    - schema_read/create/update: esquemas Pydantic tipados.
-    - hooks: funciones para transformar payloads y validar unicidad.
-    - obtener_sesion: dependencia que produce `Session` (yield).
-    - list_dependencies: dependencias comunes para todas las rutas (p. ej. autenticación).
-    - write_dependency: dependencia que produce el actor/autorización para mutaciones.
-    - descriptor: si está presente, habilita `/metadata` y filtrado controlado en listar.
-    """
+    """Crea un APIRouter CRUD (JSON) para un módulo con dependencias granulares."""
     router = APIRouter(prefix=prefix, tags=[tag], dependencies=list_dependencies or [])
 
     def _get_repo(db: Session) -> RepoT:
@@ -77,7 +58,9 @@ def construir_enrutador_crud(
         descendente: bool = Query(False),
         q: str | None = Query(None),
         db: Session = Depends(obtener_sesion),
+        actor: ActorT = Depends(create_dependency) if create_dependency else Depends(update_dependency),
     ):
+        # Nota: Usamos create_dependency o update_dependency como fallback para obtener el actor si existe
         repo = _get_repo(db)
         filtros: dict[str, Any] = {}
         if descriptor:
@@ -90,21 +73,18 @@ def construir_enrutador_crud(
             for clave, valor in request.query_params.items():
                 if clave not in {"limite", "desplazamiento", "orden", "descendente", "q"}:
                     filtros[clave] = valor
-        return repo.listar(
-            filtros,
-            limite=limite,
-            desplazamiento=desplazamiento,
-            orden=orden,
-            descendente=descendente,
-        )
+        
+        # Aplicar filtros de seguridad si el repositorio lo soporta
+        filtros = repo.aplicar_seguridad_filtro(filtros, actor)
+        
+        return repo.listar(filtros, limite=limite, desplazamiento=desplazamiento, orden=orden, descendente=descendente)
 
     @router.post("/", response_model=schema_read)
     def crear(
         payload_dict: Dict[str, Any] = Body(...),
         db: Session = Depends(obtener_sesion),
-        actor: ActorT = Depends(write_dependency) if write_dependency else None,
+        actor: ActorT = Depends(create_dependency) if create_dependency else None,
     ):
-        # Conversión manual para evitar problemas de introspección con tipos dinámicos
         try:
             payload = schema_create(**payload_dict)
         except Exception as e:
@@ -113,69 +93,98 @@ def construir_enrutador_crud(
         repo = _get_repo(db)
         if hooks.validar_unicidad:
             conflicto = hooks.validar_unicidad(repo, payload)
-            if conflicto:
-                raise ReglaNegocioError(conflicto)
-        datos = hooks.preparar_creacion(payload, actor)  # type: ignore[arg-type]
-        extras = hooks.extra_kwargs_creacion(payload, actor)  # type: ignore[arg-type]
-        combinado = {**datos, **(extras or {})}
-        return repo.crear(**combinado)
+            if conflicto: raise ReglaNegocioError(conflicto)
+            
+        datos = hooks.preparar_creacion(payload, actor)
+        extras = (hooks.extra_kwargs_creacion(payload, actor) or {}).copy()
+        
+        # BLINDAJE API: Asegurar auditoría
+        u_login = getattr(actor, "usuario", None) or getattr(actor, "nombre", None) or "SISTEMA"
+        if not extras.get("creado_por"): extras["creado_por"] = u_login
+        if not extras.get("modificado_por"): extras["modificado_por"] = u_login
+        
+        print(f">>> AUDITORIA API - Actor: {u_login}", flush=True)
+        
+        res = repo.crear({**datos, **extras})
+        
+        # Registrar Log de Actividad
+        ServicioLogs.registrar(
+            db, 
+            usuario=u_login, 
+            accion="CREAR", 
+            modulo=tag.lower(), 
+            detalles=str(getattr(res, "id", ""))
+        )
+        
+        return res
 
     @router.patch("/{entidad_id}", response_model=schema_read)
     def actualizar(
         entidad_id: int,
         payload_dict: Dict[str, Any] = Body(...),
         db: Session = Depends(obtener_sesion),
-        actor: ActorT = Depends(write_dependency) if write_dependency else None,
+        actor: ActorT = Depends(update_dependency) if update_dependency else None,
     ):
-        # Conversión manual
         try:
             payload = schema_update(**payload_dict)
         except Exception as e:
             raise ReglaNegocioError(str(e))
 
         repo = _get_repo(db)
-        # Validación opcional de actualización (suave): devolver 400 con detalle
-        if hooks.validar_actualizacion is not None:
+        if hooks.validar_actualizacion:
             msg = hooks.validar_actualizacion(repo, payload, entidad_id)
-            if msg:
-                raise ReglaNegocioError(msg)
-        cambios = hooks.preparar_actualizacion(payload, actor)  # type: ignore[arg-type]
-        if not cambios:
-            raise ReglaNegocioError("No hay cambios válidos para aplicar")
-        extras = hooks.extra_kwargs_actualizacion(payload, actor)  # type: ignore[arg-type]
-        combinado = {**cambios, **(extras or {})}
-        return repo.actualizar(entidad_id, combinado)
+            if msg: raise ReglaNegocioError(msg)
+            
+        cambios = hooks.preparar_actualizacion(payload, actor)
+        if not cambios: raise ReglaNegocioError("No hay cambios válidos para aplicar")
+        extras = hooks.extra_kwargs_actualizacion(payload, actor)
+        res = repo.actualizar(entidad_id, {**cambios, **(extras or {})})
+        
+        # Registrar Log de Actividad
+        u_login = getattr(actor, "usuario", None) or getattr(actor, "nombre", None) or "SISTEMA"
+        ServicioLogs.registrar(
+            db, 
+            usuario=u_login, 
+            accion="EDITAR", 
+            modulo=tag.lower(), 
+            detalles=str(entidad_id)
+        )
+        
+        return res
 
     @router.get("/{entidad_id}", response_model=schema_read)
-    def obtener(
-        entidad_id: int,
-        db: Session = Depends(obtener_sesion),
-    ):
+    def obtener(entidad_id: int, db: Session = Depends(obtener_sesion)):
         repo = _get_repo(db)
         entidad = repo.obtener_por_id(entidad_id)
-        # Algunos repos devuelven None directamente base sqlalchemy `get` en lugar de lanzar la excepión, evaluamos su consistencia
-        if entidad is None:
-             raise RecursoNoEncontradoError("Recurso no encontrado")
+        if entidad is None: raise RecursoNoEncontradoError("Recurso no encontrado")
         return entidad
-
 
     @router.delete("/{entidad_id}", status_code=status.HTTP_204_NO_CONTENT)
     def eliminar(
         entidad_id: int,
         db: Session = Depends(obtener_sesion),
-        actor: ActorT = Depends(write_dependency) if write_dependency else None,
+        _actor: ActorT = Depends(delete_dependency) if delete_dependency else None,
     ):
         repo = _get_repo(db)
         repo.eliminar(entidad_id)
+        
+        # Registrar Log de Actividad
+        u_login = getattr(_actor, "usuario", None) or getattr(_actor, "nombre", None) or "SISTEMA"
+        ServicioLogs.registrar(
+            db, 
+            usuario=u_login, 
+            accion="ELIMINAR", 
+            modulo=tag.lower(), 
+            detalles=str(entidad_id)
+        )
+        
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     if descriptor:
         @router.get("/metadata")
         def obtener_metadata():
-            # Compatibilidad: algunos descriptores pueden seguir usando el nombre antiguo
             if hasattr(descriptor, "configuracion_frontend"):
                 return descriptor.configuracion_frontend()
-            # Compatibilidad final: intentar método antiguo si el nuevo no existe
             return descriptor.frontend_config()
 
     return router

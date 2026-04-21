@@ -1,0 +1,187 @@
+{% from 'ui/macros/botones.html' import btn_primario, btn_cerrar_modal %}
+
+<!-- Modal Calculadora Viaticos Nativos (COMPONENTE AUTÓNOMO) -->
+<div class="modal fade" id="modalCalculadoraViaticos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header modal-header-teamsa">
+                <h5 class="modal-title">✈️ Gestión de Viáticos</h5>
+                {{ btn_cerrar_modal() }}
+            </div>
+            <div class="modal-body p-0">
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs nav-fill" id="viaticoTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold" id="nueva-tab" data-bs-toggle="tab"
+                            data-bs-target="#nueva-viatico" type="button" role="tab">✨ Nueva Calculadora</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold" id="biblioteca-tab" data-bs-toggle="tab"
+                            data-bs-target="#biblioteca-viatico" type="button" role="tab">📚 Historial</button>
+                    </li>
+                </ul>
+
+                <!-- Tab panes -->
+                <div class="tab-content p-4">
+                    <!-- Tab: Nueva Calculadora -->
+                    <div class="tab-pane active" id="nueva-viatico" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Proyecto / Referencia</label>
+                            <input type="text" class="form-control" id="viatico-proyecto"
+                                placeholder="Ej. Instalación de Equipos" required>
+                        </div>
+
+                        <!-- Card: Logística de Traslado -->
+                        <div class="p-3 mb-4 border rounded bg-white shadow-sm">
+                            <h6 class="calc-section-title d-flex justify-content-between align-items-center">
+                                <span><i class="fas fa-truck-moving me-2"></i>Logística de Traslado</span>
+                                <a href="https://tarifascapufe.com.mx/traza-tu-ruta/" target="_blank" class="btn btn-xs btn-outline-primary py-0 px-2 text-2xs">
+                                    <i class="fas fa-map-marked-alt me-1"></i> Traza tu Ruta (CAPUFE)
+                                </a>
+                            </h6>
+                            
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="calc-label">Estado Origen</label>
+                                    <select class="form-select" id="viatico-origen">
+                                        <option value="">-- Seleccionar --</option>
+                                        {% for estado in estados %}
+                                            <option value="{{ estado }}">{{ estado }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="calc-label">Estado Destino</label>
+                                    <select class="form-select" id="viatico-destino">
+                                        <option value="">-- Seleccionar --</option>
+                                        {% for estado in estados %}
+                                        <option value="{{ estado }}">{{ estado }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row g-2 align-items-end">
+                                <div class="col-7">
+                                    <label class="calc-label">Medio de Transporte</label>
+                                    <select class="form-select" id="viatico-transporte-tipo">
+                                        <option value="Vehículo Empresa">Vehículo Empresa</option>
+                                        <option value="Vehículo Personal">Vehículo Personal</option>
+                                        <option value="Avión">Avión</option>
+                                        <option value="Autobús">Autobús</option>
+                                        <option value="Taxi / Uber">Taxi / Uber</option>
+                                        <option value="Auto Rentado">Auto Rentado</option>
+                                        <option value="Otro">Otro / Varios</option>
+                                    </select>
+                                </div>
+                                <div class="col-5">
+                                    <label class="calc-label">Costo Estimado</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control text-end viatico-calc" id="viatico-transporte" value="0.00" min="0" step="10">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Datos de Estancia -->
+                        <div class="row g-3 mb-4 align-items-end px-1">
+                            <div class="col-md-5">
+                                <label class="calc-label fw-bold">Personas viajando</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light"><i class="fas fa-users text-primary"></i></span>
+                                    <input type="number" class="form-control" id="viatico-personas" value="1" min="1">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="calc-label fw-bold">Días</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-light"><i class="fas fa-calendar-day text-primary"></i></span>
+                                    <input type="number" class="form-control viatico-calc" id="viatico-dias" value="1" min="1">
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <div class="badge bg-light text-muted border py-2 w-100 text-xs">
+                                    ID: <span id="viatico-temp-id">NUEVO</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sección de Alimentos -->
+                        <div class="p-3 mb-4 alert-premium-info">
+                            <h6 class="calc-section-title text-teamsa-primary border-0 pb-0" style="letter-spacing: 1px;">
+                                <i class="fas fa-utensils me-2"></i>Desglose de Alimentos (Persona/Día)
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <label class="calc-label">Desayuno</label>
+                                    <input type="number" class="form-control text-end viatico-calc" id="viatico-desayuno" value="0.00" min="0" step="10">
+                                </div>
+                                <div class="col-4">
+                                    <label class="calc-label">Comida</label>
+                                    <input type="number" class="form-control text-end viatico-calc" id="viatico-comida" value="0.00" min="0" step="10">
+                                </div>
+                                <div class="col-4">
+                                    <label class="calc-label">Cena</label>
+                                    <input type="number" class="form-control text-end viatico-calc" id="viatico-cena" value="0.00" min="0" step="10">
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+                                <span class="calc-label mb-0">Subtotal Alimentos:</span>
+                                <span class="fw-bold text-teamsa-primary" id="viatico-alimentos-label">$0.00</span>
+                                <input type="hidden" id="viatico-alimentos" value="0.00">
+                            </div>
+                        </div>
+
+                        <h6 class="calc-section-title mt-4">
+                            <i class="fas fa-bed me-2"></i>Estancia y Gastos Operativos
+                        </h6>
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-7"><label class="calc-label mb-0">Alojamiento</label></div>
+                            <div class="col-5"><input type="number" class="form-control text-end viatico-calc" id="viatico-alojamiento" value="0.00" min="0" step="10"></div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-7"><label class="calc-label mb-0">Peajes / Otros</label></div>
+                            <div class="col-5"><input type="number" class="form-control text-end viatico-calc" id="viatico-otros" value="0.00" min="0" step="10"></div>
+                        </div>
+
+                        <div class="px-3 py-2 d-flex justify-content-between align-items-center mb-0 bg-teamsa-gradient" style="border-radius: 10px;">
+                            <div class="d-flex flex-column">
+                                <span class="text-uppercase opacity-75 text-2xs">Inversión Estimada</span>
+                                <strong class="text-sm">TOTAL CALCULADO</strong>
+                            </div>
+                            <h5 class="mb-0 fw-bold">$<span id="viatico-total-suma">0.00</span></h5>
+                        </div>
+                        <div class="mt-3 text-end">
+                            {{ btn_primario('<i class="fas fa-plus-circle me-2"></i>Inyectar Cálculo', id="btn-inyectar-viatico", onclick="CalculadoraViaticos.guardar()", extra_clases="w-100 py-2 shadow-sm") }}
+                        </div>
+                    </div>
+
+                    <!-- Tab: Biblioteca -->
+                    <div class="tab-pane" id="biblioteca-viatico" role="tabpanel">
+                        <p class="text-muted text-sm mb-4">Selecciona un viático previamente autorizado para importarlo.</p>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Buscar en Biblioteca</label>
+                            <select class="form-select border-primary" id="viatico-select-modal">
+                                <option value="">-- Seleccionar de viajes existentes --</option>
+                            </select>
+                        </div>
+                        <div id="viatico-preview-modal" class="alert alert-light border d-none">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1 fw-bold" id="v-prev-folio"></h6>
+                                    <span class="text-muted text-sm" id="v-prev-proyecto"></span>
+                                </div>
+                                <h5 class="text-teamsa-primary mb-0" id="v-prev-total"></h5>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-end">
+                             <button type="button" class="btn btn-outline-primary px-4 fw-bold"
+                                onclick="agregarViaticoDesdeExistente()">📥 Importar Viático</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

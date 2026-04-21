@@ -78,7 +78,8 @@ def cambiar_password(
         return get_templates().TemplateResponse(
             request,
             "ui/usuarios/_form_password.html",
-            {"item_id": usuario_id, "error": "Las contraseñas no coinciden"}
+            {"item_id": usuario_id, "error": "Las contraseñas no coinciden"},
+            headers={"HX-Trigger": '{"mostrarError": "Las contraseñas no coinciden"}'}
         )
     
     repo = RepositorioUsuario(db)
@@ -106,14 +107,15 @@ def form_permisos(id: int, request: Request, db: Session = Depends(obtener_sesio
     usuario = repo.obtener_por_id(id)
     
     modulos_disponibles = [
-        {"id": "usuarios", "nombre": "Usuarios"},
-        {"id": "clientes", "nombre": "Clientes"},
-        {"id": "proveedores", "nombre": "Proveedores"},
+        {"id": "usuarios", "nombre": "Gestión de Usuarios"},
+        {"id": "clientes", "nombre": "Directorio de Clientes"},
+        {"id": "proveedores", "nombre": "Directorio de Proveedores"},
         {"id": "servicios", "nombre": "Servicios Base"},
         {"id": "servicios_proveedores", "nombre": "Servicios de Proveedores"},
         {"id": "cotizaciones", "nombre": "Cotizaciones"},
-        {"id": "ordenes", "nombre": "Órdenes de Trabajo"},
+        {"id": "ordenes_trabajo", "nombre": "Órdenes de Trabajo"},
         {"id": "ordenes_compra", "nombre": "Órdenes de Compra"},
+        {"id": "viaticos", "nombre": "Gestión de Viáticos"}
     ]
     
     return get_templates().TemplateResponse(
@@ -163,4 +165,5 @@ router = crear_modulo_crud_estandar(
     descriptor=descriptor,
     nombre_modulo="usuarios",
     validar_form_creacion=_validar_form_creacion,
+    routers_adicionales=[router_extra]
 )

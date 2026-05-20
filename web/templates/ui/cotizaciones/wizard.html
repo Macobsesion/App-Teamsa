@@ -1,40 +1,41 @@
 {% extends 'base.html' %}
 {% from 'ui/macros/wizard_components.html' import indicador_progreso, tarjeta_totales %}
+{% import 'ui/macros/forms.html' as f %}
+{% from 'ui/macros/botones.html' import btn_primario, btn_secundario %}
 
-{% block title %}Nueva Cotización{% endblock %}
+{% block title %}Cotización TEAMSA{% endblock %}
 
 {% block content %}
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-lg-10">
             {# Wizard Header #}
-            <div class="card shadow-sm mb-4">
+            <div class="card shadow-sm mb-4 border-0">
                 <div class="card-body">
-                    <h3 class="mb-4" id="wizard-titulo">✨ Nueva Cotización</h3>
-
-                    {# Progress Steps mediante Macro #}
+                    <h3 class="mb-4 text-dark fw-bold" id="wizard-titulo">✨ Nueva Cotización</h3>
                     {{ indicador_progreso(['Cliente', 'Servicios', 'Resumen']) }}
                 </div>
             </div>
 
             {# Wizard Content #}
-            <div class="card shadow-sm">
-                <div class="card-body">
+            <div class="card shadow-sm border-0 overflow-hidden">
+                <div class="card-body p-4">
                     {# Step 1: Cliente #}
                     <div class="wizard-content" id="step-1">
-                        <h5 class="mb-3">📋 Información del Cliente</h5>
+                        <div class="alert alert-premium-info mb-4 py-2">
+                            <i class="fas fa-info-circle me-2"></i>Selecciona un cliente y define las condiciones comerciales.
+                        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Cliente *</label>
+                        <div class="mb-4">
+                            <label class="form-label calc-label fw-bold">Cliente <span class="text-danger">*</span></label>
                             <select class="form-select" id="cliente-select" required>
                                 <option value="">-- Seleccionar cliente --</option>
                             </select>
-                            <small class="text-muted">Cargando clientes...</small>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Método de Pago SAT</label>
+                                <label class="form-label calc-label fw-bold">Método de Pago SAT</label>
                                 <select class="form-select" id="metodo-pago">
                                     <option value="POR_DEFINIR" selected>Por definir</option>
                                     <option value="PUE">PUE - Pago en Una Sola Exhibición</option>
@@ -43,7 +44,7 @@
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">Forma de Pago SAT</label>
+                                <label class="form-label calc-label fw-bold">Forma de Pago SAT</label>
                                 <select class="form-select" id="forma-pago">
                                     <option value="99" selected>99 - Por definir</option>
                                     <option value="01">01 - Efectivo</option>
@@ -56,102 +57,106 @@
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Notas</label>
-                            <textarea class="form-control" id="notas" rows="3"></textarea>
-                        </div>
+                        {{ f.field_textarea('notas', 'Notas u Observaciones', rows=3) }}
                     </div>
 
                     {# Step 2: Servicios #}
                     <div class="wizard-content d-none" id="step-2">
-                        <h5 class="mb-3">🛒 Agregar Servicios</h5>
+                        <h5 class="mb-4 text-teamsa-primary fw-bold"><i class="fas fa-cart-plus me-2"></i>Configuración de Servicios</h5>
 
-                        <div class="card bg-light mb-3">
-                            <div class="card-body">
-                                <div class="row g-2">
-                                    <div class="col-md-5">
-                                        <label class="form-label">Servicio</label>
-                                        <select class="form-select" id="servicio-select">
+                        <div class="card bg-light border-0 mb-4 shadow-sm">
+                            <div class="card-body p-3">
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-6">
+                                        <label class="form-label text-xs fw-bold">Servicio del Catálogo</label>
+                                        <select class="form-select form-select-sm" id="servicio-select">
                                             <option value="">-- Seleccionar --</option>
                                         </select>
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Cantidad</label>
-                                        <input type="number" class="form-control" id="cantidad-input" value="1" min="1"
-                                            step="1">
+                                        <label class="form-label text-xs fw-bold">Cant.</label>
+                                        <input type="number" class="form-control form-control-sm text-center" id="cantidad-input" value="1" min="1">
                                     </div>
                                     <div class="col-md-2">
-                                        <label class="form-label">Descuento %</label>
-                                        <input type="number" class="form-control" id="descuento-input" value="0" min="0"
-                                            max="100" step="1">
+                                        <label class="form-label text-xs fw-bold">Desc. %</label>
+                                        <input type="number" class="form-control form-control-sm text-center" id="descuento-input" value="0" min="0" max="100">
                                     </div>
-                                    <div class="col-md-3 d-flex align-items-end">
-                                        <button type="button" class="btn btn-teamsa-primary w-100"
-                                            onclick="agregarServicio()">+ Agregar</button>
+                                    <div class="col-md-2">
+                                        {{ btn_primario('+ Agregar', onclick="agregarServicio()", extra_attrs='style="padding: 0.35rem 0;" w-100') }}
                                     </div>
                                 </div>
-                                <div class="row g-2 align-items-end mt-2">
-                                    <div class="col-md-9">
-                                        <label class="form-label text-primary mb-1 fw-bold"><i class="fas fa-plane"></i>
-                                            Viajes y Viáticos</label>
-                                        <p class="text-muted small mb-0">Calcula costos operativos nuevos o importa
-                                            viáticos ya registrados en la biblioteca.</p>
+                                
+                                {% if 'viaticos' in (usuario.permisos_crear or []) or usuario.rol == 'admin' %}
+                                <div class="bg-white rounded p-3 mt-3 border dashed border-primary-subtle d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1 text-primary-emphasis fw-bold"><i class="fas fa-plane-departure me-2"></i>Gastos de Viaje y Viáticos</h6>
+                                        <p class="text-muted small mb-0">Importa cotizaciones de viáticos existentes o calcula nuevos costos.</p>
                                     </div>
-                                    <div class="col-md-3">
-                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
-                                            data-bs-toggle="modal" data-bs-target="#modalCalculadoraViaticos">✈️
-                                            Gestionar Viáticos</button>
-                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm px-3 fw-bold" 
+                                            data-bs-toggle="modal" data-bs-target="#modalCalculadoraViaticos">
+                                        ✈️ Gestionar Viáticos
+                                    </button>
                                 </div>
+                                {% endif %}
                             </div>
                         </div>
 
                         <div id="servicios-lista">
-                            <p class="text-muted text-center py-4">No hay servicios agregados</p>
+                            <p class="text-muted text-center py-5">No hay servicios agregados aún</p>
                         </div>
                     </div>
 
                     {# Step 3: Resumen #}
                     <div class="wizard-content d-none" id="step-3">
-                        <h5 class="mb-3">📊 Resumen de la Cotización</h5>
+                        <h5 class="mb-4 text-teamsa-primary fw-bold"><i class="fas fa-file-signature me-2"></i>Resumen de Propuesta</h5>
 
-                        <div class="card mb-3">
-                            <div class="card-header bg-info text-white">
-                                <h6 class="mb-0">Información General</h6>
-                            </div>
-                            <div class="card-body">
-                                <p><strong>Cliente:</strong> <span id="resumen-cliente">-</span></p>
-                                <p><strong>Método de Pago:</strong> <span id="resumen-metodo">-</span></p>
-                                <p><strong>Forma de Pago SAT:</strong> <span id="resumen-forma-pago">-</span></p>
-                                <p class="mb-0"><strong>Notas:</strong> <span id="resumen-notas">-</span></p>
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card border-0 bg-light-teamsa round-4">
+                                    <div class="card-body p-3">
+                                        <div class="row text-sm">
+                                            <div class="col-md-4">
+                                                <div class="text-muted text-xs mb-1">Cliente</div>
+                                                <div class="fw-bold fs-6" id="resumen-cliente">-</div>
+                                            </div>
+                                            <div class="col-md-4 border-start ps-4">
+                                                <div class="text-muted text-xs mb-1">Condiciones de Pago</div>
+                                                <div id="resumen-pago" class="fw-medium">-</div>
+                                            </div>
+                                            <div class="col-md-4 border-start ps-4">
+                                                <div class="text-muted text-xs mb-1">Notas</div>
+                                                <div id="resumen-notas" class="text-truncate" style="max-width: 250px;">-</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="card mb-3">
-                            <div class="card-header bg-secondary text-white">
-                                <h6 class="mb-0">Servicios</h6>
+                        <div class="card border-0 shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 border-bottom-0">
+                                <h6 class="mb-0 fw-bold text-dark text-sm"><i class="fas fa-list-ul me-2 text-primary"></i>Detalle de Partidas</h6>
                             </div>
-                            <div class="card-body" id="resumen-servicios">
-                                <p class="text-muted">No hay servicios agregados</p>
+                            <div class="card-body p-0">
+                                <div id="resumen-servicios-tabla"></div>
                             </div>
                         </div>
 
-                        {# Tarjeta de Totales mediante Macro #}
                         {{ tarjeta_totales() }}
                     </div>
 
-                    {# Navigation Buttons #}
-                    <div class="d-flex justify-content-between mt-4">
-                        <button type="button" class="btn btn-secondary" id="btn-prev" onclick="prevStep()" disabled>←
-                            Anterior</button>
+                    {# Navigation #}
+                    <div class="d-flex justify-content-between mt-5 border-top pt-4">
+                        <button type="button" class="btn btn-light border px-4" id="btn-prev" disabled>
+                            <i class="fas fa-chevron-left me-2"></i>Anterior
+                        </button>
                         <div>
-                            <a href="/cotizaciones" class="btn btn-outline-secondary me-2">Cancelar</a>
-                            <button type="button" class="btn btn-teamsa-primary" id="btn-next"
-                                onclick="nextStep()">Siguiente
-                                →</button>
-                            <button type="button" class="btn btn-success d-none" id="btn-submit"
-                                onclick="submitWizard()">
-                                <span id="btn-submit-text">✓ Crear Cotización</span>
+                            <a href="/cotizaciones" class="btn btn-link text-muted me-3 text-decoration-none">Cancelar</a>
+                            <button type="button" class="btn btn-teamsa-primary px-5" id="btn-next">
+                                Siguiente<i class="fas fa-chevron-right ms-2"></i>
+                            </button>
+                            <button type="button" class="btn btn-success px-5 d-none" id="btn-submit" onclick="submitWizard()">
+                                <i class="fas fa-check-circle me-2"></i><span id="btn-submit-text">Crear Cotización</span>
                             </button>
                         </div>
                     </div>
@@ -161,775 +166,328 @@
     </div>
 </div>
 
-<!-- Modal confirmación versionamiento -->
-<div class="modal fade" id="modalVersionamiento" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-warning text-dark">
-                <h5 class="modal-title">⚠️ Cambios Detectados en Servicios</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p><strong>Se detectaron cambios en los servicios o precios de la cotización.</strong></p>
-                <p>¿Desea continuar?</p>
-                <div class="alert alert-info small">
-                    <strong>Esto creará una nueva versión:</strong>
-                    <ul class="mb-0 mt-2">
-                        <li>Se generará un nuevo número con sufijo (ej: COT-001-B)</li>
-                        <li>La versión original quedará bloqueada para edición</li>
-                        <li>La nueva versión estará en estado "borrador"</li>
-                    </ul>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-danger" onclick="actualizarSinVersionarYForzar()"><i
-                        class="fas fa-exclamation-triangle"></i> Sobrescribir Actual</button>
-                <div class="ms-auto flex-grow-1"></div>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-warning" onclick="confirmarVersionamiento()">Sí, Crear Nueva
-                    Versión</button>
-            </div>
-        </div>
-    </div>
-</div>
+{% endblock %}
 
-<!-- Modal Calculadora Viaticos Nativos -->
-<div class="modal fade" id="modalCalculadoraViaticos" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header text-white" style="background-color: #4148C3;">
-                <h5 class="modal-title">✈️ Gestión de Viáticos</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <!-- Nav tabs -->
-                <ul class="nav nav-tabs nav-fill" id="viaticoTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active fw-bold" id="nueva-tab" data-bs-toggle="tab"
-                            data-bs-target="#nueva-viatico" type="button" role="tab">✨ Nueva Calculadora</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link fw-bold" id="biblioteca-tab" data-bs-toggle="tab"
-                            data-bs-target="#biblioteca-viatico" type="button" role="tab">📚 Historial</button>
-                    </li>
-                </ul>
+{% block modals %}
+{# Modales Específicos #}
+{% include 'ui/cotizaciones/_modal_versionamiento.html' %}
+{% include 'ui/viaticos/_calculadora.html' %}
+{% endblock %}
 
-                <!-- Tab panes -->
-                <div class="tab-content p-4">
-                    <!-- Tab: Nueva Calculadora -->
-                    <div class="tab-pane active" id="nueva-viatico" role="tabpanel">
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Nombre del Viaje / Destino</label>
-                            <input type="text" class="form-control" id="viatico-destino"
-                                placeholder="Ej. Instalación en Monterrey" required>
-                        </div>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Personas viajando</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-users text-primary"></i></span>
-                                    <input type="number" class="form-control border-start-0" id="viatico-personas" value="1" min="1">
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small fw-bold text-muted">Días de estancia</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-day text-primary"></i></span>
-                                    <input type="number" class="form-control border-start-0 viatico-calc" id="viatico-dias" value="1" min="1">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Sección de Alimentos Reubicada y Estilizada -->
-                        <div class="p-3 mb-4" style="background-color: #f8f9ff; border: 1px solid #4148C3; border-radius: 12px;">
-                            <h6 class="extra-small text-uppercase fw-bold mb-3" style="color: #4148C3; letter-spacing: 1px;">
-                                <i class="fas fa-utensils me-2"></i>Desglose de Alimentos (Persona/Día)
-                            </h6>
-                            <div class="row g-2">
-                                <div class="col-4">
-                                    <label class="extra-small text-muted mb-1">Desayuno</label>
-                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-desayuno" value="0.00" min="0" step="10">
-                                </div>
-                                <div class="col-4">
-                                    <label class="extra-small text-muted mb-1">Comida</label>
-                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-comida" value="0.00" min="0" step="10">
-                                </div>
-                                <div class="col-4">
-                                    <label class="extra-small text-muted mb-1">Cena</label>
-                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-cena" value="0.00" min="0" step="10">
-                                </div>
-                            </div>
-                            <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
-                                <span class="small text-muted">Subtotal Alimentos:</span>
-                                <span class="fw-bold" style="color: #4148C3;" id="viatico-alimentos-label">$0.00</span>
-                                <input type="hidden" id="viatico-alimentos" value="0.00">
-                            </div>
-                        </div>
-
-                        <h6 class="mt-4 mb-3 small text-uppercase fw-bold text-muted border-bottom pb-2">Otros Gastos Operativos</h6>
-                        <div class="row mb-2 align-items-center">
-                            <div class="col-7"><label class="form-label text-muted small mb-0">Transporte / Vuelos</label></div>
-                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-transporte" value="0.00" min="0" step="10"></div>
-                        </div>
-                        <div class="row mb-2 align-items-center">
-                            <div class="col-7"><label class="form-label text-muted small mb-0">Alojamiento</label></div>
-                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-alojamiento" value="0.00" min="0" step="10"></div>
-                        </div>
-                        <div class="row mb-3 align-items-center">
-                            <div class="col-7"><label class="form-label text-muted small mb-0">Peajes / Otros</label></div>
-                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-otros" value="0.00" min="0" step="10"></div>
-                        </div>
-
-                        <div class="px-3 py-2 d-flex justify-content-between align-items-center mb-0" style="background: linear-gradient(135deg, #4148C3 0%, #3F48CB 100%); border-radius: 10px; color: white;">
-                            <div class="d-flex flex-column">
-                                <span class="extra-small text-uppercase opacity-75" style="font-size: 0.65rem;">Inversión Estimada</span>
-                                <strong style="font-size: 0.8rem;">TOTAL CALCULADO</strong>
-                            </div>
-                            <h5 class="mb-0 fw-bold">$<span id="viatico-total-suma">0.00</span></h5>
-                        </div>
-                        <div class="mt-3 text-end">
-                            <button type="button" class="btn fw-bold text-white shadow-sm py-2" style="background-color: #4148C3; border-radius: 8px; width: 100%; font-size: 0.9rem;" onclick="guardarViaticoNativo()">
-                                <i class="fas fa-plus-circle me-2"></i>Inyectar a Cotización
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Biblioteca -->
-                    <div class="tab-pane" id="biblioteca-viatico" role="tabpanel">
-                        <p class="text-muted small mb-4">Selecciona un viático previamente autorizado para importarlo
-                            como concepto a esta cotización.</p>
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">Buscar en Biblioteca</label>
-                            <select class="form-select border-primary" id="viatico-select-modal">
-                                <option value="">-- Seleccionar de viajes existentes --</option>
-                            </select>
-                        </div>
-                        <div id="viatico-preview-modal" class="alert alert-light border d-none">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h6 class="mb-1 fw-bold" id="v-prev-folio"></h6>
-                                    <span class="text-muted extra-small" id="v-prev-proyecto"></span>
-                                </div>
-                                <h5 class="text-primary mb-0" id="v-prev-total"></h5>
-                            </div>
-                        </div>
-                        <div class="mt-4 text-end">
-                            <button type="button" class="btn btn-outline-primary px-4 fw-bold"
-                                onclick="agregarViaticoDesdeModal()">📥 Importar Viático</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
+{% block customJS %}
+<script src="/static/js/calculadora_viaticos.js?v={{ range(1, 9999) | random }}"></script>
+<script src="/static/js/wizard_manager.js"></script>
 <script>
-    // Estado global del wizard
-    const wizardState = {
-        currentStep: 1,
-        cliente_id: null,
-        metodo_pago: 'POR_DEFINIR',  // Default: Por definir
-        forma_pago: '99',
-        notas: '',
-        servicios: [],  // Array de {servicio_id, descripcion, cantidad, precio_unitario, descuento_porcentaje, codigo_sat, unidad}
-        viaticos_nuevos: [] // Array temporal de viaticos por crear
+    /**
+     * TEAMSA Quotation Wizard - Lógica de Negocio Restaurada
+     * Gestiona la creación/edición de cotizaciones con integración de viáticos.
+     */
+
+    // 1. Inicialización del Controlador de Documento
+    const wiz = new TEAMSA.DocumentWizard({
+        initialState: {
+            cliente_id: null,
+            metodo_pago: 'POR_DEFINIR',
+            forma_pago: '99',
+            notas: '',
+            servicios: [],         // Conceptos de la cotización
+            viaticos_nuevos: [],    // Viáticos creados en esta sesión
+            editingViaticoIdx: null // Track para edición
+        },
+        selectors: {
+            clientes: 'cliente-select',
+            servicios: 'servicio-select'
+        },
+        endpoints: {
+            clientes: '/api/clientes/select',
+            servicios: '/api/servicios/select',
+            viaticos: '/api/viaticos/disponibles-para-cotizacion'
+        },
+        callbacks: {
+            onItemsChange: () => {
+                renderizarServicios();
+                wiz.refreshUI();
+            }
+        }
+    });
+
+    // 2. Adaptaciones del motor DocumentWizard para Cotizaciones
+    wiz.agregarItem = function(item) { 
+        this.state.servicios.push(item); 
+        this.config.callbacks.onItemsChange(); 
+    };
+    
+    wiz.eliminarItem = function(i) { 
+        this.state.servicios.splice(i, 1); 
+        this.config.callbacks.onItemsChange(); 
+    };
+    
+    wiz.actualizarItem = function(i, c, v, n) {
+        let val = n ? parseFloat(v) : v;
+        if (n && (isNaN(val) || val < 0)) return;
+        this.state.servicios[i][c] = val;
+        this.config.callbacks.onItemsChange();
     };
 
-    let clientesData = [];
-    let serviciosData = [];
-    let viaticosData = [];
+    wiz.calcularTotales = function() {
+        let sub = 0, descTotal = 0;
+        this.state.servicios.forEach(s => {
+            const imp = s.cantidad * s.precio_unitario;
+            sub += imp;
+            descTotal += imp * ((s.descuento_porcentaje || 0) / 100);
+        });
+        const base = sub - descTotal;
+        const iva = base * 0.16;
+        return { 
+            subtotal: sub, 
+            descuentoTotal: descTotal, 
+            baseIva: base, 
+            iva: iva, 
+            total: base + iva 
+        };
+    };
 
-    // Variables para modo edición
-    let modoEdicion = false;
-    let modoVersion = false;
-    let cotizacionId = null;
-    let serviciosOriginales = [];  // Para comparar cambios
+    // 3. Variables de Estado y Permisos
+    const PUEDE_EDITAR_VIATICOS = {{ 'true' if (usuario.permisos_editar or []) and 'viaticos' in (usuario.permisos_editar or []) else 'false' }};
+    let clientesData = [], serviciosData = [], viaticosData = [];
+    let modoEdicion = false, modoVersion = false, cotizacionId = null;
+    let serviciosOriginales = [];
 
-    // Cargar datos al iniciar
-    document.addEventListener('DOMContentLoaded', () => {
-        // Detectar modo edición/versión
+    // 4. Inicialización al cargar el DOM
+    document.addEventListener('DOMContentLoaded', async () => {
         const urlParams = new URLSearchParams(window.location.search);
         cotizacionId = urlParams.get('id');
         const versionDe = urlParams.get('version_de');
-
+        
         modoEdicion = cotizacionId !== null;
         modoVersion = versionDe !== null;
 
-        // Si es modo versión, usar el ID de la cotización a versionar
         if (modoVersion) {
             cotizacionId = parseInt(versionDe);
             document.getElementById('wizard-titulo').textContent = '📂 Nueva Versión de Cotización';
-            document.getElementById('btn-submit-text').textContent = '✨ Crear Nueva Versión';
+            const btnText = document.getElementById('btn-submit-text');
+            if (btnText) btnText.textContent = '✨ Crear Nueva Versión';
         } else if (modoEdicion) {
             document.getElementById('wizard-titulo').textContent = '✏️ Modificar Cotización';
-            document.getElementById('btn-submit-text').textContent = '💾 Guardar Cambios';
+            const btnText = document.getElementById('btn-submit-text');
+            if (btnText) btnText.textContent = '💾 Guardar Cambios';
         }
 
-        cargarClientes();
-        cargarServicios();
-        cargarViaticosParaWizard();
+        // Cargar Catálogos Iniciales
+        try {
+            clientesData = await wiz.cargarSelector('clientes', c => ({ 
+                val: c.id, 
+                text: `${c.nombre}${c.rfc ? ' - ' + c.rfc : ''}` 
+            }));
+            
+            serviciosData = await wiz.cargarSelector('servicios', s => ({ 
+                val: s.id, 
+                text: `[${s.clave}] ${s.descripcion} - $${s.precio_base.toFixed(2)}` 
+            }));
+            
+            cargarViaticosDisponibles();
+        } catch (e) {
+            console.error("Error cargando catálogos:", e);
+        }
 
-        // Refrescar biblioteca al abrir el modal para ver registros recién creados
-        document.getElementById('modalCalculadoraViaticos')?.addEventListener('shown.bs.modal', function () {
-            cargarViaticosParaWizard();
-        });
-
-        // Si es modo edición o versión, cargar datos después de cargar catálogos
         if (modoEdicion || modoVersion) {
-            setTimeout(() => cargarCotizacionParaEditar(cotizacionId), 500);
+            setTimeout(() => cargarCotizacionParaEditar(cotizacionId), 600);
         }
-    });
 
-    // Carga clientes desde el backend
-    async function cargarClientes() {
-        try {
-            const response = await fetch('/api/clientes/select', {
-                headers: {
-                    'Accept': 'application/json'
+        // Inicializar Navegación del Wizard
+        new TeamSAWizard({
+            totalSteps: 3,
+            onValidateStep: (step) => {
+                if (step === 1) {
+                    const cid = document.getElementById('cliente-select').value;
+                    if (!cid) { mostrarFlash("Selecciona un cliente", "error"); return false; }
+                    wiz.state.cliente_id = parseInt(cid);
+                    wiz.state.metodo_pago = document.getElementById('metodo-pago').value;
+                    wiz.state.forma_pago = document.getElementById('forma-pago').value;
+                    wiz.state.notas = document.getElementById('notas').value;
+                } else if (step === 2) {
+                    if (wiz.state.servicios.length === 0) { 
+                        mostrarFlash("Agrega al menos un servicio o viático", "error"); 
+                        return false; 
+                    }
+                    actualizarResumen();
                 }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                return true;
             }
+        });
+    });
 
-            const clientes = await response.json();
-            clientesData = clientes;  // ✅ Asignar a variable global
-            const select = document.getElementById('cliente-select');
-
-            // Limpiar mensaje de cargando
-            const smallText = select.nextElementSibling;
-            if (smallText && smallText.tagName === 'SMALL') {
-                smallText.remove();
-            }
-
-            clientesData.forEach(c => {
-                const option = document.createElement('option');
-                option.value = c.id;
-                option.textContent = `${c.nombre}${c.rfc ? ' - ' + c.rfc : ''}`;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error cargando clientes:', error);
-        }
-    }
-
-    async function cargarServicios() {
+    // 5. Gestión de Servicios y Viáticos
+    async function cargarViaticosDisponibles() {
+        const sel = document.getElementById('viatico-select-modal');
+        if (!sel) return;
         try {
-            const response = await fetch('/api/servicios/select');
-            serviciosData = await response.json();
-
-            const select = document.getElementById('servicio-select');
-            serviciosData.forEach(s => {
-                const option = document.createElement('option');
-                option.value = s.id;
-                option.textContent = `[${s.clave}] ${s.descripcion} - $${s.precio_base.toFixed(2)}`;
-                select.appendChild(option);
-            });
-        } catch (error) {
-            console.error('Error cargando servicios:', error);
-        }
-    }
-
-    async function cargarViaticosParaWizard() {
-        try {
-            const response = await fetch('/api/viaticos/disponibles-para-cotizacion');
-            viaticosData = await response.json();
-            const select = document.getElementById('viatico-select-modal');
-            select.innerHTML = '<option value="">-- Seleccionar de viajes existentes --</option>';
+            const resp = await fetch('/api/viaticos/disponibles-para-cotizacion');
+            viaticosData = await resp.json();
+            sel.innerHTML = '<option value="">-- Seleccionar de viajes existentes --</option>';
             viaticosData.forEach(v => {
-                select.innerHTML += `<option value="${v.id}">${v.folio} - ${v.proyecto} ($${v.total.toFixed(2)})</option>`;
+                sel.innerHTML += `<option value="${v.id}">${v.folio} - ${v.proyecto} ($${v.total.toFixed(2)})</option>`;
             });
-        } catch (error) {
-            console.error('Error al cargar viáticos:', error);
-        }
-    }
-
-    // Preview de viático en modal
-    document.getElementById('viatico-select-modal')?.addEventListener('change', function (e) {
-        const val = e.target.value;
-        const preview = document.getElementById('viatico-preview-modal');
-        if (!val) {
-            preview.classList.add('d-none');
-            return;
-        }
-        const v = viaticosData.find(x => x.id == val);
-        if (v) {
-            document.getElementById('v-prev-folio').textContent = v.folio;
-            document.getElementById('v-prev-proyecto').textContent = v.proyecto;
-            document.getElementById('v-prev-total').textContent = '$' + v.total.toFixed(2);
-            preview.classList.remove('d-none');
-        }
-    });
-
-    function agregarViaticoDesdeModal() {
-        const viaticoId = document.getElementById('viatico-select-modal').value;
-        if (!viaticoId) {
-            alert('Por favor selecciona un viático para importar');
-            return;
-        }
-
-        const v = viaticosData.find(x => x.id == viaticoId);
-        if (!v) return;
-
-        wizardState.servicios.push({
-            servicio_id: null,
-            descripcion: `Gastos de Viaje o Viático (Ref: ${v.folio} / ${v.proyecto})`,
-            codigo_sat: '78111500', // Transporte de pasajeros
-            unidad: 'Viaje/Servicio',
-            cantidad: 1,
-            precio_unitario: v.total,
-            descuento_porcentaje: 0
-        });
-
-        renderizarServicios();
-
-        // Cerrar modal
-        const modalEl = document.getElementById('modalCalculadoraViaticos');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-
-        // Reset select
-        document.getElementById('viatico-select-modal').value = '';
-        document.getElementById('viatico-preview-modal').classList.add('d-none');
-    }
-
-    document.addEventListener('input', function (e) {
-        if (e.target.classList.contains('viatico-calc') || e.target.id === 'viatico-personas') {
-            const personas = parseInt(document.getElementById('viatico-personas').value) || 1;
-            const dias = parseInt(document.getElementById('viatico-dias').value) || 1;
-            
-            const desayuno = parseFloat(document.getElementById('viatico-desayuno').value) || 0;
-            const comida = parseFloat(document.getElementById('viatico-comida').value) || 0;
-            const cena = parseFloat(document.getElementById('viatico-cena').value) || 0;
-            
-            // Calcular subtotal de alimentos: (D+C+C) * personas * dias
-            const totalAlimentos = (desayuno + comida + cena) * personas * dias;
-            document.getElementById('viatico-alimentos').value = totalAlimentos.toFixed(2);
-            document.getElementById('viatico-alimentos-label').textContent = '$' + totalAlimentos.toFixed(2);
-
-            const transporte = parseFloat(document.getElementById('viatico-transporte').value) || 0;
-            const alojamiento = parseFloat(document.getElementById('viatico-alojamiento').value) || 0;
-            const alimentos = totalAlimentos;
-            const otros = parseFloat(document.getElementById('viatico-otros').value) || 0;
-
-            const total = transporte + alojamiento + alimentos + otros;
-            document.getElementById('viatico-total-suma').textContent = total.toFixed(2);
-        }
-    });
-
-    function guardarViaticoNativo() {
-        const destino = document.getElementById('viatico-destino').value;
-        const personas = parseInt(document.getElementById('viatico-personas').value) || 1;
-        const dias = parseInt(document.getElementById('viatico-dias').value) || 1;
-        const transporte = parseFloat(document.getElementById('viatico-transporte').value) || 0;
-        const alojamiento = parseFloat(document.getElementById('viatico-alojamiento').value) || 0;
-        const alimentos = parseFloat(document.getElementById('viatico-alimentos').value) || 0;
-        const otros = parseFloat(document.getElementById('viatico-otros').value) || 0;
-
-        const total = parseFloat((transporte + alojamiento + alimentos + otros).toFixed(2));
-
-        if (!destino || total <= 0) {
-            alert('Falta nombre del destino o costos válidos.');
-            return;
-        }
-
-        // Push a objetos nuevos
-        wizardState.viaticos_nuevos.push({
-            proyecto: destino,
-            personas: personas,
-            costo_transporte: transporte,
-            costo_alojamiento: alojamiento,
-            costo_alimentos: alimentos,
-            costo_otros: otros,
-            total: total
-        });
-
-        // Push como servicio
-        wizardState.servicios.push({
-            servicio_id: null,
-            descripcion: `Costos Operativos de Viático - ${destino} (${personas} personas)`,
-            codigo_sat: '78111500',
-            unidad: 'Viaje/Servicio',
-            cantidad: 1,
-            precio_unitario: total,
-            descuento_porcentaje: 0
-        });
-
-        renderizarServicios();
-
-        const modalEl = document.getElementById('modalCalculadoraViaticos');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-
-        // Clean modal
-        document.getElementById('viatico-destino').value = '';
-        document.getElementById('viatico-personas').value = '1';
-        document.getElementById('viatico-dias').value = '1';
-        document.getElementById('viatico-desayuno').value = '0.00';
-        document.getElementById('viatico-comida').value = '0.00';
-        document.getElementById('viatico-cena').value = '0.00';
-        document.getElementById('viatico-transporte').value = '0.00';
-        document.getElementById('viatico-alojamiento').value = '0.00';
-        document.getElementById('viatico-otros').value = '0.00';
-        document.getElementById('viatico-total-suma').textContent = '0.00';
-        document.getElementById('viatico-alimentos-label').textContent = '$0.00';
-    }
-
-    function nextStep() {
-        // Validar paso actual
-        if (wizardState.currentStep === 1) {
-            const clienteId = document.getElementById('cliente-select').value;
-            if (!clienteId) {
-                mostrarError('Por favor selecciona un cliente');
-                return;
-            }
-            wizardState.cliente_id = parseInt(clienteId);
-            wizardState.metodo_pago = document.getElementById('metodo-pago').value;
-            wizardState.forma_pago = document.getElementById('forma-pago').value;
-            wizardState.notas = document.getElementById('notas').value;
-        }
-
-        if (wizardState.currentStep === 2) {
-            if (wizardState.servicios.length === 0) {
-                mostrarError('Agrega al menos un servicio');
-                return;
-            }
-            actualizarResumen();
-        }
-
-        wizardState.currentStep++;
-        actualizarVista();
-    }
-
-    function prevStep() {
-        wizardState.currentStep--;
-        actualizarVista();
-    }
-
-    function actualizarVista() {
-        // Ocultar todos los pasos
-        document.querySelectorAll('.wizard-content').forEach(el => el.classList.add('d-none'));
-
-        // Mostrar paso actual
-        document.getElementById(`step-${wizardState.currentStep}`).classList.remove('d-none');
-
-        // Actualizar indicadores
-        document.querySelectorAll('.wizard-step').forEach((el, idx) => {
-            el.classList.remove('active', 'completed');
-            if (idx + 1 === wizardState.currentStep) {
-                el.classList.add('active');
-            } else if (idx + 1 < wizardState.currentStep) {
-                el.classList.add('completed');
-            }
-        });
-
-        // Actualizar botones
-        document.getElementById('btn-prev').disabled = wizardState.currentStep === 1;
-
-        if (wizardState.currentStep === 3) {
-            document.getElementById('btn-next').classList.add('d-none');
-            document.getElementById('btn-submit').classList.remove('d-none');
-        } else {
-            document.getElementById('btn-next').classList.remove('d-none');
-            document.getElementById('btn-submit').classList.add('d-none');
-        }
+        } catch (e) { console.error("Error cargando viáticos disponibles", e); }
     }
 
     function agregarServicio() {
-        const servicioId = parseInt(document.getElementById('servicio-select').value);
-        const cantidad = parseInt(document.getElementById('cantidad-input').value);
-        const descuento = parseFloat(document.getElementById('descuento-input').value);
+        const sid = parseInt(document.getElementById('servicio-select').value);
+        const cant = parseInt(document.getElementById('cantidad-input').value);
+        const desc = parseFloat(document.getElementById('descuento-input').value) || 0;
 
-        if (!servicioId || !cantidad || cantidad <= 0) {
-            mostrarError('Completa los campos del servicio correctamente');
-            return;
-        }
-
-        // Validar descuento
-        if (descuento < 0 || descuento > 100) {
-            mostrarError('El descuento debe estar entre 0% y 100%');
-            return;
-        }
-
-        const servicio = serviciosData.find(s => s.id === servicioId);
-        if (!servicio) return;
-
-        wizardState.servicios.push({
-            servicio_id: servicio.id,
-            descripcion: servicio.descripcion,
-            codigo_sat: servicio.codigo_sat || '',
-            unidad: servicio.unidad || 'pieza',
-            cantidad: cantidad,
-            precio_unitario: servicio.precio_base,
-            descuento_porcentaje: descuento
+        if (!sid || cant <= 0) return mostrarFlash("Completa los campos del servicio", "error");
+        
+        const s = serviciosData.find(x => x.id === sid);
+        wiz.agregarItem({
+            servicio_id: s.id,
+            descripcion: s.descripcion,
+            codigo_sat: s.codigo_sat || '',
+            unidad: s.unidad || 'pieza',
+            cantidad: cant,
+            precio_unitario: s.precio_base,
+            descuento_porcentaje: desc
         });
 
-        renderizarServicios();
-
-        // Reset
+        // Reset inputs
         document.getElementById('servicio-select').value = '';
         document.getElementById('cantidad-input').value = '1';
         document.getElementById('descuento-input').value = '0';
     }
 
-    function eliminarServicio(index) {
-        wizardState.servicios.splice(index, 1);
-        renderizarServicios();
-    }
-
     function renderizarServicios() {
-        const lista = document.getElementById('servicios-lista');
-
-        if (wizardState.servicios.length === 0) {
-            lista.innerHTML = '<p class="text-muted text-center py-4">No hay servicios agregados</p>';
+        const container = document.getElementById('servicios-lista');
+        if (!wiz.state.servicios.length) {
+            container.innerHTML = '<p class="text-muted text-center py-5">No hay servicios agregados aún</p>';
             return;
         }
 
-        let html = '<div class="table-responsive"><table class="table table-sm"><thead><tr><th>Servicio</th><th class="text-center">Cant.</th><th class="text-end">Precio</th><th class="text-center">Desc.</th><th class="text-end">Total</th><th></th></tr></thead><tbody>';
+        let html = `
+            <div class="table-responsive">
+                <table class="table text-sm align-middle">
+                    <thead>
+                        <tr class="text-muted">
+                            <th>Descripción</th>
+                            <th class="text-center" style="width:10%">Cant</th>
+                            <th class="text-end" style="width:15%">P. Unit</th>
+                            <th class="text-center" style="width:15%">Desc %</th>
+                            <th class="text-end" style="width:15%">Total</th>
+                            <th style="width:80px"></th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        
+        wiz.state.servicios.forEach((s, idx) => {
+            const totalFila = (s.cantidad * s.precio_unitario) * (1 - (s.descuento_porcentaje / 100));
+            const esViatico = s.viatico_id || s.viatico_temp_id !== undefined;
+            
+            // Regla: Viáticos bloquean precio y cantidad (vienen de calculadora), pero permiten editar descripción (concepto).
+            // El descuento se bloquea en viáticos por regla de negocio de TEAMSA.
+            const lockCalculadora = esViatico ? 'readonly tabindex="-1" style="background-color: #f8f9fa; border-color: transparent;"' : '';
+            const lockDescuento = esViatico ? 'readonly tabindex="-1" style="background-color: #f8f9fa; border-color: transparent;"' : '';
 
-        wizardState.servicios.forEach((s, idx) => {
-            const subtotal = s.cantidad * s.precio_unitario;
-            const descuento = subtotal * (s.descuento_porcentaje / 100);
-            const total = subtotal - descuento;
-
-            html += `<tr>
-            <td>
-                <input type="text" class="form-control form-control-sm" value="${s.descripcion}" 
-                    onchange="actualizarServicio(${idx}, 'descripcion', this.value)">
-            </td>
-            <td style="width: 100px;">
-                <input type="number" class="form-control form-control-sm text-center" value="${s.cantidad}" 
-                    min="1" step="1"
-                    oninput="actualizarServicioNumerico(${idx}, 'cantidad', this.value)">
-            </td>
-            <td style="width: 120px;">
-                <input type="number" class="form-control form-control-sm text-end" value="${s.precio_unitario}" 
-                    min="0" step="0.01"
-                    oninput="actualizarServicioNumerico(${idx}, 'precio_unitario', this.value)">
-            </td>
-            <td style="width: 100px;">
-                <div class="input-group input-group-sm">
-                    <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
-                        min="0" max="100" step="1"
-                        oninput="actualizarServicioNumerico(${idx}, 'descuento_porcentaje', this.value)">
-                    <span class="input-group-text">%</span>
-                </div>
-            </td>
-            <td class="text-end" style="width: 120px;">
-                <strong id="total-servicio-${idx}">$${total.toFixed(2)}</strong>
-            </td>
-            <td style="width: 50px;">
-                <button class="btn btn-sm btn-outline-danger" onclick="eliminarServicio(${idx})">×</button>
-            </td>
-        </tr>`;
+            html += `
+                <tr>
+                    <td>
+                        <input type="text" class="form-control form-control-sm" value="${s.descripcion}" 
+                               onchange="wiz.actualizarItem(${idx}, 'descripcion', this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" value="${s.cantidad}" 
+                               ${lockCalculadora}
+                               oninput="wiz.actualizarItem(${idx}, 'cantidad', this.value, true)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-end" value="${s.precio_unitario}" 
+                               ${lockCalculadora}
+                               oninput="wiz.actualizarItem(${idx}, 'precio_unitario', this.value, true)">
+                    </td>
+                    <td>
+                        <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
+                               ${lockDescuento}
+                               oninput="wiz.actualizarItem(${idx}, 'descuento_porcentaje', this.value, true)">
+                    </td>
+                    <td class="text-end fw-bold">$${totalFila.toFixed(2)}</td>
+                    <td class="text-center">
+                        <div class="btn-group">
+                            ${(esViatico && PUEDE_EDITAR_VIATICOS) ? 
+                                `<button type="button" class="btn btn-link text-info p-0 me-2" title="Editar Viático"
+                                         onclick="abrirCalculadoraParaEditar(${idx})">✈️</button>` : ''}
+                            <button type="button" class="btn btn-link text-danger p-0" title="Eliminar"
+                                    onclick="wiz.eliminarItem(${idx})"><i class="fas fa-times"></i></button>
+                        </div>
+                    </td>
+                </tr>`;
         });
-
-        html += '</tbody></table></div>';
-        lista.innerHTML = html;
+        container.innerHTML = html + '</tbody></table></div>';
     }
 
-    // Función para actualizar campos de texto
-    function actualizarServicio(index, campo, valor) {
-        wizardState.servicios[index][campo] = valor;
-    }
-
-    // Función para actualizar campos numéricos con recálculo automático
-    function actualizarServicioNumerico(index, campo, valor) {
-        const numValor = parseFloat(valor);
-
-        // Validar valor numérico
-        if (isNaN(numValor) || numValor < 0) {
-            return; // No actualizar si el valor es inválido
-        }
-
-        // Validación específica por campo
-        if (campo === 'cantidad' && numValor < 1) {
-            return;
-        }
-        if (campo === 'descuento_porcentaje' && numValor > 100) {
-            return;
-        }
-
-        // Actualizar el estado
-        wizardState.servicios[index][campo] = numValor;
-
-        // Recalcular el total del servicio individual
-        const servicio = wizardState.servicios[index];
-        const subtotal = servicio.cantidad * servicio.precio_unitario;
-        const descuento = subtotal * (servicio.descuento_porcentaje / 100);
-        const total = subtotal - descuento;
-
-        // Actualizar el DOM del total individual
-        const totalElement = document.getElementById(`total-servicio-${index}`);
-        if (totalElement) {
-            totalElement.textContent = `$${total.toFixed(2)}`;
-        }
-
-        // Recalcular y actualizar totales globales si estamos en el paso 2
-        if (wizardState.currentStep === 2) {
-            actualizarTotalesGlobales();
-        }
-    }
-
-    // Función para recalcular los totales globales (opcional, para mostrar en el step 2)
-    function actualizarTotalesGlobales() {
-        let subtotalGlobal = 0;
-        let descuentoGlobal = 0;
-
-        wizardState.servicios.forEach(s => {
-            const sub = s.cantidad * s.precio_unitario;
-            const desc = sub * (s.descuento_porcentaje / 100);
-            subtotalGlobal += sub;
-            descuentoGlobal += desc;
-        });
-
-        const baseIva = subtotalGlobal - descuentoGlobal;
-        const iva = baseIva * 0.16;
-        const totalGlobal = baseIva + iva;
-
-        // Aquí podrías mostrar estos totales en algún lugar del step 2 si quieres
-        // Por ahora solo se actualizan en el resumen (step 3)
-        console.log('Totales actualizados:', { subtotalGlobal, descuentoGlobal, iva, totalGlobal });
-    }
 
     function actualizarResumen() {
-        const cliente = clientesData.find(c => c.id === wizardState.cliente_id);
-        document.getElementById('resumen-cliente').textContent = cliente ? cliente.nombre : '-';
-        document.getElementById('resumen-metodo').textContent = wizardState.metodo_pago;
+        const totals = wiz.calcularTotales();
+        const client = clientesData.find(c => c.id == wiz.state.cliente_id);
+        
+        document.getElementById('resumen-cliente').textContent = client?.nombre || '-';
+        document.getElementById('resumen-pago').textContent = `${wiz.state.metodo_pago} / ${wiz.state.forma_pago}`;
+        document.getElementById('resumen-notas').textContent = wiz.state.notas || 'Sin notas';
 
-        // Mostrar forma de pago SAT con descripción
-        const formaPagoTexto = {
-            '01': '01 - Efectivo',
-            '02': '02 - Cheque nominativo',
-            '03': '03 - Transferencia electrónica',
-            '04': '04 - Tarjeta de crédito',
-            '05': '05 - Monedero electrónico',
-            '28': '28 - Tarjeta de débito',
-            '99': '99 - Por definir'
-        };
-        document.getElementById('resumen-forma-pago').textContent = formaPagoTexto[wizardState.forma_pago] || wizardState.forma_pago;
-        document.getElementById('resumen-notas').textContent = wizardState.notas || 'Sin notas';
-        // Tabla de servicios
-        let html = '<table class="table table-sm"><thead><tr><th>Servicio</th><th class="text-center">Cant.</th><th class="text-end">Total</th></tr></thead><tbody>';
-
-        let subtotal = 0;
-        let descuentoTotal = 0;
-
-        wizardState.servicios.forEach(s => {
-            const sub = s.cantidad * s.precio_unitario;
-            const desc = sub * (s.descuento_porcentaje / 100);
-            const total = sub - desc;
-
-            subtotal += sub;
-            descuentoTotal += desc;
-
-            html += `<tr><td>${s.descripcion}</td><td class="text-center">${s.cantidad}</td><td class="text-end">$${total.toFixed(2)}</td></tr>`;
+        let html = `
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr class="table-light text-2xs">
+                        <th>Concepto / Servicio</th>
+                        <th class="text-center">Cant</th>
+                        <th class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+        
+        wiz.state.servicios.forEach(s => {
+            const tot = (s.cantidad * s.precio_unitario) * (1 - (s.descuento_porcentaje / 100));
+            html += `
+                <tr class="text-sm">
+                    <td>${s.descripcion}</td>
+                    <td class="text-center">${s.cantidad}</td>
+                    <td class="text-end fw-bold">$${tot.toFixed(2)}</td>
+                </tr>`;
         });
-
-        html += '</tbody></table>';
-        document.getElementById('resumen-servicios').innerHTML = html;
-
-        // Totales
-        const baseIva = subtotal - descuentoTotal;
-        const iva = baseIva * 0.16;
-        const total = baseIva + iva;
-
-        document.getElementById('resumen-subtotal').textContent = subtotal.toFixed(2);
-        document.getElementById('resumen-descuento').textContent = descuentoTotal.toFixed(2);
-        document.getElementById('resumen-iva').textContent = iva.toFixed(2);
-        document.getElementById('resumen-total').textContent = total.toFixed(2);
+        document.getElementById('resumen-servicios-tabla').innerHTML = html + '</tbody></table>';
+        wiz.refreshUI();
     }
 
+    // 6. Persistencia y Lógica de Versiones
     async function submitWizard() {
-        if (!wizardState.cliente_id) {
-            mostrarError('Selecciona un cliente');
-            return;
-        }
-
-        if (wizardState.servicios.length === 0) {
-            mostrarError('Agrega al menos un servicio');
-            return;
-        }
-
-        const btn = document.getElementById('btn-submit');
-        btn.disabled = true;
-
-        if (modoVersion) {
-            // Modo versión: crear nueva versión
-            await confirmarVersionamiento();
-        } else if (modoEdicion) {
-            // Modo edición: verificar si hubo cambios en servicios relevantes
-            const serviciosCambiaron = detectarCambiosServicios();
-
-            if (serviciosCambiaron) {
-                // Mostrar modal de confirmación
-                const modalEl = document.getElementById('modalVersionamiento');
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-                btn.disabled = false;  // Re-habilitar para que el usuario pueda confirmar
+        if (modoVersion) return confirmarVersionamiento();
+        
+        if (modoEdicion) {
+            if (detectarCambiosRelevantes()) {
+                const modalV = new bootstrap.Modal(document.getElementById('modalVersionamiento'));
+                modalV.show();
             } else {
-                // Solo cambios en metadatos, actualizar sin versionar
-                await actualizarSinVersionar();
+                await ejecutarGuardado(`/api/wizard/cotizaciones/${cotizacionId}/actualizar-sin-version/`, 'PATCH');
             }
         } else {
-            // Modo creación normal
-            await crearCotizacionNueva();
+            await ejecutarGuardado('/api/wizard/cotizaciones/completa/', 'POST');
         }
     }
 
-    async function crearCotizacionNueva() {
+    async function ejecutarGuardado(url, method) {
         const btn = document.getElementById('btn-submit');
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando...';
-
+        const originalText = btn.innerHTML;
         try {
-            const response = await fetch('/api/cotizaciones/completa', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(wizardState)
-            });
-
-            if (!response.ok) throw new Error('Error al crear cotización');
-
-            const data = await response.json();
-            window.location.href = `/ui/cotizaciones/${data.id}/detalle`;
-        } catch (error) {
-            console.error('Error:', error);
-            mostrarError('Error al crear la cotización: ' + error.message);
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+            
+            const data = await wiz.guardar(url, method);
+            mostrarFlash('✅ Cotización procesada exitosamente', 'success');
+            
+            // Redirigir al detalle usando el ID devuelto o el actual
+            const nextId = data.id || cotizacionId;
+            window.location.href = `/ui/cotizaciones/${nextId}/detalle`;
+        } catch (e) {
+            mostrarFlash(e.message, 'error');
             btn.disabled = false;
-            btn.innerHTML = '<span id="btn-submit-text">✓ Crear Cotización</span>';
-        }
-    }
-
-    async function actualizarSinVersionar() {
-        const btn = document.getElementById('btn-submit');
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Guardando...';
-
-        try {
-            const response = await fetch(`/api/cotizaciones/${cotizacionId}/actualizar-sin-version`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    metodo_pago: wizardState.metodo_pago,
-                    forma_pago: wizardState.forma_pago,
-                    notas: wizardState.notas,
-                    servicios: wizardState.servicios,
-                    viaticos_nuevos: wizardState.viaticos_nuevos
-                })
-            });
-
-            if (!response.ok) throw new Error('Error al actualizar');
-
-            alert('✅ Cotización actualizada correctamente');
-            window.location.href = '/cotizaciones';
-        } catch (error) {
-            console.error('Error:', error);
-            mostrarError('Error al actualizar la cotización: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
+            btn.innerHTML = originalText;
         }
     }
 
@@ -942,127 +500,132 @@
     }
 
     async function confirmarVersionamiento() {
-        // Cerrar modal
         const modalEl = document.getElementById('modalVersionamiento');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
+        
+        await ejecutarGuardado(`/api/wizard/cotizaciones/${cotizacionId}/nueva-version/`, 'POST');
+    }
 
-        const btn = document.getElementById('btn-submit');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creando versión...';
+    async function sobreescribirCotizacion() {
+        const modalEl = document.getElementById('modalVersionamiento');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+        
+        await ejecutarGuardado(`/api/wizard/cotizaciones/${cotizacionId}/actualizar-sin-version/`, 'PATCH');
+    }
 
-        try {
-            const response = await fetch(`/api/cotizaciones/${cotizacionId}/nueva-version`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    metodo_pago: wizardState.metodo_pago,
-                    forma_pago: wizardState.forma_pago,
-                    notas: wizardState.notas,
-                    servicios: wizardState.servicios,
-                    viaticos_nuevos: wizardState.viaticos_nuevos
-                })
-            });
-
-            if (!response.ok) throw new Error('Error al crear versión');
-
-            const data = await response.json();
-            alert(`✅ Nueva versión ${data.numero_version} creada exitosamente`);
-            window.location.href = '/cotizaciones';
-        } catch (error) {
-            console.error('Error:', error);
-            mostrarError('Error al crear nueva versión: ' + error.message);
-            btn.disabled = false;
-            btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
-        }
+    function detectarCambiosRelevantes() {
+        if (serviciosOriginales.length !== wiz.state.servicios.length) return true;
+        
+        return wiz.state.servicios.some((s, i) => {
+            const o = serviciosOriginales[i];
+            return (
+                o.servicio_id !== s.servicio_id || 
+                o.descripcion !== s.descripcion ||
+                o.cantidad !== s.cantidad || 
+                o.precio_unitario !== s.precio_unitario || 
+                o.descuento_porcentaje !== s.descuento_porcentaje
+            );
+        });
     }
 
     async function cargarCotizacionParaEditar(id) {
         try {
-            const response = await fetch(`/api/cotizaciones/${id}/completa`);
-            if (!response.ok) throw new Error('Cotización no encontrada');
+            const resp = await fetch(`/api/wizard/cotizaciones/${id}/completa/`);
+            if (!resp.ok) throw new Error("No se pudo cargar la cotización");
+            
+            const cot = await resp.json();
+            
+            // Carga nativa gracias al nuevo esquema del servidor
+            Object.assign(wiz.state, cot);
 
-            const cotizacion = await response.json();
+            // Clon para auditoría de cambios
+            serviciosOriginales = JSON.parse(JSON.stringify(wiz.state.servicios));
+            
+            // Llenar UI inicial
+            document.getElementById('cliente-select').value = cot.cliente_id;
+            document.getElementById('cliente-select').disabled = true;
+            document.getElementById('metodo-pago').value = wiz.state.metodo_pago;
+            document.getElementById('forma-pago').value = wiz.state.forma_pago;
+            document.getElementById('notas').value = wiz.state.notas;
+            
+            renderizarServicios();
+            wiz.refreshUI();
+        } catch (e) { 
+            mostrarFlash("Error al cargar datos para edición: " + e.message, "error"); 
+        }
+    }
 
-            console.log('Cotización cargada:', cotizacion);  // DEBUG
-
-            // Cargar paso 1
-            wizardState.cliente_id = cotizacion.cliente_id;
-            wizardState.metodo_pago = cotizacion.metodo_pago || 'Por confirmar';
-            wizardState.forma_pago = cotizacion.forma_pago || '99';
-            wizardState.notas = cotizacion.notas || '';
-
-            document.getElementById('cliente-select').value = cotizacion.cliente_id;
-            document.getElementById('cliente-select').disabled = true;  // Bloqueado en modo edición
-            document.getElementById('metodo-pago').value = wizardState.metodo_pago;
-            document.getElementById('forma-pago').value = wizardState.forma_pago;
-            document.getElementById('notas').value = wizardState.notas;
-
-            // Cargar servicios desde la respuesta
-            if (cotizacion.conceptos && cotizacion.conceptos.length > 0) {
-                wizardState.servicios = cotizacion.conceptos.map(c => ({
-                    servicio_id: c.servicio_id,
-                    descripcion: c.descripcion,
-                    codigo_sat: c.codigo_sat || '',
-                    unidad: c.unidad || 'pieza',
-                    cantidad: parseFloat(c.cantidad),
-                    precio_unitario: parseFloat(c.precio_unitario),
-                    descuento_porcentaje: parseFloat(c.descuento_porcentaje || 0)
-                }));
-
-                // Copiar para comparación posterior
-                serviciosOriginales = JSON.parse(JSON.stringify(wizardState.servicios));
-
-                console.log('Servicios cargados:', wizardState.servicios);  // DEBUG
-                console.log('Servicios originales guardados:', serviciosOriginales);  // DEBUG
-
-                renderizarServicios();
+    // 7. Integración con Calculadora de Viáticos
+    document.addEventListener('CalculadoraViaticos:Guardar', (e) => {
+        const v = e.detail;
+        
+        // Si estamos editando un viático existente en la lista
+        if (wiz.state.editingViaticoIdx !== null) {
+            const s = wiz.state.servicios[wiz.state.editingViaticoIdx];
+            
+            // Si el resultado de la calculadora NO trae ID, significa que es un CLON o reemplazo nuevo
+            if (!v.id) {
+                delete s.viatico_id; // Ya no está vinculado al viático viejo
             } else {
-                console.warn('No se encontraron conceptos en la cotización');
+                s.viatico_id = v.id;
             }
-        } catch (error) {
-            console.error('Error cargando cotización:', error);
-            mostrarError('Error al cargar la cotización para editar');
-            window.location.href = '/cotizaciones';
-        }
-    }
 
-    function calcularTotalCotizacion(servicios) {
-        let subtotal = 0;
-        servicios.forEach(s => {
-            const importe = s.cantidad * s.precio_unitario;
-            const descuento = importe * (s.descuento_porcentaje / 100);
-            subtotal += (importe - descuento);
-        });
-        const iva = subtotal * 0.16;
-        return subtotal + iva;
-    }
-
-    function detectarCambiosServicios() {
-        if (serviciosOriginales.length !== wizardState.servicios.length) {
-            console.log('✅ Cambio detectado: cantidad de servicios diferente');
-            return true;
-        }
-
-        for (let i = 0; i < serviciosOriginales.length; i++) {
-            const orig = serviciosOriginales[i];
-            const act = wizardState.servicios[i];
-
-            // Comparar los campos clave que afectan precio o identidad del producto, 
-            // excluyendo explícitamente la descripción (concepto) para que editar la descripción
-            // no genere automáticamente una nueva versión.
-            if (orig.servicio_id !== act.servicio_id ||
-                orig.cantidad !== act.cantidad ||
-                orig.precio_unitario !== act.precio_unitario ||
-                orig.descuento_porcentaje !== act.descuento_porcentaje) {
-                console.log(`✅ Cambio detectado: propiedades relevantes del servicio ${i} cambiaron`);
-                return true;
+            // Actualizar en el array temporal
+            if (s.viatico_temp_id !== undefined) {
+                wiz.state.viaticos_nuevos[s.viatico_temp_id] = v;
+            } else {
+                wiz.state.viaticos_nuevos.push(v);
+                s.viatico_temp_id = wiz.state.viaticos_nuevos.length - 1;
             }
+            
+            if (!s.descripcion || s.descripcion.startsWith('Viático')) {
+                s.descripcion = `Viáticos: ${v.proyecto} (Ref: ${v.folio_referencia || v.folio || 'Nvo'})`;
+            }
+            s.precio_unitario = v.total;
+            wiz.state.editingViaticoIdx = null;
+        } 
+        // Si es un viático completamente nuevo agregado desde la calculadora
+        else {
+            wiz.state.viaticos_nuevos.push(v);
+            wiz.agregarItem({
+                servicio_id: null,
+                viatico_temp_id: wiz.state.viaticos_nuevos.length - 1,
+                descripcion: `Viáticos: ${v.proyecto} (Ref: ${v.folio_referencia || v.folio || 'Nvo'})`,
+                codigo_sat: '78111500',
+                unidad: 'Viaje/Servicio',
+                cantidad: 1,
+                precio_unitario: v.total,
+                descuento_porcentaje: 0
+            });
         }
+        renderizarServicios();
+    });
 
-        console.log('✅ Sin cambios que requieran versión (solo descripciones u otros metadatos intocables)');
-        return false;
+    async function abrirCalculadoraParaEditar(idx) {
+        const s = wiz.state.servicios[idx];
+        wiz.state.editingViaticoIdx = idx;
+        
+        try {
+            let data = null;
+            if (s.viatico_temp_id !== undefined) {
+                data = wiz.state.viaticos_nuevos[s.viatico_temp_id];
+            } else if (s.viatico_id) {
+                const resp = await fetch(`/api/viaticos/${s.viatico_id}`);
+                data = await resp.json();
+            }
+            
+            if (window.CalculadoraViaticos) {
+                window.CalculadoraViaticos.abrir(data);
+            } else {
+                console.error("Calculadora de viáticos no cargada");
+            }
+        } catch (e) {
+            mostrarFlash("Error al cargar datos del viático", "error");
+        }
     }
+
 
 </script>
 {% endblock %}

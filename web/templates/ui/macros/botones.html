@@ -5,7 +5,7 @@
 {% set can_edit_negocio = puede_editar_negocio if puede_editar_negocio is not none else true %}
 {% set can_delete = puede_eliminar if puede_eliminar is not none else puede_editar %}
 <td class="text-center">
-    <div class="btn-group btn-group-sm">
+    <div class="btn-group">
         {# Botón Ver (Ojo) - Siempre visible si puede_ver es true #}
         {% if puede_ver and url_detalle %}
         <a href="{{ url_detalle }}" class="btn btn-outline-info" title="Ver Detalle">
@@ -53,7 +53,7 @@
             hx-delete="{{ base_url }}/{{ item_id }}"
             hx-confirm="{{ delete_confirm }}" 
             hx-target="closest tr" 
-            hx-swap="outerHTML" 
+            hx-swap="delete" 
             title="Eliminar">
             🗑️
         </button>
@@ -68,8 +68,11 @@
 </button>
 {% endmacro %}
 
-{% macro btn_secundario(texto, type="button", data_dismiss="modal", extra_attrs="") %}
-<button type="{{ type }}" class="btn btn-secondary" {% if data_dismiss %}data-bs-dismiss="{{ data_dismiss }}"{% endif %} {{ extra_attrs|safe }}>
+{% macro btn_secundario(texto, type="button", id="", onclick="", extra_attrs="", data_dismiss="modal") %}
+<button type="{{ type }}" {% if id %}id="{{ id }}"{% endif %} class="btn btn-secondary" 
+    {% if onclick %}onclick="{{ onclick }}"{% endif %} 
+    {% if data_dismiss %}data-bs-dismiss="{{ data_dismiss }}"{% endif %} 
+    {{ extra_attrs|safe }}>
     {{ texto }}
 </button>
 {% endmacro %}

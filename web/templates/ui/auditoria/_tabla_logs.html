@@ -1,0 +1,69 @@
+<div class="table-responsive border-0">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="bg-light-teamsa">
+            <tr>
+                <th class="ps-4 py-3 text-xs fw-bold text-uppercase-letter-spacing" style="width: 180px;">Fecha</th>
+                <th class="py-3 text-xs fw-bold text-uppercase-letter-spacing" style="width: 120px;">Usuario</th>
+                <th class="py-3 text-xs fw-bold text-uppercase-letter-spacing" style="width: 120px;">Módulo</th>
+                <th class="py-3 text-xs fw-bold text-uppercase-letter-spacing" style="width: 120px;">Acción</th>
+                <th class="py-3 text-xs fw-bold text-uppercase-letter-spacing">Detalles</th>
+                <th class="pe-4 py-3 text-xs fw-bold text-uppercase-letter-spacing" style="width: 120px;">IP</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr class="animate-fade-in">
+                <td class="ps-4">
+                    <div class="d-flex flex-column">
+                        <span class="fw-semibold text-dark small">{{ log.fecha.strftime('%d/%m/%Y') }}</span>
+                        <span class="text-muted" style="font-size: 10px;">{{ log.fecha.strftime('%H:%M:%S') }}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-sm-text me-2 bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center fw-bold" style="width: 24px; height: 24px; font-size: 10px;">
+                            {{ log.usuario[0].upper() }}
+                        </div>
+                        <span class="small fw-medium">{{ log.usuario }}</span>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-secondary-subtle text-secondary border-0 px-2 py-1 text-xs fw-medium">
+                        {{ log.modulo|upper }}
+                    </span>
+                </td>
+                <td>
+                    {% set action_class = 'bg-primary-subtle text-primary' %}
+                    {% if log.accion in ['ELIMINAR', 'CANCELAR'] %}
+                        {% set action_class = 'bg-danger-subtle text-danger' %}
+                    {% elif log.accion in ['CREAR', 'LOGIN'] %}
+                        {% set action_class = 'bg-success-subtle text-success' %}
+                    {% elif log.accion in ['EDITAR', 'REPROGRAMAR', 'REASIGNAR'] %}
+                        {% set action_class = 'bg-warning-subtle text-warning' %}
+                    {% endif %}
+                    <span class="badge {{ action_class }} border-0 px-2 py-1 text-xs fw-bold">
+                        {{ log.accion }}
+                    </span>
+                </td>
+                <td>
+                    <div class="text-truncate small text-muted" style="max-width: 400px;" title="{{ log.detalles }}">
+                        {{ log.detalles or '---' }}
+                    </div>
+                </td>
+                <td class="pe-4">
+                    <code class="text-xs text-muted">{{ log.ip or 'N/A' }}</code>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" class="text-center py-5">
+                    <div class="d-flex flex-column align-items-center text-muted">
+                        <i class="fas fa-history fa-3x mb-3 opacity-25"></i>
+                        <p class="mb-0">No se encontraron registros de actividad con los filtros actuales.</p>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

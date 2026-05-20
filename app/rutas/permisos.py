@@ -37,10 +37,6 @@ def para_modulo(modulo: str | ModuloSistema, accion: str = "editar") -> Callable
                 detail="Usuario no encontrado en la base de datos",
             )
             
-        # Eliminamos el bypass de admin para que el backend sea estrictamente reactivo a los checkboxes.
-        # if usuario.rol == "admin":
-        #    return usuario
-            
         # Determinar qué lista revisar dinámicamente
         lista_permisos = getattr(usuario, f"permisos_{accion}", []) or []
         

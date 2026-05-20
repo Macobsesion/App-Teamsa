@@ -4,12 +4,12 @@ Proveen campos y lógica estándar para documentos transaccionales (Cotizaciones
 """
 from decimal import Decimal
 from typing import List, Protocol, TYPE_CHECKING
-from sqlmodel import Field
+from sqlmodel import Field, SQLModel
 
 if TYPE_CHECKING:
     from app.base.impuestos import CalculadoraImpuestos
 
-class MixinDetalleFinanciero:
+class MixinDetalleFinanciero(SQLModel):
     """
     Mixin para items/detalles de una transacción (ej. Concepto de Cotización).
     Provee campos: cantidad, precio_unitario, descuento_porcentaje, importe.
@@ -34,7 +34,7 @@ class ItemFinanciero(Protocol):
     precio_unitario: Decimal
 
 
-class MixinDocumentoFinanciero:
+class MixinDocumentoFinanciero(SQLModel):
     """
     Mixin para cabeceras de documentos financieros.
     Provee campos: subtotal, descuento_global, iva, total.

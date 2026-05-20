@@ -10,6 +10,7 @@ from app.modulos.viaticos.viaticos_modelo import Viatico
 from app.modulos.viaticos.viaticos_esquemas import ViaticoCreate, ViaticoUpdate, ViaticoRead
 from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.rutas.permisos import para_modulo
 
 descriptor = DescriptorCRUD[Viatico, ViaticoCreate, ViaticoUpdate, ViaticoRead, UsuarioIdentity](
     label="Viáticos",
@@ -26,18 +27,29 @@ descriptor = DescriptorCRUD[Viatico, ViaticoCreate, ViaticoUpdate, ViaticoRead, 
     },
     campo_busqueda="folio",
     config_ui=ConfiguracionUI(
-        columnas_incluir=["folio", "origen", "fecha_salida", "total", "estado", "id"],
-        boton_crear=None  # Deshabilitar creación directa independiente
+        topic="viaticos",
+        columnas_incluir=["folio", "origen", "fecha_salida", "fecha_regreso", "total", "estado"],
+        boton_crear={"texto": "📋 Crear desde Cotización", "url": "/ui/cotizaciones", "modal": False},
     )
 )
 
 def obtener_contexto_viaticos(db: Session) -> dict[str, Any]:
     from app.modulos.clientes.clientes_modelo import Cliente
     from app.modulos.usuarios.usuarios_modelo import Usuario
+    from app.base.catalogos import ESTADOS_MEXICO
     return {
         "clientes": db.exec(select(Cliente).order_by(Cliente.nombre)).all(),
         "usuarios": db.exec(select(Usuario).order_by(Usuario.nombres)).all(),
-        "opciones_transporte": [{"id": e, "nombre": e} for e in ["Camión", "Avión", "Taxi", "Auto Rentado"]],
+        "estados": [{"id": e, "nombre": e} for e in ESTADOS_MEXICO],
+        "opciones_transporte": [{"id": e, "nombre": e} for e in [
+            "Vehículo Empresa", 
+            "Vehículo Personal", 
+            "Avión", 
+            "Autobús", 
+            "Taxi / Uber", 
+            "Auto Rentado", 
+            "Otro"
+        ]],
         "cotizaciones": [] # Se llena dinámicamente vía HTMX, o en Update se podría cargar una por defecto
     }
 
@@ -51,16 +63,40 @@ TEMPLATES = get_templates()
 def ver_detalle_viatico(
     id: int,
     request: Request,
-    db: Session = Depends(obtener_sesion_bd)
+    db: Session = Depends(obtener_sesion_bd),
+    usuario = Depends(para_modulo("viaticos", "ver"))
 ):
     repo = RepositorioViatico(db)
     viatico = repo.obtener_por_id(id)
-    return TEMPLATES.TemplateResponse("ui/viaticos/detalle.html", {"request": request, "viatico": viatico})
+    if not viatico:
+        from app.base.excepciones import RecursoNoEncontradoError
+        raise RecursoNoEncontradoError(f"Viático con ID {id} no encontrado")
+    
+    # Contexto RBAC
+    perms_edit = getattr(usuario, "permisos_editar", []) or []
+    perms_delete = getattr(usuario, "permisos_eliminar", []) or []
+    
+    puede_editar = "viaticos" in perms_edit
+    puede_eliminar = "viaticos" in perms_delete
+    es_admin = getattr(usuario, "rol", "") == "admin"
+
+    return TEMPLATES.TemplateResponse(
+        "ui/viaticos/detalle.html", 
+        {
+            "request": request, 
+            "viatico": viatico, 
+            "usuario": usuario,
+            "puede_editar": puede_editar,
+            "puede_eliminar": puede_eliminar,
+            "es_admin": es_admin
+        }
+    )
 
 @router_ui_extras.get("/cotizaciones-cliente-html")
 def opciones_cotizaciones_por_cliente(
     cliente_id: int, 
-    db: Session = Depends(obtener_sesion_bd)
+    db: Session = Depends(obtener_sesion_bd),
+    _usuario = Depends(para_modulo("viaticos", "ver"))
 ):
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
     from fastapi.responses import HTMLResponse
@@ -76,32 +112,98 @@ def opciones_cotizaciones_por_cliente(
         html += f'<option value="{c.id}">{c.numero}</option>'
     return HTMLResponse(content=html)
 
+@router_ui_extras.get("/ot-disponibles-html")
+def ot_disponibles_por_cotizacion(
+    cotizacion_id: int,
+    viatico_id: int | None = None,
+    db: Session = Depends(obtener_sesion_bd),
+    _usuario = Depends(para_modulo("viaticos", "ver"))
+):
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
+    from fastapi.responses import HTMLResponse
+    repo_ot = RepositorioOrden(db)
+    ots = repo_ot.obtener_por_cotizacion(cotizacion_id)
+    
+    seleccionados = set()
+    if viatico_id:
+        from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+        repo_v = RepositorioViatico(db)
+        v = repo_v.obtener_por_id(viatico_id)
+        if v:
+            seleccionados = {ot.id for ot in v.rutas_ot}
+
+    if not ots:
+        return HTMLResponse(content='<p class="text-muted small italic p-2 border rounded bg-light">No hay órdenes de trabajo generadas para esta cotización.</p>')
+    
+    html = '<div class="row g-2">'
+    for ot in ots:
+        fecha_str = ot.fecha_programada.isoformat() if ot.fecha_programada else ""
+        checked = "checked" if ot.id in seleccionados else ""
+        html += f'''
+        <div class="col-12 mb-2">
+            <div class="form-check p-3 border rounded shadow-sm bg-white ot-card-link" data-fecha="{fecha_str}" style="cursor: pointer; transition: all 0.2s; border-left: 4px solid #7ed6df !important;">
+                <input class="form-check-input ms-0 me-3" type="checkbox" name="ot_ids" value="{ot.id}" id="ot_{ot.id}" {checked} style="transform: scale(1.3); cursor: pointer;">
+                <label class="form-check-label small w-100" for="ot_{ot.id}" style="cursor: pointer;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-primary" style="font-size: 0.95rem;">{ot.numero_ot}</span>
+                        <span class="badge {'bg-success text-white' if ot.estado == 'finalizada' else 'bg-warning text-dark'} px-2 py-1" style="font-size: 0.75rem;">{ot.estado.upper()}</span>
+                    </div>
+                    <div class="text-muted mt-2 d-flex align-items-center">
+                        <i class="far fa-calendar-alt me-2 text-info"></i> 
+                        <span class="fw-medium">{ot.fecha_programada.strftime('%d/%m/%Y') if ot.fecha_programada else 'S/F'}</span>
+                        <span class="ms-auto text-muted small"><i class="fas fa-chevron-right opacity-50"></i></span>
+                    </div>
+                </label>
+            </div>
+        </div>
+'''
+    html += '</div>'
+    return HTMLResponse(content=html)
+
+@router_api_extras.get("/{id}/pdf/responsiva")
+@router_api_extras.get("/{id}/pdf/responsiva/")
+def descargar_pdf_responsiva(
+    id: int,
+    db: Session = Depends(obtener_sesion_bd),
+    _usuario = Depends(para_modulo("viaticos", "ver"))
+):
+    """Genera y descarga la responsiva de viáticos en PDF."""
+    from app.modulos.viaticos.pdf_generator import generar_pdf_viatico_responsiva
+    from fastapi import Response
+    
+    pdf_bytes = generar_pdf_viatico_responsiva(id, db)
+    viatico = db.get(Viatico, id)
+    filename = f"RESPONSIVA-{viatico.folio}.pdf"
+    
+    # Auditoría: Descarga de responsiva
+    from app.base.logs_servicio import ServicioLogs
+    from app.rutas.dependencias import dp_usuario_actual
+    ServicioLogs.registrar(usuario=_usuario.usuario, accion="DESCARGAR", modulo="viaticos", detalles=f"Responsiva PDF {filename}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'}
+    )
+
 @router_api_extras.post("/{id}/{accion}")
 def cambiar_estado_viatico(
     id: int,
     accion: str,
-    db: Session = Depends(obtener_sesion_bd)
+    db: Session = Depends(obtener_sesion_bd),
+    usuario: UsuarioIdentity = Depends(para_modulo("viaticos", "editar"))
 ):
-    repo = RepositorioViatico(db)
-    viatico = repo.obtener_por_id(id)
-    from app.base.excepciones import ReglaNegocioError
-    
-    if accion == "solicitar" and viatico.estado == "borrador":
-        viatico.estado = "solicitado"
-    elif accion == "aprobar" and viatico.estado in ["borrador", "solicitado"]:
-        viatico.estado = "aprobado"
-    elif accion == "cancelar" and viatico.estado != "cancelado":
-        viatico.estado = "cancelado"
-    else:
-        raise ReglaNegocioError(f"No se puede {accion} el viático en estado {viatico.estado}")
-        
-    repo.guardar(viatico)
-    return viatico
+    from app.modulos.viaticos.viaticos_servicios import ServicioViaticos
+    srv = ServicioViaticos(db)
+    return srv.cambiar_estado(id, accion, usuario.nombre)
 
 @router_api_extras.get("/disponibles-para-cotizacion")
-def obtener_viaticos_disponibles(request: Request, db: Session = Depends(obtener_sesion_bd)):
-    """Obtiene viáticos útiles para ser importados a una cotización."""
-    viaticos = db.exec(select(Viatico).where(Viatico.estado != "cancelado")).all()
+def obtener_viaticos_disponibles(
+    db: Session = Depends(obtener_sesion_bd),
+    _usuario: UsuarioIdentity = Depends(para_modulo("viaticos", "ver"))
+):
+    from app.modulos.viaticos.enums import EstadoViatico
+    viaticos = db.exec(select(Viatico).where(Viatico.estado != EstadoViatico.CANCELADO.value)).all()
     return [{"id": v.id, "folio": v.folio, "proyecto": v.proyecto or "Viaje Múltiple", "total": float(v.total or 0)} for v in viaticos]
 
 router = crear_modulo_crud_estandar(
@@ -109,5 +211,5 @@ router = crear_modulo_crud_estandar(
     nombre_modulo="viaticos",
     include_select_endpoint=True,
     extra_context_provider=obtener_contexto_viaticos,
-    routers_adicionales=[router_api_extras, router_ui_extras]
+    routers_prioritarios=[router_api_extras, router_ui_extras]
 )

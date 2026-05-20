@@ -1,0 +1,118 @@
+{# web/templates/ui/macros/components.html #}
+{# Componentes UI compartidos y utilidades visuales de TEAMSA #}
+
+{% macro status_badge(estado, modulo=none, size='md', animate=true) %}
+{# Capturamos extra_class de kwargs si existe para evitar errores de firma #}
+{% set extra_class = kwargs.get('extra_class', '') %}
+
+{# Lógica de colores por estado estandarizada #}
+{% set color = 'secondary' %}
+{% set icon = 'circle' %}
+{% set estado_val = estado if (estado and estado != 'None') else 'N/A' %}
+{% set label = estado_val | capitalize %}
+{% set estado_l = estado_val | lower %}
+
+{# Mapeo de Colores y Iconos #}
+{% if estado_l == 'borrador' %}
+{% set color = 'dark' %}
+{% set icon = 'pencil' %}
+{% elif estado_l == 'emitida' %}
+{% set color = 'primary' %}
+{% set icon = 'paper-plane' %}
+{% elif estado_l in ['programada', 'programado'] %}
+{% set color = 'info' %}
+{% set icon = 'calendar-alt' %}
+{% elif estado_l == 'en_curso' %}
+{% set color = 'primary' %}
+{% set icon = 'play-circle' %}
+{% set label = 'En Curso' %}
+{% elif estado_l == 'fase_final' %}
+{% set color = 'warning' %}
+{% set icon = 'hourglass-end' %}
+{% set label = 'Fase Final' %}
+{% elif estado_l in ['aprobado'] %}
+{% set color = 'success' %}
+{% set icon = 'check-double' %}
+{% elif estado_l in ['finalizada', 'finalizado', 'completada', 'recibida'] %}
+{% set color = 'success' %}
+{% set icon = 'flag-checkered' %}
+{% elif estado_l in ['cancelada', 'cancelado', 'rechazada'] %}
+{% set color = 'danger' %}
+{% set icon = 'ban' %}
+{% elif estado_l == 'parcial' %}
+{% set color = 'info' %}
+{% set icon = 'boxes' %}
+{% set label = 'Recibido Parcial' %}
+{% elif estado_l == 'solicitado' %}
+{% set color = 'warning' %}
+{% set icon = 'hand-holding-usd' %}
+{% if modulo == 'viatico' %}
+{% set label = 'Recursos Solicitados' %}
+{% endif %}
+{% elif estado_l == 'modificada' %}
+{% set color = 'secondary' %}
+{% set icon = 'history' %}
+{% endif %}
+
+<span class="badge rounded-pill bg-{{ color }}-subtle text-{{ color }} border border-{{ color }} 
+    {{ 'badge-' + size if size != 'md' else '' }} 
+    {{ 'status-pulse' if animate and estado_l in ['programada', 'en_curso'] else '' }}
+    {{ extra_class }}">
+  <i class="fas fa-{{ icon }} me-1"></i>
+  {{ label }}
+</span>
+{% endmacro %}
+
+{% macro card_resumen_totales(subtotal, iva, total, descuento=0) %}
+<div class="card shadow-sm border-0 overflow-hidden">
+  <div class="card-header bg-teamsa-gradient text-white py-2">
+    <h6 class="mb-0 text-sm"><i class="fas fa-calculator me-2"></i>Resumen Financiero</h6>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0">
+      <tr class="border-bottom">
+        <td class="ps-3 py-2 text-muted text-xs">Subtotal:</td>
+        <td class="pe-3 py-2 text-end fw-bold text-sm">${{ subtotal | fmt_currency }}</td>
+      </tr>
+      {% if descuento > 0 %}
+      <tr class="border-bottom">
+        <td class="ps-3 py-2 text-muted text-xs">Descuento:</td>
+        <td class="pe-3 py-2 text-end text-danger text-sm">-${{ descuento | fmt_currency }}</td>
+      </tr>
+      {% endif %}
+      <tr class="border-bottom">
+        <td class="ps-3 py-2 text-muted text-xs">IVA (16%):</td>
+        <td class="pe-3 py-2 text-end text-sm">${{ iva | fmt_currency }}</td>
+      </tr>
+      <tr class="bg-light">
+        <td class="ps-3 py-3 text-teamsa-primary fw-bold">TOTAL:</td>
+        <td class="pe-3 py-3 text-end text-teamsa-primary fw-bold fs-5">${{ total | fmt_currency }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+{% endmacro %}
+
+
+{% macro money(amount) %}
+<span class="fw-bold text-dark">{{ amount | fmt_currency }}</span>
+{% endmacro %}
+
+
+{% macro info_row(label, value) %}
+<tr>
+  <td class="text-muted small border-0 py-1" style="width: 40%;">{{ label }}:</td>
+  <td class="fw-bold text-dark border-0 py-1">{{ value }}</td>
+</tr>
+{% endmacro %}
+
+{% macro totals_row(label, value, is_total=False) %}
+<tr class="{{ 'table-primary border-top border-2' if is_total else 'border-bottom' }}">
+  <td
+    class="ps-3 py-2 text-muted {{ 'fw-bold text-teamsa-primary fs-6' if is_total else 'text-xs uppercase-letter-spacing' }}">
+    {{ label }}:</td>
+  <td class="pe-3 py-2 text-end {{ 'fw-bold text-teamsa-primary fs-5' if is_total else 'text-sm fw-medium' }}">
+    {{ value | fmt_currency }}
+  </td>
+</tr>
+{% endmacro %}

@@ -42,7 +42,7 @@
             </div>
             <div class="info-row">
                 <div class="info-label">Hora Programada</div>
-                <div class="info-value">{{ ot.hora_programada }} ({{ ot.duracion }}h est.)</div>
+                <div class="info-value">{{ ot.hora_programada }} ({{ ot.duracion }}{{ 'h' if not ot.unidad_duracion or ot.unidad_duracion == 'horas' else ' días' }} est.)</div>
             </div>
             <div class="info-row">
                 <div class="info-label">Ref. Cotización</div>

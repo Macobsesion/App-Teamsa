@@ -1,0 +1,245 @@
+{% extends 'layouts/documento_detalle.html' %}
+{% import 'ui/macros/components.html' as comp %}
+
+{% block title %}OT {{ ot.numero_ot }}{% endblock %}
+
+{% block header_title %}Orden de Trabajo {{ ot.numero_ot }}{% endblock %}
+
+{% block header_subtitle %}
+Cliente: <strong>{{ ot.cliente_nombre }}</strong>
+{% if 'cotizaciones' in (usuario.permisos_ver or []) %}
+<br>
+<small class="text-secondary">Ref. Cotización:
+    <a href="/ui/cotizaciones/{{ ot.cotizacion_id }}/detalle" class="text-decoration-none">
+        <i class="fas fa-file-invoice me-1"></i>{{ ot.cotizacion.numero }} 🔗
+    </a>
+</small>
+{% endif %}
+{% endblock %}
+
+{% block status_badge %}
+{{ comp.status_badge(ot.estado_visual, extra_class='fs-5') }}
+{% if ot.esta_en_viaje %}
+<span class="badge bg-info text-dark shadow-sm border border-info border-opacity-50 fs-5 ms-2">
+    <i class="fas fa-plane-departure me-1"></i> Viaje en Curso
+</span>
+{% endif %}
+{% endblock %}
+
+{% block items_title %}🛠️ Servicios de esta OT{% endblock %}
+
+{% block items_content %}
+<div class="table-responsive">
+    {% if ot.conceptos %}
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Descripción</th>
+                <th class="text-center">Cant.</th>
+                <th class="text-center">Estado</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="conceptos-ot-{{ ot.id }}">
+            {% for concepto in ot.conceptos %}
+            {% include 'ui/ordenes_trabajo/_fila_concepto.html' %}
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="text-center text-muted py-4">
+        <p>Esta OT no tiene conceptos registrados.</p>
+        <small>Los conceptos se seleccionan al crear la OT desde la cotización.</small>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block totals_content %}
+{# Se eliminó el recuadro de importes por solicitud del usuario #}
+{% endblock %}
+
+{% block info_content %}
+{{ comp.info_row('Fecha Programada', ot.fecha_programada | fmt_date) }}
+{{ comp.info_row('Horario', ot.hora_programada + ' (' + ot.duracion|string + ('h' if not ot.unidad_duracion or
+ot.unidad_duracion == 'horas' else ' días') + ' estimadas)') }}
+{{ comp.info_row('Domicilio', ot.domicilio) }}
+{{ comp.info_row('Contacto', ot.contacto) }}
+
+{# Fila de Técnico — Especial para OT #}
+<tr>
+    <td class="text-muted">Técnico:</td>
+    <td>
+        {% if ot.tecnico_nombre %}
+        <span class="badge bg-info text-dark">{{ ot.tecnico_nombre }}</span>
+        {% else %}
+        <span class="text-muted fst-italic">Sin asignar</span>
+        {% endif %}
+
+        {% if ot.es_editable and es_admin %}
+        <div class="mt-2 d-flex gap-1 align-items-center">
+            <select id="select-tecnico-{{ ot.id }}" class="form-select text-xs" style="max-width: 150px;">
+                <option value="">-- Reasignar --</option>
+            </select>
+            <button class="btn btn-outline-primary text-xs" data-accion="reasignar" data-ot-id="{{ ot.id }}" title="Asignar Técnico">
+                OK
+            </button>
+            <button class="btn btn-outline-secondary text-xs ms-2" data-bs-toggle="modal" data-bs-target="#modalReprogramar" title="Cambiar Fecha/Hora">
+                <i class="fas fa-calendar-day me-1"></i> Reprogramar
+            </button>
+        </div>
+        {% endif %}
+    </td>
+</tr>
+{% endblock %}
+
+{% block extra_info %}
+{# Viáticos Asignados #}
+{% if ot.viaticos %}
+<div class="mt-3 p-2 rounded border-info border bg-info bg-opacity-10">
+    <h6 class="mb-1 text-sm"><i class="fas fa-plane-departure text-info me-2"></i>Viaje Programado</h6>
+    {% for v in ot.viaticos %}
+    <div class="d-flex justify-content-between align-items-center">
+        <small>
+            <strong>{{ v.proyecto or 'Arqueo Viáticos' }}</strong><br>
+            <span class="text-muted">{{ v.origen }} ➔ {{ v.destino }}</span>
+        </small>
+        <a href="/ui/viaticos/{{ v.id }}/detalle" class="btn btn-xs btn-outline-info p-1 text-2xs"
+            title="Ver Detalle">VER ✈️</a>
+    </div>
+    {% if not loop.last %}
+    <hr class="my-1 opacity-25">{% endif %}
+    {% endfor %}
+</div>
+{% endif %}
+
+{# Notas #}
+{% if ot.notas_publicas %}
+<div class="mt-3">
+    <small class="text-muted fw-bold">Notas Públicas:</small>
+    <div class="p-2 bg-light rounded border-start border-3 border-info text-sm">
+        {{ ot.notas_publicas }}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block pdf_url %}/api/ordenes-trabajo/{{ ot.id }}/pdf{% endblock %}
+{% block pdf_url_download %}/api/ordenes-trabajo/{{ ot.id }}/pdf{% endblock %}
+
+{% block actions_content %}
+{% if ot.estado not in ['finalizada', 'cancelada'] and puede_editar %}
+<button type="button" class="btn btn-success" data-accion-proceso="finalizar" data-ot-id="{{ ot.id }}">
+    ✅ Finalizar Trabajo
+</button>
+
+{% if es_admin %}
+<button type="button" class="btn btn-outline-danger" data-accion-proceso="cancelar" data-ot-id="{{ ot.id }}">
+    ❌ Cancelar Orden
+</button>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block back_button %}
+<a href="/ordenes-trabajo" class="btn btn-outline-secondary">
+    ← Volver a Listado
+</a>
+{% endblock %}
+
+{% block customJS %}
+<script>
+    // Cargar técnicos disponibles en el select
+    document.addEventListener('DOMContentLoaded', async function () {
+        const selects = document.querySelectorAll('[id^="select-tecnico-"]');
+        const container = document.getElementById('ot-data-container');
+        const tecnicoActualId = container ? container.getAttribute('data-tecnico-actual') : "";
+
+        if (!selects.length) return;
+
+        try {
+            const resp = await fetch('/api/ordenes-trabajo/tecnicos');
+            const tecnicos = await resp.json();
+            selects.forEach(select => {
+                tecnicos.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.id;
+                    opt.textContent = t.nombres;
+                    if (String(t.id) === tecnicoActualId) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            });
+        } catch (e) {
+            console.error('Error cargando técnicos:', e);
+        }
+    });
+
+    // Delegación de eventos para botones de acción
+    document.addEventListener('click', async function (e) {
+        // Reasignar técnico
+        const btnReasignar = e.target.closest('[data-accion="reasignar"]');
+        if (btnReasignar) {
+            const ordenId = btnReasignar.getAttribute('data-ot-id');
+            const select = document.getElementById('select-tecnico-' + ordenId);
+            const tecnicoId = select.value ? parseInt(select.value) : null;
+            await reasignarTecnico(ordenId, tecnicoId);
+        }
+
+        // Cambiar estado (Finalizar/Cancelar)
+        const btnEstado = e.target.closest('[data-accion-proceso]');
+        if (btnEstado) {
+            const ordenId = btnEstado.getAttribute('data-ot-id');
+            const accion = btnEstado.getAttribute('data-accion-proceso');
+            await cambiarEstadoOT(ordenId, accion);
+        }
+    });
+
+    async function reasignarTecnico(ordenId, tecnicoId, fuerza = false) {
+        try {
+            const resp = await fetch(`/api/ordenes-trabajo/${ordenId}/tecnico`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tecnico_id: tecnicoId, fuerza: fuerza })
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                const err = await resp.json();
+                if (err.codigo === 'EMPALME_HORARIO' && !fuerza) {
+                    if (confirm(`${err.detail}\n\n¿Deseas asignar de todos modos?`)) {
+                        await reasignarTecnico(ordenId, tecnicoId, true);
+                    }
+                } else {
+                    alert('Error: ' + (err.detail || 'No se pudo reasignar'));
+                }
+            }
+        } catch (e) {
+            alert('Error de conexión al reasignar técnico');
+        }
+    }
+
+    async function cambiarEstadoOT(ordenId, accion) {
+        let msg = accion === 'finalizar'
+            ? '¿Estás seguro de FINALIZAR esta OT? Se cerrará el trabajo y actualizará la cotización. Esta acción es irreversible.'
+            : '¿Estás seguro de CANCELAR esta OT? Esta acción es irreversible.';
+        if (!confirm(msg)) return;
+
+        try {
+            const resp = await fetch(`/api/ordenes-trabajo/${ordenId}/${accion}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                const err = await resp.json();
+                alert('Error: ' + (err.detail || `No se pudo ${accion} la OT`));
+            }
+        } catch (e) {
+            alert(`Error de conexión al intentar ${accion} la OT`);
+        }
+    }
+</script>
+{% include 'ui/ordenes_trabajo/_modal_reprogramar.html' %}
+<div id="ot-data-container" data-tecnico-actual="{{ ot.tecnico_id or '' }}" style="display:none;"></div>
+{% endblock %}

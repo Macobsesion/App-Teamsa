@@ -20,7 +20,9 @@
             {% set info_ot = estado_conceptos.get(concepto.id) if estado_conceptos is defined else none %}
             {% set es_libre = info_ot is none %}
             {% set esta_completado = info_ot and info_ot.estado == 'completado' %}
-            <tr id="concepto-{{ concepto.id }}" class="{{ '' if es_libre else 'table-secondary' }}">
+            <tr id="concepto-{{ concepto.id }}" 
+                class="{{ '' if es_libre else 'table-secondary' }}"
+                data-viatico-id="{{ concepto.viatico_id or '' }}">
                 <td>
                     {% if es_libre %}
                     <input type="checkbox" class="form-check-input concepto-check" name="concepto_ids"
@@ -30,12 +32,12 @@
                 <td>
                     <strong>{{ concepto.descripcion }}</strong><br>
                     <small class="text-muted">
-                        SAT: {{ concepto.codigo_sat }} | Unidad: {{ concepto.unidad }}
+                        SAT: {{ concepto.codigo_sat | fmt_none }} | Unidad: {{ concepto.unidad | fmt_none }}
                     </small>
                 </td>
                 <td class="text-center">{{ concepto.cantidad }}</td>
-                <td class="text-end">${{ "%.2f"|format(concepto.precio_unitario) }}</td>
-                <td class="text-end"><strong>${{ "%.2f"|format(concepto.importe) }}</strong></td>
+                <td class="text-end">${{ concepto.precio_unitario | fmt_currency }}</td>
+                <td class="text-end"><strong>${{ concepto.importe | fmt_currency }}</strong></td>
                 <td class="text-center">
                     {% if esta_completado %}
                     <span class="badge bg-success">
@@ -43,7 +45,7 @@
                     </span>
                     <br><small class="text-muted">{{ info_ot.numero_ot }}</small>
                     {% elif info_ot %}
-                    <a href="/ui/ordenes/{{ info_ot.orden_id }}/detalle"
+                    <a href="/ui/ordenes-trabajo/{{ info_ot.orden_id }}/detalle"
                         class="badge bg-warning text-dark text-decoration-none">
                         🔧 {{ info_ot.numero_ot }}
                     </a>

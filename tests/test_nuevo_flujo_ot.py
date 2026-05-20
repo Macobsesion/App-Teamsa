@@ -8,10 +8,10 @@ Tests para el nuevo flujo de Órdenes de Trabajo:
 import pytest
 from decimal import Decimal
 from datetime import date, datetime
-from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo, ConceptoOrdenTrabajo
-from app.modulos.ordenes.enums import EstadoConceptoOT
-from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
-from app.modulos.ordenes.ordenes_servicios import (
+from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo, ConceptoOrdenTrabajo
+from app.modulos.ordenes_trabajo.enums import EstadoConceptoOT
+from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
+from app.modulos.ordenes_trabajo.ordenes_trabajo_servicios import (
     ServicioOrdenes, EmpalmeError, ConceptoYaAsignadoError, ConceptoCompletadoError
 )
 from app.modulos.cotizaciones.enums import EstadoCotizacion
@@ -94,7 +94,7 @@ def test_crear_ot_con_conceptos_seleccionados(session, cotizacion_base, servicio
         "concepto_ids": concepto_ids,
     }
 
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201), resp.json()
 
     data = resp.json()
@@ -121,7 +121,7 @@ def test_crear_ot_con_tecnico(session, cotizacion_base, tecnico, admin_client):
         "tecnico_id": tecnico.id,
     }
 
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201), resp.json()
 
     data = resp.json()
@@ -217,7 +217,7 @@ def test_empalme_via_endpoint_retorna_409(session, cotizacion_base, tecnico, adm
         "concepto_ids": [],
         "tecnico_id": tecnico.id,
     }
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code == 409, resp.json()
     assert "empalme" in resp.json()["detail"].lower() or "ot" in resp.json()["detail"].lower()
 
@@ -240,7 +240,7 @@ def test_concepto_ya_asignado_retorna_409(session, cotizacion_base, admin_client
     }
 
     # Primera OT — OK
-    resp1 = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload_base)
+    resp1 = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload_base)
     assert resp1.status_code in (200, 201), resp1.json()
 
     # Segunda OT con el mismo concepto — diferente día para evitar colisión de folio
@@ -251,7 +251,7 @@ def test_concepto_ya_asignado_retorna_409(session, cotizacion_base, admin_client
         "hora_programada": "16:00",
         "fecha_programada": str(date.today() + timedelta(days=1)),
     }
-    resp2 = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload2)
+    resp2 = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload2)
     assert resp2.status_code == 409, resp2.json()
 
 
@@ -273,7 +273,7 @@ def test_completar_concepto_irreversible(session, cotizacion_base, admin_client)
         "duracion": 1,
         "concepto_ids": [concepto.id],
     }
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201), resp.json()
 
     ot_id = resp.json()["id"]
@@ -281,7 +281,7 @@ def test_completar_concepto_irreversible(session, cotizacion_base, admin_client)
 
     # Completar
     resp_completar = admin_client.post(
-        f"/api/ordenes/{ot_id}/conceptos/{concepto_ot_id}/completar"
+        f"/api/ordenes-trabajo/{ot_id}/conceptos/{concepto_ot_id}/completar"
     )
     assert resp_completar.status_code == 200, resp_completar.json()
     data = resp_completar.json()
@@ -290,7 +290,7 @@ def test_completar_concepto_irreversible(session, cotizacion_base, admin_client)
 
     # Intentar completar de nuevo — debe ser 409
     resp_doble = admin_client.post(
-        f"/api/ordenes/{ot_id}/conceptos/{concepto_ot_id}/completar"
+        f"/api/ordenes-trabajo/{ot_id}/conceptos/{concepto_ot_id}/completar"
     )
     assert resp_doble.status_code == 409, resp_doble.json()
 
@@ -308,13 +308,13 @@ def test_completar_concepto_registra_usuario(session, cotizacion_base, admin_cli
         "duracion": 1,
         "concepto_ids": [concepto.id],
     }
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201)
 
     ot_id = resp.json()["id"]
     c_ot_id = resp.json()["conceptos"][0]["id"]
 
-    resp_c = admin_client.post(f"/api/ordenes/{ot_id}/conceptos/{c_ot_id}/completar")
+    resp_c = admin_client.post(f"/api/ordenes-trabajo/{ot_id}/conceptos/{c_ot_id}/completar")
     assert resp_c.status_code == 200
     assert resp_c.json()["completado_por"] is not None
     assert resp_c.json()["fecha_completado"] is not None
@@ -337,7 +337,7 @@ def test_auto_finalizar_ot_al_completar_todos_conceptos(session, cotizacion_base
         "duracion": 2,
         "concepto_ids": concepto_ids,
     }
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201)
     
     ot_data = resp.json()
@@ -353,19 +353,19 @@ def test_auto_finalizar_ot_al_completar_todos_conceptos(session, cotizacion_base
     # No la revisaremos aquí (se prueba en otro lado o confiaremos en el evento final)
     
     # Completar primer concepto
-    resp_c1 = admin_client.post(f"/api/ordenes/{ot_id}/conceptos/{c1_id}/completar")
+    resp_c1 = admin_client.post(f"/api/ordenes-trabajo/{ot_id}/conceptos/{c1_id}/completar")
     assert resp_c1.status_code == 200
     
     # Verificar que la OT sigue sin estar finalizada (falta el c2)
-    resp_ot_1 = admin_client.get(f"/api/ordenes/{ot_id}")
+    resp_ot_1 = admin_client.get(f"/api/ordenes-trabajo/{ot_id}")
     assert resp_ot_1.json()["estado"] != "finalizada"
     
     # Completar segundo concepto
-    resp_c2 = admin_client.post(f"/api/ordenes/{ot_id}/conceptos/{c2_id}/completar")
+    resp_c2 = admin_client.post(f"/api/ordenes-trabajo/{ot_id}/conceptos/{c2_id}/completar")
     assert resp_c2.status_code == 200
     
     # Ahora la OT debe estar finalizada
-    resp_ot_2 = admin_client.get(f"/api/ordenes/{ot_id}")
+    resp_ot_2 = admin_client.get(f"/api/ordenes-trabajo/{ot_id}")
     assert resp_ot_2.json()["estado"] == "finalizada"
     
     # Y la cotización también (vía evento EVENTO_ORDEN_FINALIZADA)
@@ -387,12 +387,12 @@ def test_cancelar_ot_y_revertir_cotizacion(session, cotizacion_base, admin_clien
         "duracion": 1,
         "concepto_ids": [],
     }
-    resp = admin_client.post("/api/ordenes/crear-desde-cotizacion", json=payload)
+    resp = admin_client.post("/api/ordenes-trabajo/crear-desde-cotizacion", json=payload)
     assert resp.status_code in (200, 201)
     ot_id = resp.json()["id"]
     
     # Cancelar la OT
-    resp_cancelar = admin_client.post(f"/api/ordenes/{ot_id}/cancelar")
+    resp_cancelar = admin_client.post(f"/api/ordenes-trabajo/{ot_id}/cancelar")
     assert resp_cancelar.status_code == 200
     assert resp_cancelar.json()["estado"] == "cancelada"
     

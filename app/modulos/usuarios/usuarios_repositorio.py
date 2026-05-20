@@ -55,4 +55,19 @@ class RepositorioUsuario(RepositorioCRUD[Usuario]):
             del cambios_procesados["contrasena"]
             
         return cambios_procesados
-
+    def eliminar(self, entidad_id: int) -> None:
+        """
+        Elimina un usuario con guardias de seguridad para evitar pérdida de acceso.
+        """
+        from app.base.excepciones import ReglaNegocioError
+        
+        usuario_bd = self.obtener_por_id(entidad_id)
+        
+        # 1. No permitir borrar el admin principal
+        if usuario_bd.usuario == "admin":
+            raise ReglaNegocioError("No se puede eliminar el usuario administrador principal.")
+        
+        # 2. Otros guardias (ej. no auto-borrado si tuviéramos acceso al actor_id aquí)
+        # Por ahora, nos enfocamos en el admin principal
+        
+        return super().eliminar(entidad_id)

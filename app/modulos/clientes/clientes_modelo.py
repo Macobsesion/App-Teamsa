@@ -18,6 +18,9 @@ class Cliente(ClienteBase, AuditMixin, table=True):
     """Cliente comercial."""
     
     id: int | None = Field(default=None, primary_key=True)
+    
+    # Configuración para evitar errores de Pydantic v2 con Value Objects no anotados
+    model_config = {"ignored_types": (Direccion,)} # type: ignore
 
     @field_validator("rfc", check_fields=False)
     @classmethod

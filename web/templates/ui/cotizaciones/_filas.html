@@ -1,64 +1,82 @@
-{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/tablas.html' import render_cuerpo_tabla %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
-{% import 'partials/components.html' as comp %}
-{% if items %}
-{% for item in items %}
-<tr>
-    <td><strong>{{ item.numero_version if item.numero_version else item.numero }}</strong></td>
-    <td>
-        {% if item.cliente %}
-        {{ item.cliente.nombre }}
-        {% if item.cliente.razon_social and item.cliente.razon_social != item.cliente.nombre %}
-        <br><small class="text-muted">{{ item.cliente.razon_social }}</small>
-        {% endif %}
-        {% else %}
-        <span class="text-muted">ID: {{ item.cliente_id }}</span>
-        {% endif %}
-        
-        {# Lista de Conceptos resumida #}
-        <div class="mt-1 d-flex flex-wrap gap-1">
-            {% for concepto in item.conceptos[:5] %}
-            <span class="badge bg-light text-dark border-0 shadow-sm" style="font-size: 0.7rem; background-color: #f8f9fa !important;">
-                {{ concepto.cantidad|int if concepto.cantidad % 1 == 0 else concepto.cantidad }}x {{ concepto.descripcion[:25] }}{{ '...' if concepto.descripcion|length > 25 }}
-            </span>
-            {% endfor %}
-            {% if item.conceptos|length > 5 %}
-            <span class="badge bg-light text-muted border-0" style="font-size: 0.7rem;">+{{ item.conceptos|length - 5 }} más</span>
+{% import 'ui/macros/components.html' as comp %}
+
+{% call render_cuerpo_tabla(columnas, items, pagina_actual, total_paginas, ui_base) %}
+    {% for item in items %}
+    <tr>
+        <td class="text-nowrap" style="width: 100px;">
+            <strong>{{ item.numero_version if item.numero_version else item.numero }}</strong>
+        </td>
+        <td style="min-width: 250px;">
+            {% if item.cliente %}
+            <strong>{{ item.cliente.nombre }}</strong>
+            {% if item.cliente.razon_social and item.cliente.razon_social != item.cliente.nombre %}
+            <br><small class="text-muted">{{ item.cliente.razon_social }}</small>
             {% endif %}
-        </div>
-    </td>
-    <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
-    <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
-    <td>
-        {{ comp.status_badge(item.estado) }}
-    </td>
-    {% set can_edit_negocio = item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
-    {% set btns_extra = [
-        {
-            'label': '📝', 
-            'label_full': 'Notas Privadas',
-            'extra_attrs': 'data-modulo="cotizaciones" data-id="' ~ item.id ~ '" data-folio="' ~ (item.numero_version | default(item.numero, true)) ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
-            'extra_clases': 'btn-notas-privadas-generico'
-        }
-    ] %}
-    {{ acciones(
-        ui_base, 
-        item.id, 
-        puede_editar, 
-        url_detalle='/ui/cotizaciones/' ~ item.id ~ '/detalle',
-        url_editar='/ui/cotizaciones/' ~ item.id ~ '/editar',
-        extras=btns_extra,
-        puede_eliminar=puede_eliminar,
-        delete_confirm='¿Eliminar cotización ' ~ item.numero ~ '?',
-        puede_editar_negocio=can_edit_negocio
-    ) }}
-</tr>
-{% endfor %}
-{% else %}
-<tr>
-    <td colspan="100" class="text-center text-muted py-3">
-        No hay cotizaciones. <a href="/ui/cotizaciones/wizard" class="text-decoration-none">✨ Crear la primera</a>
-    </td>
-</tr>
-{% endif %}
-{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}
+            {% else %}
+            <span class="text-muted">ID: {{ item.cliente_id }}</span>
+            {% endif %}
+            
+            {# Lista de Conceptos resumida #}
+            <div class="mt-1 d-flex flex-wrap gap-1">
+                {% for concepto in item.conceptos[:3] %}
+                <span class="badge badge-mini">
+                    {{ concepto.cantidad|int if concepto.cantidad % 1 == 0 else concepto.cantidad }}x {{ concepto.descripcion[:18] }}{{ '..' if concepto.descripcion|length > 18 }}
+                </span>
+                {% endfor %}
+                {% if item.conceptos|length > 3 %}
+                <span class="badge bg-light text-muted border-0 p-1 text-2xs" style="line-height: 1;">+{{ item.conceptos|length - 3 }}</span>
+                {% endif %}
+            </div>
+        </td>
+        <td style="width: 140px;">
+            {% if item.ordenes %}
+            <div class="d-flex flex-column gap-1">
+                {% for ot in item.ordenes %}
+                <a href="/ui/ordenes-trabajo/{{ ot.id }}/detalle" 
+                   hx-boost="false"
+                   class="text-decoration-none fw-bold text-info text-xs">
+                   {{ ot.numero_ot }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <span class="text-muted small italic">Sin asig.</span>
+            {% endif %}
+        </td>
+        <td class="text-nowrap" style="width: 100px;">{{ item.fecha_emision | fmt_date }}</td>
+        <td class="text-end text-nowrap" style="width: 120px;"><strong>${{ item.total | fmt_currency }}</strong></td>
+        <td class="text-center" style="width: 100px;">
+            {{ comp.status_badge(item.estado_visual or item.estado) }}
+        </td>
+        {% set can_edit_negocio = item.estado in ['borrador', 'emitida'] %}
+        {% set btns_extra = [] %}
+        {% if es_admin %}
+            {% set _ = btns_extra.append({
+                'label': '📝', 
+                'label_full': 'Notas Privadas',
+                'extra_attrs': 'data-modulo="cotizaciones" data-id="' ~ item.id ~ '" data-folio="' ~ (item.numero_version | default(item.numero, true)) ~ '" data-notas="' ~ (item.notas_privadas or '') ~ '"',
+                'extra_clases': 'btn-notas-privadas-generico'
+            }) %}
+        {% endif %}
+        {{ acciones(
+            ui_base, 
+            item.id, 
+            puede_editar, 
+            url_detalle='/ui/cotizaciones/' ~ item.id ~ '/detalle',
+            url_editar='/ui/cotizaciones/' ~ item.id ~ '/editar',
+            extras=btns_extra,
+            puede_eliminar=puede_eliminar,
+            delete_confirm='¿Eliminar cotización ' ~ item.numero ~ '?',
+            puede_editar_negocio=can_edit_negocio
+        ) }}
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="100" class="text-center text-muted py-3">
+            No hay cotizaciones. <a href="/ui/cotizaciones/wizard" class="text-decoration-none">✨ Crear la primera</a>
+        </td>
+    </tr>
+    {% endfor %}
+{% endcall %}

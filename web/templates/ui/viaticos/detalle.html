@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% import 'partials/components.html' as comp %}
+{% import 'ui/macros/components.html' as comp %}
 {% block title %}Viático {{ viatico.folio }}{% endblock %}
 
 {% block content %}
@@ -11,18 +11,20 @@
             <p class="text-muted mb-0">
                 Cliente: <strong>{{ viatico.cliente.nombre if viatico.cliente else 'N/A' }}</strong>
                 <br>
-                <small>Asignado a: {{ viatico.responsable.nombres if viatico.responsable else 'N/A' }}</small>
+                <small>Asignado a: {{ viatico.responsable.nombres if viatico.responsable else 'Pendiente' }}</small>
                 {% if viatico.rutas_ot %}
                 <br><small>Ref. OTs:
                     {% for ot in viatico.rutas_ot %}
-                    <span class="badge bg-secondary">{{ ot.numero_ot }}</span>
+                    <a href="/ui/ordenes-trabajo/{{ ot.id }}/detalle" class="text-decoration-none">
+                        <span class="badge bg-secondary">{{ ot.numero_ot }}</span>
+                    </a>
                     {% endfor %}
                 </small>
                 {% endif %}
             </p>
         </div>
         <div>
-            {{ comp.status_badge(viatico.estado, extra_class='fs-5') }}
+            {{ comp.status_badge(viatico.estado_visual, extra_class='fs-5') }}
         </div>
     </div>
 
@@ -30,8 +32,8 @@
         {# Columna izquierda: Resumen de Viaje #}
         <div class="col-lg-5">
             <div class="card shadow-sm mb-4">
-                <div class="card-header text-white" style="background-color: #4148C3;">
-                    <h5 class="mb-0">📍 Detalles del Viaje</h5>
+                <div class="card-header bg-teamsa-gradient">
+                    <h5 class="mb-0 text-white">📍 Detalles del Viaje</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-borderless mb-0">
@@ -45,11 +47,20 @@
                         </tr>
                         <tr>
                             <td class="text-muted">Fechas:</td>
-                            <td>{{ viatico.fecha_salida or 'N/A' }} al {{ viatico.fecha_regreso or 'N/A' }}</td>
+                            <td>{{ viatico.fecha_salida | fmt_date }} al {{ viatico.fecha_regreso | fmt_date }}</td>
                         </tr>
                         <tr>
                             <td class="text-muted">Personas:</td>
                             <td>{{ viatico.personas }} <i class="fas fa-users text-muted"></i></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Transporte:</td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="fas fa-route me-1 text-info"></i> {{ viatico.tipo_transporte or 'No
+                                    especificado' }}
+                                </span>
+                            </td>
                         </tr>
                     </table>
                 </div>
@@ -68,8 +79,8 @@
         {# Columna derecha: Totales Simplificados #}
         <div class="col-lg-7">
             <div class="card shadow-sm mb-4">
-                <div class="card-header text-white" style="background-color: #2D3748;">
-                    <h5 class="mb-0">💰 Distrubución de Arqueo</h5>
+                <div class="card-header bg-teamsa-gradient">
+                    <h5 class="mb-0 text-white">💰 Distribución de Gastos Calculados</h5>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-hover mb-0">
@@ -82,28 +93,33 @@
                         <tbody>
                             <tr>
                                 <td>🚗 Transporte (Combustible, Vuelos, Peajes)</td>
-                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_transporte or 0) }}
-                                </td>
+                                <td class="text-end text-danger">${{ viatico.costo_transporte | fmt_currency }}</td>
                             </tr>
                             <tr>
                                 <td>🏨 Alojamiento (Hoteles, Rentas)</td>
-                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_alojamiento or 0) }}
-                                </td>
+                                <td class="text-end text-danger">${{ viatico.costo_alojamiento | fmt_currency }}</td>
                             </tr>
                             <tr>
                                 <td>🍔 Alimentos (Comidas de personal)</td>
-                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_alimentos or 0) }}
-                                </td>
+                                <td class="text-end text-danger">${{ viatico.costo_alimentos | fmt_currency }}</td>
                             </tr>
                             <tr>
-                                <td>🛒 Otros Gastos de viaje</td>
-                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_otros or 0) }}</td>
+                                <td>🛣️ Peajes (Casetas)</td>
+                                <td class="text-end text-danger">${{ viatico.costo_peajes | fmt_currency }}</td>
+                            </tr>
+                            <tr>
+                                <td>🅿️ Estacionamiento</td>
+                                <td class="text-end text-danger">${{ viatico.costo_estacionamiento | fmt_currency }}</td>
+                            </tr>
+                            <tr>
+                                <td>🛒 Otros Gastos / Varios</td>
+                                <td class="text-end text-danger">${{ viatico.costo_otros | fmt_currency }}</td>
                             </tr>
                         </tbody>
                         <tfoot class="table-light fw-bold">
                             <tr>
                                 <td class="text-end">TOTAL DE VIÁTICO:</td>
-                                <td class="text-end fs-5 text-primary">${{ "{:,.2f}".format(viatico.total or 0) }}</td>
+                                <td class="text-end fs-5 text-primary">${{ viatico.total | fmt_currency }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -112,26 +128,22 @@
 
             {# Acciones #}
             <div class="d-flex gap-2 justify-content-end mt-3">
-                {% if viatico.estado == 'borrador' %}
-                <button type="button" class="btn btn-outline-warning text-dark" data-accion-proceso="solicitar"
-                    data-id="{{ viatico.id }}">
-                    📤 Solicitar Fondos
+                {% if viatico.estado_visual == 'en_curso' %}
+                <button type="button" class="btn btn-warning text-dark shadow-sm" onclick="alert('Solicitud de fondos enviada a administración.')">
+                    <i class="fas fa-hand-holding-usd me-1"></i> Solicitar Fondos
                 </button>
                 {% endif %}
 
-                {% if viatico.estado in ['borrador', 'solicitado'] %}
-                <button type="button" class="btn btn-outline-success" data-accion-proceso="aprobar"
-                    data-id="{{ viatico.id }}">
-                    ✅ Aprobar
-                </button>
-                {% endif %}
-
-                {% if viatico.estado not in ['cancelado'] %}
+                {% if es_admin and puede_eliminar and viatico.es_cancelable %}
                 <button type="button" class="btn btn-outline-danger" data-accion-proceso="cancelar"
                     data-id="{{ viatico.id }}">
                     ❌ Cancelar
                 </button>
                 {% endif %}
+
+                <a href="/api/viaticos/{{ viatico.id }}/pdf/responsiva" target="_blank" class="btn btn-primary shadow-sm">
+                    <i class="fas fa-file-pdf me-1"></i> Generar Responsiva
+                </a>
 
                 <a href="/viaticos" class="btn btn-outline-secondary">
                     ← Volver
@@ -153,9 +165,8 @@
 
     async function cambiarEstadoViatico(id, accion) {
         const mensajes = {
-            'solicitar': '¿Estás seguro de solicitar la aprobación de los fondos de este viático?',
-            'aprobar': '¿Estás seguro de aprobar este viático? Ya no podrá ser editado.',
-            'cancelar': '¿Estás seguro de cancelar este viático? Esta acción es irreversible.'
+            'cancelar': '¿Estás seguro de cancelar este viático? Esta acción es irreversible.',
+            'finalizar': '¿Estás seguro de finalizar este viático? Ya no podrá ser editado.'
         };
 
         if (!confirm(mensajes[accion])) return;

@@ -7,20 +7,25 @@
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, field_validator  # type: ignore
+from sqlmodel import SQLModel, Field  # type: ignore
+from sqlalchemy import Column, JSON
 
 from app.base.tipos import RolUsuario, formatear_fecha
 
 
-class UsuarioBase(BaseModel):
-    usuario: str
+
+class UsuarioBase(SQLModel):
+    usuario: str = Field(unique=True, index=True)
     nombres: str
-    rol: RolUsuario
-    correo: EmailStr
-    area: str
-    permisos_ver: list[str] = []
-    permisos_crear: list[str] = []
-    permisos_editar: list[str] = []
-    permisos_eliminar: list[str] = []
+    rol: str = Field(default="funcionario")
+    # correo is EmailStr in Pydantic, but allowing empty string requires attention.
+    # we use str for SQLModel wide-type, and Pydantic will validate on Create/Update
+    correo: str = Field(default="")  
+    area: str | None = None
+    permisos_ver: list = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_crear: list = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_editar: list = Field(default_factory=list, sa_column=Column(JSON))
+    permisos_eliminar: list = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class UsuarioCreate(BaseModel):
@@ -45,7 +50,7 @@ class UsuarioRead(UsuarioBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("fecha_creacion", "fecha_modificacion", mode="before")
+    @field_validator("fecha_creacion", "fecha_modificacion", mode="before", check_fields=False)
     @classmethod
     def _formatear_fechas(cls, valor: datetime | None):
         return formatear_fecha(valor)
@@ -66,7 +71,7 @@ class UsuarioUpdatePassword(BaseModel):
     contrasena: str
     confirmarContrasena: str | None = None
 
-    @field_validator("contrasena", mode="before")
+    @field_validator("contrasena", mode="before", check_fields=False)
     @classmethod
     def _v_contrasena_vacia(cls, v):
         if not v or not str(v).strip():

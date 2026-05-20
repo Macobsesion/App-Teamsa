@@ -20,6 +20,7 @@ from app.modulos.ordenes_compra.ordenes_compra_esquemas import (
 from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
 from app.modulos.ordenes_compra.ordenes_compra_servicios import ServicioCreacionOrdenCompra
 from app.modulos.ordenes_compra.pdf_generator import generar_pdf_orden_compra
+from app.modulos.ordenes_compra import wizard_router
 
 
 # Router para endpoints custom (creación compleja)
@@ -29,11 +30,19 @@ router_extras = APIRouter(prefix="/api/ordenes-compra", tags=["Ordenes Compra - 
 def crear_orden_completa(
     datos: dict = Body(...),
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra"))
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra", "crear"))
 ):
     """Crea una orden de compra completa con detalles."""
-    servicio = ServicioCreacionOrdenCompra(db)
+    from app.modulos.proveedores.proveedores_repositorio import RepositorioProveedor
+    repo_oc = RepositorioOrdenCompra(db)
+    repo_prov = RepositorioProveedor(db)
+    servicio = ServicioCreacionOrdenCompra(repo_oc, repo_prov)
     orden = servicio.crear_completa(datos, usuario.usuario)
+    
+    # Auditoría: Creación OC
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="CREAR", modulo="ordenes_compra", detalles=f"OC Folio: {orden.folio}")
+
     return orden
 
 
@@ -44,7 +53,8 @@ def obtener_orden_completa(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Retorna una orden de compra con sus detalles para modo edición."""
-    orden = db.get(OrdenCompra, orden_id)
+    repo = RepositorioOrdenCompra(db)
+    orden = repo.obtener_por_id(orden_id)
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
 
@@ -59,8 +69,16 @@ def actualizar_orden_completa(
     usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra"))
 ):
     """Actualiza una orden de compra existente con todos sus detalles."""
-    servicio = ServicioCreacionOrdenCompra(db)
+    from app.modulos.proveedores.proveedores_repositorio import RepositorioProveedor
+    repo_oc = RepositorioOrdenCompra(db)
+    repo_prov = RepositorioProveedor(db)
+    servicio = ServicioCreacionOrdenCompra(repo_oc, repo_prov)
     orden = servicio.actualizar_completa(orden_id, datos, usuario.usuario)
+    
+    # Auditoría: Actualización OC
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="EDITAR", modulo="ordenes_compra", detalles=f"OC ID: {orden_id}")
+
     return orden
 
 
@@ -73,7 +91,7 @@ def actualizar_notas_privadas_oc(
 ):
     """Actualiza las notas privadas de una orden de compra."""
     repo = RepositorioOrdenCompra(db)
-    orden = db.get(OrdenCompra, orden_id)
+    orden = repo.obtener_por_id(orden_id)
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
 
@@ -88,11 +106,18 @@ def descargar_pdf_orden(
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
 ):
     """Genera y descarga el PDF de una orden de compra."""
-    pdf_bytes = generar_pdf_orden_compra(orden_id, db)
-    orden = db.get(OrdenCompra, orden_id)
+    repo = RepositorioOrdenCompra(db)
+    orden = repo.obtener_por_id(orden_id)
     if not orden:
         raise RecursoNoEncontradoError("Orden de compra no encontrada")
+        
+    pdf_bytes = generar_pdf_orden_compra(orden_id, db)
     filename = f"OC-{orden.folio}.pdf"
+    
+    # Auditoría: Descarga OC
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="DESCARGAR", modulo="ordenes_compra", detalles=f"PDF {filename}")
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -126,5 +151,5 @@ descriptor = DescriptorCRUD[
 router = crear_modulo_crud_estandar(
     descriptor=descriptor,
     nombre_modulo="ordenes_compra",
-    routers_adicionales=[router_extras]
+    routers_prioritarios=[router_extras, wizard_router.router]
 )

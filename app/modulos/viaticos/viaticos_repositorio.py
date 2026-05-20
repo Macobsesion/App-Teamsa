@@ -9,18 +9,40 @@ from app.base.constantes import PREFIJO_NUMERO_VIATICO
 class RepositorioViatico(RepositorioCRUD[Viatico]):
     modelo = Viatico
     campos_filtrables = {"estado", "cliente_id", "responsable_id"}
+    campos_actualizables = {
+        "cliente_id", "responsable_id", "proyecto", "personas", "tipo_transporte",
+        "cotizacion_id", "origen", "destino", "fecha_salida", "fecha_regreso",
+        "dias", "costo_transporte", "costo_alojamiento", "desayuno", "comida",
+        "cena", "costo_alimentos", "costo_peajes", "costo_estacionamiento", "costo_otros", "notas_desglose", "estado"
+    }
     campos_busqueda = {"folio": "icontains", "proyecto": "icontains"}
     orden_por_defecto = ("id", True)
     
     def __init__(self, db: Session):
         super().__init__(db)
-        self.skip_injection = False # Por defecto inyecta concepto
+
+    def aplicar_seguridad_filtro(self, filtros: dict, actor) -> dict:
+        """Inyecta filtro obligatorio si el usuario es técnico."""
+        if actor and getattr(actor, "rol", "") == "tecnico":
+            filtros["responsable_id"] = actor.id
+        return filtros
+
+    def _enriquecer_consulta(self, consulta):
+        """Asegura carga inmediata de relaciones críticas para evitar lazy loading en UI."""
+        from sqlalchemy.orm import selectinload
+        return consulta.options(
+            selectinload(Viatico.rutas_ot),
+            selectinload(Viatico.responsable),
+            selectinload(Viatico.cliente)
+        )
 
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
         import uuid
         datos_procesados = dict(datos)
-        if not datos_procesados.get("folio"):
-            datos_procesados["folio"] = "TEMP-" + str(uuid.uuid4())[:8]
+        # Siempre generar un folio temporal nuevo para registros creados desde el Wizard/Repositorio
+        # para evitar colisiones con folios existentes (especialmente en clonación)
+        datos_procesados["folio"] = "TEMP-" + str(uuid.uuid4())[:8]
+        
         self._temp_ot_ids = datos_procesados.pop("ot_ids", [])
         return datos_procesados
 
@@ -31,26 +53,49 @@ class RepositorioViatico(RepositorioCRUD[Viatico]):
         return cambios_procesados
 
     def actualizar(self, entidad_id: int, cambios: dict[str, Any]) -> Viatico:
-        # Detectar intento de manipulación del cotizacion_id
         entidad_bd = self.obtener_por_id(entidad_id)
+        
+        # Guard de Estado: ¿Es editable?
+        from app.base.excepciones import ReglaNegocioError
+        from app.modulos.viaticos.enums import EstadoViatico
+        
+        # Permitir la transición a 'cancelado' o 'finalizado' independientemente de si es editable para otros campos
+        from app.modulos.viaticos.enums import EstadoViatico
+        estados_finales = [EstadoViatico.CANCELADO.value, EstadoViatico.FINALIZADO.value]
+        es_cambio_estado = cambios.get("estado") in estados_finales
+        
+        if not entidad_bd.es_editable and not es_cambio_estado:
+            raise ReglaNegocioError(f"El viático {entidad_bd.folio} está en estado '{entidad_bd.estado}' y ya no permite ediciones.")
+
+        # Detectar intento de manipulación del cotizacion_id
         viejo_cotizacion = entidad_bd.cotizacion_id
         nuevo_cotizacion = cambios.get("cotizacion_id")
         
         if viejo_cotizacion is not None and nuevo_cotizacion is not None and nuevo_cotizacion != viejo_cotizacion:
-            from app.base.excepciones import ReglaNegocioError
             raise ReglaNegocioError("No se puede desvincular o cambiar la cotización madre una vez asignada.")
-            
-        # Bandera temporal para inyectar si recién se asigna la cotización en Update
-        if viejo_cotizacion is None and nuevo_cotizacion:
-            self._temp_inyectar_cotizacion = nuevo_cotizacion
             
         return super().actualizar(entidad_id, cambios)
 
+    def eliminar(self, entidad_id: int) -> None:
+        entidad_bd = self.obtener_por_id(entidad_id)
+        
+        # Guard de Estado: ¿Es cancelable/eliminable?
+        from app.base.excepciones import ReglaNegocioError
+        if not entidad_bd.es_cancelable:
+            raise ReglaNegocioError(f"El viático {entidad_bd.folio} está en estado '{entidad_bd.estado}' y no puede ser eliminado.")
+            
+        return super().eliminar(entidad_id)
+
     def _pre_guardar(self, entidad: Viatico, es_nuevo: bool) -> None:
-        """Asigna las Ordenes de Trabajo reales si se pasaron ot_ids en el request. Suma totales."""
+        """Asocia Ordenes de Trabajo, gestiona el estado PROGRAMADO y captura snapshots."""
+        # Captura de Snapshots vía Servicio (Regla 4 y 5)
+        # Importación local para evitar importación circular
+        from app.modulos.viaticos.viaticos_servicios import ServicioViaticos
+        ServicioViaticos.capturar_snapshots_estaticos(self.db, entidad)
+
         if hasattr(self, "_temp_ot_ids"):
             from sqlmodel import select
-            from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
+            from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
             
             if self._temp_ot_ids:
                 ots = self.db.exec(select(OrdenTrabajo).where(OrdenTrabajo.id.in_(self._temp_ot_ids))).all()
@@ -58,75 +103,49 @@ class RepositorioViatico(RepositorioCRUD[Viatico]):
             else:
                 entidad.rutas_ot = []
             del self._temp_ot_ids
-            
-        # Calcular auto-suma global
-        entidad.total = (
-            (entidad.costo_transporte or 0) +
-            (entidad.costo_alojamiento or 0) +
-            (entidad.costo_alimentos or 0) +
-            (entidad.costo_otros or 0)
-        )
 
     def _post_guardar(self, entidad: Viatico, es_nuevo: bool) -> None:
+        """Generación de Folio definitivo tras la creación."""
         if es_nuevo:
-            from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-            from app.base.folios import EstrategiaFolioHeredado
-            from sqlmodel import select
-
-            if entidad.cotizacion_id:
-                # 1. Obtener número de cotización madre
-                cotizacion = self.db.get(Cotizacion, entidad.cotizacion_id)
-                if cotizacion and cotizacion.numero:
-                    # 'COT-260307-B' -> '260307B'
-                    base_folio = cotizacion.numero.replace("COT-", "").replace("-", "")
-                    
-                    # 2. Obtener secuencia para esta cotización
-                    from sqlalchemy import func
-                    conteo = self.db.exec(
-                        select(func.count(Viatico.id))
-                        .where(Viatico.cotizacion_id == entidad.cotizacion_id)
-                    ).first() or 0
-                    secuencia = conteo # No sumamos 1 porque el registro ya se guardó (es post_guardar)
-                    # Pero espera, si es post_guardar, el registro actual YA está en el conteo.
-                    # Si conteo es 1, este es el primero.
-                    
-                    estrategia = EstrategiaFolioHeredado()
-                    entidad.folio = estrategia.generar(PREFIJO_NUMERO_VIATICO, base_folio, secuencia)
-                else:
-                    # Fallback si no hay número de cotización (no debería pasar)
-                    from datetime import date
-                    fecha_str = date.today().strftime("%y%m")
-                    entidad.folio = f"{PREFIJO_NUMERO_VIATICO}-{fecha_str}-{entidad.id}"
-            else:
-                # Fallback para viáticos sin cotización
-                from datetime import date
-                fecha_str = date.today().strftime("%y%m")
-                entidad.folio = f"{PREFIJO_NUMERO_VIATICO}-{fecha_str}-{entidad.id}"
-
+            self.proyectar_folio(entidad)
             self.db.add(entidad)
-            self.db.commit()
-            self.db.refresh(entidad)
-            
-        # Automatización: Inserción de concepto en la Cotización
-        inyectar = False
-        if es_nuevo and getattr(entidad, "cotizacion_id", None):
-            inyectar = True
-        elif hasattr(self, "_temp_inyectar_cotizacion") and self._temp_inyectar_cotizacion == entidad.cotizacion_id:
-            inyectar = True
-            
-        if inyectar and not self.skip_injection:
-            from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioConcepto
-            repo_concepto = RepositorioConcepto(self.db)
-            desc = f"Viáticos: {entidad.proyecto or 'Servicio asignado'} (Ref: {entidad.folio})"
-            repo_concepto.crear_concepto(
-                cotizacion_id=entidad.cotizacion_id,
-                servicio_id=None,
-                codigo_sat='78111500', # Transporte de pasajeros
-                descripcion=desc,
-                unidad='Viaje/Servicio',
-                cantidad=1,
-                precio_unitario=entidad.total,
-                descuento_porcentaje=0
-            )
-            if hasattr(self, "_temp_inyectar_cotizacion"):
-                del self._temp_inyectar_cotizacion
+            self.db.flush()
+
+    def proyectar_folio(self, viatico: Viatico) -> None:
+        """Calcula y asigna el folio definitivo basado en la cotización o ID."""
+        from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+        from sqlmodel import select
+        from sqlalchemy import func
+
+        if viatico.cotizacion_id:
+            cotizacion = self.db.get(Cotizacion, viatico.cotizacion_id)
+            if cotizacion and cotizacion.numero and not cotizacion.numero.startswith("TEMP-"):
+                # Extraer base limpia (ej: COT-260201 -> 260201)
+                base_folio = cotizacion.numero.replace("COT-", "").replace("-", "")
+                
+                # Contar viáticos previos para esta cotización (incluyendo el actual para orden consistente)
+                conteo = self.db.exec(
+                    select(func.count(Viatico.id))
+                    .where(Viatico.cotizacion_id == viatico.cotizacion_id)
+                    .where(Viatico.id < viatico.id)
+                ).first() or 0
+                
+                viatico.folio = f"VIA-{base_folio}-{conteo + 1}"
+                return
+
+        # Fallback si no hay cotización definitiva aún
+        if not viatico.folio or viatico.folio.startswith("TEMP-"):
+            if viatico.id:
+                viatico.folio = f"VIA-{viatico.id:04d}" if viatico.cotizacion_id else f"VIA-S-{viatico.id:04d}"
+            else:
+                import uuid
+                viatico.folio = "TEMP-" + str(uuid.uuid4())[:8]
+
+    def sincronizar_folios_con_cotizacion(self, cotizacion_id: int) -> None:
+        """Actualiza todos los folios de viáticos de una cotización una vez que ésta tiene folio definitivo."""
+        from sqlmodel import select
+        viaticos = self.db.exec(select(Viatico).where(Viatico.cotizacion_id == cotizacion_id)).all()
+        for v in viaticos:
+            self.proyectar_folio(v)
+            self.db.add(v)
+        self.db.flush()

@@ -1,4 +1,4 @@
-<!-- Plantilla: web/templates/ui/ordenes_compra/_form.html -->
+<!-- Plantilla: web/templates/ui/ordenes-trabajo_compra/_form.html -->
 {% import "ui/macros/botones.html" as btn %}
 {% set is_edit = p_item is defined and p_item is not none %}
 <form hx-post="{{ '/api/ordenes-compra' if modo == 'crear' else '/api/ordenes-compra/' ~ item.id }}"

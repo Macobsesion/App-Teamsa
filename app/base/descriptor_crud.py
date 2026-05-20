@@ -6,7 +6,7 @@ from typing import Any, Callable, Iterable, TypeVar, Generic, Union, Type, Optio
 
 from pydantic import BaseModel  # type: ignore
 
-from app.base.enrutador_crud import GanchosCRUD, construir_enrutador_crud
+from app.base.enrutador_crud import GanchosCRUD
 from app.base.utiles_esquema import (
     obtener_columnas_schema,
     obtener_campos_creables,
@@ -131,29 +131,6 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
             validar_actualizacion=self.validar_actualizacion,
         )
 
-    # Helper para construir el API router sin repetir parámetros en los módulos
-    def to_api_router(
-        self,
-        *,
-        obtener_sesion,
-        list_dependencies: list | None = None,
-        write_dependency=None,
-    ):
-        """Crea un enrutador JSON (GET/POST/PATCH/DELETE + /metadata) listo para incluir."""
-        return construir_enrutador_crud(
-            prefix=self.base_url,
-            tag=self.label,
-            repo_factory=self.repo_factory,
-            schema_read=self.schema_read,
-            schema_create=self.schema_create,
-            schema_update=self.schema_update,
-            hooks=self.build_hooks(),
-            obtener_sesion=obtener_sesion,
-            list_dependencies=list_dependencies,
-            write_dependency=write_dependency,
-            descriptor=self,
-        )
-
     def columnas(self, incluir: Iterable[str] | None = None, excluir: Iterable[str] | None = None):
         """Devuelve metadata de columnas a partir del schema_read."""
         ui = self.config_ui or ConfiguracionUI()
@@ -189,7 +166,7 @@ class DescriptorCRUD(Generic[ReposType, CreateSchema, UpdateSchema, ReadSchema, 
         """Construye la configuración que consumen las vistas HTML (Jinja/HTMX)."""
         ui = self.config_ui or ConfiguracionUI()
         mensajes_finales = {**self._mensajes_por_defecto(), **(ui.mensajes or {})}
-        topic = ui.topic or self.base_url.strip('/').replace('/', '_')
+        topic = ui.topic or self.base_url.strip('/').split('/')[-1].replace('-', '_')
         return {
             'label': self.label,
             'baseUrl': self.base_url,

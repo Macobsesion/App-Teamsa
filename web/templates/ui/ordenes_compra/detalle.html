@@ -1,5 +1,5 @@
 {% extends 'layouts/documento_detalle.html' %}
-{% import 'partials/components.html' as comp %}
+{% import 'ui/macros/components.html' as comp %}
 
 {% block header_title %}Orden de Compra {{ orden.folio }}{% endblock %}
 
@@ -9,43 +9,44 @@ Proveedor: <strong>{{ proveedor.nombre }}</strong>
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(orden.estado, {'borrador': 'Borrador', 'emitida': 'Emitida', 'parcial': 'Parcialmente Recibida',
-'recibida': 'Recibida', 'cancelada': 'Cancelada'}, extra_class='fs-5') }}
+{{ comp.status_badge(orden.estado, extra_class='fs-5') }}
 {% endblock %}
 
 {% block items_title %}🛒 Partidas{% endblock %}
 
 {% block items_content %}
-<table class="table table-hover mb-0">
-    <thead class="table-light">
-        <tr>
-            <th>#</th>
-            <th>SKU</th>
-            <th>Descripción</th>
-            <th>Unidad</th>
-            <th class="text-center">Cantidad</th>
-            <th class="text-end">P. Unit</th>
-            <th class="text-end">Importe</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for d in detalles %}
-        <tr>
-            <td class="text-muted">{{ loop.index }}</td>
-            <td><code>{{ d.codigo_sku }}</code></td>
-            <td>{{ d.descripcion }}</td>
-            <td>{{ d.unidad }}</td>
-            <td class="text-center">{{ d.cantidad }}</td>
-            <td class="text-end">{{ comp.money(d.precio_unitario) }}</td>
-            <td class="text-end">{{ comp.money(d.importe) }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-responsive">
+    <table class="table table-hover mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>#</th>
+                <th>SKU</th>
+                <th>Descripción</th>
+                <th>Unidad</th>
+                <th class="text-center">Cantidad</th>
+                <th class="text-end">P. Unit</th>
+                <th class="text-end">Importe</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in detalles %}
+            <tr>
+                <td class="text-muted">{{ loop.index }}</td>
+                <td><code>{{ d.codigo_sku }}</code></td>
+                <td>{{ d.descripcion }}</td>
+                <td>{{ d.unidad }}</td>
+                <td class="text-center">{{ d.cantidad }}</td>
+                <td class="text-end">{{ comp.money(d.precio_unitario) }}</td>
+                <td class="text-end fw-bold">{{ comp.money(d.importe) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
 
 {% block totals_content %}
-<table class="table table-sm mb-0">
+<table class="table mb-0">
     {{ comp.totals_row('Subtotal', orden.subtotal) }}
     {{ comp.totals_row('IVA (16%)', orden.iva) }}
     {{ comp.totals_row('Total', orden.total, is_total=True) }}
@@ -53,10 +54,8 @@ Proveedor: <strong>{{ proveedor.nombre }}</strong>
 {% endblock %}
 
 {% block info_content %}
-{{ comp.info_row('Fecha Emisión', orden.fecha_emision.strftime('%d/%m/%Y')) }}
-{% if orden.fecha_entrega_estimada %}
-{{ comp.info_row('Fecha Entrega Estimada', orden.fecha_entrega_estimada.strftime('%d/%m/%Y')) }}
-{% endif %}
+{{ comp.info_row('Fecha Emisión', orden.fecha_emision | fmt_date) }}
+{{ comp.info_row('Fecha Entrega Estimada', orden.fecha_entrega_estimada | fmt_date) }}
 
 {# Método de Pago con lógica custom para mostrar texto largo #}
 <tr>
@@ -88,9 +87,9 @@ Proveedor: <strong>{{ proveedor.nombre }}</strong>
 
 {% block extra_info %}
 {% if orden.notas %}
-<div class="mt-2 p-2 rounded" style="background-color: #fef3c7; border-left: 3px solid #f59e0b;">
+<div class="mt-2 alert-premium-warning">
     <small class="text-muted"><strong>📝 Notas:</strong></small>
-    <p class="mb-0" style="color: #78350f;">{{ orden.notas }}</p>
+    <p class="mb-0 text-dark">{{ orden.notas }}</p>
 </div>
 {% endif %}
 {% endblock %}

@@ -13,7 +13,7 @@ from app.modulos.servicios_proveedores.servicios_proveedores_modelo import Servi
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.cotizaciones.enums import EstadoCotizacion
-from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
+from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 
 class ClienteFactory(factory.Factory):
     class Meta:
@@ -257,7 +257,8 @@ def crear_ot_desde_cotizacion(
         ot = crear_ot_desde_cotizacion(db, cot, [conceptos[0].id])
     """
     from datetime import date
-    from app.modulos.ordenes.ordenes_servicios import ServicioOrdenes
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_servicios import ServicioOrdenes
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
 
     repo = RepositorioOrden(db)
     return repo.crear_desde_cotizacion(

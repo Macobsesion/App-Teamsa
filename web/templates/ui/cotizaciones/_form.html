@@ -1,4 +1,4 @@
-{% import 'partials/forms.html' as f %}
+{% import 'ui/macros/forms.html' as f %}
 
 {% call f.modal_wrapper('cotización', modo, 'frmCotizacion', '/ui/cotizaciones', item) %}
 {# Select dinámico de clientes #}
@@ -14,7 +14,7 @@
 {# Estados #}
 {% set estados = [
 {'id':'borrador','nombre':'Borrador'},
-{'id':'enviada','nombre':'Enviada'},
+{'id':'emitida','nombre':'Emitida'},
 {'id':'aceptada','nombre':'Aceptada'},
 {'id':'rechazada','nombre':'Rechazada'},
 {'id':'cobrado','nombre':'Cobrado'}

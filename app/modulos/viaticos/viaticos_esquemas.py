@@ -1,76 +1,103 @@
 """Esquemas de transferencia de Viáticos."""
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel, Field, field_validator
 
-class ViaticoBase(BaseModel):
-    cliente_id: int
-    responsable_id: int
-    proyecto: Optional[str] = None
+from sqlmodel import SQLModel, Field  # type: ignore
+from app.base.mixins_snapshots import SnapshotClienteMixin
+
+class ViaticoBase(SnapshotClienteMixin, SQLModel):
+    """Campos base para Viáticos."""
+    cliente_id: int = Field(foreign_key="cliente.id", index=True)
+    responsable_id: int | None = Field(default=None, foreign_key="usuario.id", index=True)
+    proyecto: str | None = Field(default=None, max_length=200)
     
-    ot_ids: list[int] = Field(default_factory=list, description="OTs asociadas")
     
     personas: int = Field(default=1, ge=1)
-    tipo_transporte: Optional[str] = None
-    cotizacion_id: Optional[int] = None
-    origen: Optional[str] = None
-    destino: Optional[str] = None
-    fecha_salida: Optional[date] = None
-    fecha_regreso: Optional[date] = None
+    tipo_transporte: str | None = Field(default=None, max_length=100)
+    cotizacion_id: int | None = Field(default=None, foreign_key="cotizaciones.id", index=True)
+    origen: str | None = Field(default=None, max_length=100)
+    destino: str | None = Field(default=None, max_length=100)
+    fecha_salida: date | None = Field(default=None, title="Fecha Salida")
+    fecha_regreso: date | None = Field(default=None, title="Fecha Regreso")
+    dias: int = Field(default=1, ge=1, title="Días")
 
+    # Costos
     costo_transporte: Decimal = Field(default=Decimal("0.00"), ge=0)
     costo_alojamiento: Decimal = Field(default=Decimal("0.00"), ge=0)
-    costo_alimentos: Decimal = Field(default=Decimal("0.00"), ge=0)
-    costo_otros: Decimal = Field(default=Decimal("0.00"), ge=0)
     
-    notas_desglose: Optional[str] = None
-    estado: str = "borrador"
+    # Desglose de Alimentos
+    desayuno: Decimal = Field(default=Decimal("0.00"), ge=0)
+    comida: Decimal = Field(default=Decimal("0.00"), ge=0)
+    cena: Decimal = Field(default=Decimal("0.00"), ge=0)
 
-    @field_validator("costo_transporte", "costo_alojamiento", "costo_alimentos", "costo_otros", mode="before")
+    costo_alimentos: Decimal = Field(default=Decimal("0.00"), ge=0)
+
+    # Otros Gastos Desglosados
+    costo_peajes: Decimal = Field(default=Decimal("0.00"), ge=0)
+    costo_estacionamiento: Decimal = Field(default=Decimal("0.00"), ge=0)
+    costo_otros: Decimal = Field(default=Decimal("0.00"), ge=0) # Varios
+    
+    notas_desglose: str | None = Field(default=None)
+    estado: str = Field(default="borrador", index=True)
+
+    @field_validator("costo_transporte", "costo_alojamiento", "costo_alimentos", "costo_peajes", "costo_estacionamiento", "costo_otros", mode="before", check_fields=False)
     @classmethod
-    def cast_empty_cost(cls, v):
-        if v == "" or v is None:
+    def set_zero_if_empty(cls, v):
+        if not v or str(v).strip() == "":
             return Decimal("0.00")
         return v
 
-    @field_validator("personas", mode="before")
+    @field_validator("personas", mode="before", check_fields=False)
     @classmethod
-    def cast_empty_personas(cls, v):
+    def cast_empty_personas(cls, v: Any) -> int:
         if v == "" or v is None:
             return 1
         return int(v)
 
 class ViaticoCreate(ViaticoBase):
-    pass
+    """Esquema para creación."""
+    ot_ids: list[int] = Field(default_factory=list)
 
-class ViaticoUpdate(BaseModel):
-    cliente_id: Optional[int] = None
-    responsable_id: Optional[int] = None
-    proyecto: Optional[str] = None
-    ot_ids: Optional[list[int]] = None
-    personas: Optional[int] = None
-    tipo_transporte: Optional[str] = None
-    cotizacion_id: Optional[int] = None
-    origen: Optional[str] = None
-    destino: Optional[str] = None
-    fecha_salida: Optional[date] = None
-    fecha_regreso: Optional[date] = None
-    costo_transporte: Optional[Decimal] = None
-    costo_alojamiento: Optional[Decimal] = None
-    costo_alimentos: Optional[Decimal] = None
-    costo_otros: Optional[Decimal] = None
-    notas_desglose: Optional[str] = None
-    estado: Optional[str] = None
+class ViaticoUpdate(SQLModel):
+    """Esquema para actualización (campos opcionales).
+    Mantenemos explícito para evitar 'magia' y asegurar autocompletado (Regla 1).
+    """
+    cliente_id: int | None = None
+    responsable_id: int | None = None
+    proyecto: str | None = None
+    ot_ids: list[int] | None = None
+    personas: int | None = None
+    tipo_transporte: str | None = None
+    cotizacion_id: int | None = None
+    origen: str | None = None
+    destino: str | None = None
+    fecha_salida: date | None = None
+    fecha_regreso: date | None = None
+    dias: int | None = None
+    costo_transporte: Decimal | None = None
+    costo_alojamiento: Decimal | None = None
+    desayuno: Decimal | None = None
+    comida: Decimal | None = None
+    cena: Decimal | None = None
+    costo_alimentos: Decimal | None = None
+    costo_peajes: Decimal | None = None
+    costo_estacionamiento: Decimal | None = None
+    costo_otros: Decimal | None = None
+    notas_desglose: str | None = None
+    estado: str | None = None
 
 class ViaticoRead(ViaticoBase):
+    """Esquema para lectura."""
     id: int
     folio: str
+    estado_visual: str | None = None
     total: Decimal
     
     creado_por: str
-    modificado_por: Optional[str]
+    modificado_por: str | None
     fecha_creacion: datetime
-    fecha_modificacion: Optional[datetime]
+    fecha_modificacion: datetime | None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True} # type: ignore

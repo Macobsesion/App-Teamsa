@@ -1,0 +1,40 @@
+{# web/templates/ui/cotizaciones/_modal_versionamiento.html #}
+<div class="modal fade" id="modalVersionamiento" tabindex="-1" aria-labelledby="modalVersionamientoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+            <div class="modal-header bg-warning text-dark border-bottom-0" style="border-radius: 15px 15px 0 0;">
+                <h5 class="modal-title fw-bold" id="modalVersionamientoLabel">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Cambios Detectados
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="mb-3">Se han detectado cambios en las partidas o precios originales de la cotización.</p>
+                
+                <div class="alert alert-info border-0 shadow-sm" style="background-color: rgba(13, 202, 240, 0.1);">
+                    <h6 class="fw-bold text-info-emphasis"><i class="fas fa-info-circle me-2"></i>Política de Versionamiento</h6>
+                    <ul class="small mb-0 mt-2 ps-3">
+                        <li>Esta acción creará una nueva versión del documento (ej: B, C).</li>
+                        <li>La versión actual quedará archivada como historial.</li>
+                        <li>Se mantendrán los conceptos y precios que acabas de modificar.</li>
+                    </ul>
+                </div>
+                
+                <p class="text-muted small mt-3">¿Deseas confirmar la creación de esta nueva versión?</p>
+            </div>
+            <div class="modal-footer border-top-0 pt-0 pb-4 px-4 d-flex justify-content-between">
+                <button type="button" class="btn btn-light border" data-bs-dismiss="modal">Cancelar</button>
+                <div class="d-flex gap-2">
+                    {% if usuario.rol == 'admin' %}
+                    <button type="button" class="btn btn-outline-danger fw-bold" onclick="sobreescribirCotizacion()">
+                        <i class="fas fa-edit me-2"></i>Sobreescribir Original
+                    </button>
+                    {% endif %}
+                    <button type="button" class="btn btn-warning fw-bold px-4" onclick="confirmarVersionamiento()">
+                        <i class="fas fa-copy me-2"></i>Generar Nueva Versión
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

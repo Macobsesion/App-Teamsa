@@ -1,5 +1,16 @@
 """Enumeraciones compartidas de la aplicación."""
 from enum import Enum
+from typing import Protocol
+
+
+class EstadoDocumentoProtocol(Protocol):
+    """Contrato mínimo que deben cumplir los Enums de estado de documentos."""
+
+    @property
+    def es_editable(self) -> bool: ...
+
+    @property
+    def es_cancelable(self) -> bool: ...
 
 
 class TipoPeticion(str, Enum):
@@ -14,7 +25,7 @@ class TipoPeticion(str, Enum):
 class EstadoCotizacion(str, Enum):
     """Estados del flujo de una cotización."""
     BORRADOR = "borrador"
-    ENVIADA = "enviada"
+    EMITIDA = "emitida"
     ACEPTADA = "aceptada"
     RECHAZADA = "rechazada"
     COBRADO = "cobrado"

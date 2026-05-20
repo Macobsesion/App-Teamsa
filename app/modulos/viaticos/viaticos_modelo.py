@@ -1,16 +1,17 @@
-"""Modelo simplificado de Viáticos."""
 from datetime import date
+from pydantic import model_validator
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 from sqlmodel import Field, SQLModel, Relationship  # type: ignore
 
 from app.base.documentos_modelo import BaseDocumento
 from app.modulos.viaticos.enums import EstadoViatico
+from app.modulos.viaticos.viaticos_esquemas import ViaticoBase
 
 if TYPE_CHECKING:
     from app.modulos.clientes.clientes_modelo import Cliente
     from app.modulos.usuarios.usuarios_modelo import Usuario
-    from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
+    from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 
 class ViaticoOrdenEnlace(SQLModel, table=True):
@@ -18,36 +19,25 @@ class ViaticoOrdenEnlace(SQLModel, table=True):
     __tablename__ = "viatico_orden_enlace"
     
     viatico_id: Optional[int] = Field(default=None, foreign_key="viaticos.id", primary_key=True)
-    orden_id: Optional[int] = Field(default=None, foreign_key="ordentrabajo.id", primary_key=True)
+    orden_id: Optional[int] = Field(default=None, foreign_key="orden_trabajo.id", primary_key=True)
 
 
-class Viatico(BaseDocumento, table=True):
+class Viatico(ViaticoBase, BaseDocumento, table=True):
     """Registro de viáticos con desglose global."""
     __tablename__ = "viaticos"
 
     id: Optional[int] = Field(default=None, primary_key=True)
     
-    # Meta
-    cliente_id: int = Field(foreign_key="cliente.id", index=True)
-    responsable_id: int = Field(foreign_key="usuario.id", index=True)
-    proyecto: Optional[str] = Field(default=None, description="Nombre o descripción del viaje")
-    
-    # Detalles del viaje
-    personas: int = Field(default=1)
-    tipo_transporte: Optional[str] = Field(default=None, description="Camión, Avión, Taxi, Auto Rentado")
-    cotizacion_id: int = Field(foreign_key="cotizaciones.id", index=True)
-    origen: Optional[str] = Field(default=None)
-    destino: Optional[str] = Field(default=None)
-    fecha_salida: Optional[date] = Field(default=None)
-    fecha_regreso: Optional[date] = Field(default=None)
+    # MIXIN/BASE: ViaticoBase ya incluye cliente_id, responsable_id, proyecto, etc. 
+    # y ahora también SnapshotClienteMixin (cliente_nombre, cliente_rfc, etc.)
 
-    # Costos Reducidos
-    costo_transporte: Decimal = Field(default=Decimal("0.00"), decimal_places=2)
-    costo_alojamiento: Decimal = Field(default=Decimal("0.00"), decimal_places=2)
-    costo_alimentos: Decimal = Field(default=Decimal("0.00"), decimal_places=2)
-    costo_otros: Decimal = Field(default=Decimal("0.00"), decimal_places=2)
-    
-    notas_desglose: Optional[str] = Field(default=None, description="Desglose rápido sin estructura")
+    @model_validator(mode='after')
+    def validar_fechas_coherentes(self) -> "Viatico":
+        if self.fecha_salida and self.fecha_regreso:
+            if self.fecha_regreso < self.fecha_salida:
+                raise ValueError("La fecha de regreso no puede ser anterior a la fecha de salida")
+        return self
+
     
     # El campo 'total' es heredado de BaseDocumento y será calculado (auto sum)
     # subtotal e iva los dejaremos en 0 para viaticos, usando el 'total' como neto.
@@ -59,5 +49,36 @@ class Viatico(BaseDocumento, table=True):
     rutas_ot: list["OrdenTrabajo"] = Relationship(link_model=ViaticoOrdenEnlace, back_populates="viaticos")
 
     @property
-    def estado_enum(self) -> EstadoViatico:
+    def estado_enum(self) -> "EstadoViatico":
+        from app.modulos.viaticos.enums import EstadoViatico
         return EstadoViatico(self.estado)
+
+    @property
+    def estado_visual(self) -> str:
+        """Calcula el estado visual dinámico basado en las fechas del viaje."""
+        from app.base.timezone import calcular_estado_temporal
+        from app.modulos.viaticos.enums import EstadoViatico
+        
+        estados_dinamicos = [
+            EstadoViatico.BORRADOR.value, 
+            EstadoViatico.SOLICITADO.value, 
+            EstadoViatico.APROBADO.value
+        ]
+        
+        if self.fecha_salida and self.fecha_regreso:
+            return calcular_estado_temporal(
+                self.fecha_salida, 
+                self.fecha_regreso, 
+                estados_dinamicos, 
+                self.estado
+            )
+        
+        return self.estado
+
+    def finalizar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a finalizada con registro de auditoría."""
+        super().finalizar(usuario=usuario)
+
+    def cancelar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a cancelada con registro de auditoría."""
+        super().cancelar(usuario=usuario)

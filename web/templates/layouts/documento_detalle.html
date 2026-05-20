@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% import 'partials/components.html' as comp %}
+{% import 'ui/macros/components.html' as comp %}
 
 {# Bloques que deben definir las vistas hijas #}
 {% block title %}{{ titulo_pagina }}{% endblock %}
@@ -27,9 +27,8 @@
         {# Columna izquierda: Items Principal #}
         <div class="col-lg-7">
             <div class="card shadow-sm mb-4">
-                <div class="card-header text-white d-flex justify-content-between align-items-center"
-                    style="background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);">
-                    <h5 class="mb-0">{% block items_title %}📦 Conceptos{% endblock %}</h5>
+                <div class="card-header d-flex justify-content-between align-items-center bg-teamsa-gradient">
+                    <h5 class="mb-0 text-white">{% block items_title %}📦 Conceptos{% endblock %}</h5>
                 </div>
                 <div class="card-body p-0">
                     {# Contenido de la lista de items (Tabla, HTMX, etc) #}
@@ -50,8 +49,8 @@
             {# Información del Documento #}
             <div class="card shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="card-title" style="color: #4148C3;">📋 Información</h6>
-                    <table class="table table-sm">
+                    <h6 class="card-title text-teamsa-primary fw-bold">📋 Información</h6>
+                    <table class="table">
                         {% block info_content %}
                         {# Usar macro comp.info_row(...) #}
                         {% endblock %}
@@ -66,7 +65,7 @@
             {# Visor de PDF #}
             <div class="card shadow-sm mb-3">
                 <div class="card-header bg-light">
-                    <h6 class="mb-0">📄 Vista Previa del PDF</h6>
+                    <h6 class="mb-0 text-teamsa-primary fw-bold">📄 Vista Previa del PDF</h6>
                 </div>
                 <div class="card-body p-0">
                     <iframe src="{% block pdf_url %}{% endblock %}" style="width: 100%; height: 500px; border: none;"
@@ -79,8 +78,7 @@
             <div class="card shadow-sm">
                 <div class="card-body">
                     <div class="d-grid gap-2">
-                        <a href="{% block pdf_url_download %}{% endblock %}" target="_blank" class="btn text-white"
-                            style="background: linear-gradient(135deg, #4148C3 0%, #3840a8 100%);">
+                        <a href="{% block pdf_url_download %}{% endblock %}" target="_blank" class="btn text-white bg-teamsa-gradient">
                             📥 Descargar PDF
                         </a>
 

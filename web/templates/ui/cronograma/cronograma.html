@@ -1,0 +1,326 @@
+{% extends 'base.html' %}
+{% block title %}Cronograma{% endblock %}
+
+{% block customCSS %}
+<style>
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+  }
+
+  .cal-header {
+    background: var(--teamsa-primary);
+    color: white;
+    text-align: center;
+    padding: 0.6rem 0.25rem;
+    font-weight: 700;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .cal-day {
+    min-height: 110px;
+    background: white;
+    border: 1px solid #e2e8f0;
+    padding: 0.25rem;
+    position: relative;
+    transition: var(--transition-base);
+    border-radius: 0.25rem;
+  }
+
+  .cal-day:hover {
+    box-shadow: var(--shadow-md);
+    z-index: 2;
+  }
+
+  .cal-day.today {
+    border: 2px solid var(--teamsa-primary);
+    background: var(--teamsa-primary-glow);
+  }
+
+  .cal-day.other-month {
+    background: #f8fafc;
+    opacity: 0.5;
+  }
+
+  .cal-day-number {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    color: var(--teamsa-text-dark);
+    padding: 0.15rem 0.35rem;
+    display: inline-block;
+  }
+
+  .cal-day.today .cal-day-number {
+    background: var(--teamsa-primary);
+    color: white;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cal-event {
+    display: block;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+    margin-bottom: 2px;
+    border-radius: 0.25rem;
+    text-decoration: none;
+    color: white;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: var(--transition-base);
+    line-height: 1.4;
+  }
+
+  .cal-event:hover {
+    opacity: 0.85;
+    transform: scale(1.02);
+    color: white;
+  }
+
+  .cal-event.ot { background: var(--teamsa-primary); }
+  .cal-event.ot.en_curso { background: #2563eb; }
+  .cal-event.ot.fase_final { background: #f59e0b; color: #1e293b; }
+  .cal-event.ot.finalizada { background: #10b981; }
+  .cal-event.viatico { background: #0ea5e9; }
+  .cal-event.viatico.en_curso { background: #06b6d4; }
+  .cal-event.viatico.fase_final { background: #f59e0b; color: #1e293b; }
+
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .cal-nav .btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .cal-month-label {
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    color: var(--teamsa-primary);
+    min-width: 220px;
+    text-align: center;
+    text-transform: capitalize;
+  }
+
+  .cal-legend {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .cal-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: var(--fs-xs);
+    color: var(--teamsa-text-muted);
+  }
+
+  .cal-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+
+  @media (max-width: 768px) {
+    .cal-day { min-height: 70px; }
+    .cal-event { font-size: 0.55rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  {# Encabezado #}
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+    <div>
+      <h2 class="mb-1">📅 Cronograma</h2>
+      <p class="text-muted mb-0">Vista mensual de Órdenes de Trabajo y Viáticos</p>
+    </div>
+    <div class="cal-nav">
+      <button class="btn btn-outline-primary" id="btn-prev" title="Mes anterior">
+        <i class="fas fa-chevron-left"></i>
+      </button>
+      <span class="cal-month-label" id="month-label">—</span>
+      <button class="btn btn-outline-primary" id="btn-next" title="Mes siguiente">
+        <i class="fas fa-chevron-right"></i>
+      </button>
+      <button class="btn btn-sm btn-teamsa-primary ms-2" id="btn-today">Hoy</button>
+    </div>
+  </div>
+
+  {# Leyenda #}
+  <div class="cal-legend mb-3">
+    <span class="cal-legend-item"><span class="cal-legend-dot" style="background: var(--teamsa-primary);"></span> OT Programada</span>
+    <span class="cal-legend-item"><span class="cal-legend-dot" style="background: #2563eb;"></span> OT En Curso</span>
+    <span class="cal-legend-item"><span class="cal-legend-dot" style="background: #f59e0b;"></span> Fase Final</span>
+    <span class="cal-legend-item"><span class="cal-legend-dot" style="background: #10b981;"></span> Finalizada</span>
+    <span class="cal-legend-item"><span class="cal-legend-dot" style="background: #0ea5e9;"></span> Viático</span>
+  </div>
+
+  {# Calendario #}
+  <div class="card shadow-sm">
+    <div class="card-body p-2">
+      <div class="cal-grid" id="calendar-grid">
+        {# Se renderiza con JS #}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block customJS %}
+<script>
+(function() {
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const DIAS = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+  const HOY = '{{ hoy }}';
+
+  let anioActual = {{ anio }};
+  let mesActual = {{ mes }};
+  let eventosCache = [];
+
+  const grid = document.getElementById('calendar-grid');
+  const label = document.getElementById('month-label');
+
+  document.getElementById('btn-prev').addEventListener('click', function() {
+    mesActual--;
+    if (mesActual < 1) { mesActual = 12; anioActual--; }
+    cargarMes();
+  });
+
+  document.getElementById('btn-next').addEventListener('click', function() {
+    mesActual++;
+    if (mesActual > 12) { mesActual = 1; anioActual++; }
+    cargarMes();
+  });
+
+  document.getElementById('btn-today').addEventListener('click', function() {
+    const parts = HOY.split('-');
+    anioActual = parseInt(parts[0]);
+    mesActual = parseInt(parts[1]);
+    cargarMes();
+  });
+
+  async function cargarMes() {
+    label.textContent = MESES[mesActual - 1] + ' ' + anioActual;
+
+    try {
+      const resp = await fetch('/api/cronograma/eventos?anio=' + anioActual + '&mes=' + mesActual);
+      if (resp.ok) {
+        eventosCache = await resp.json();
+      } else {
+        eventosCache = [];
+      }
+    } catch (e) {
+      eventosCache = [];
+      console.error('Error cargando eventos:', e);
+    }
+
+    renderizar();
+  }
+
+  function renderizar() {
+    // Limpiar
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+    // Headers
+    DIAS.forEach(function(d) {
+      var h = document.createElement('div');
+      h.className = 'cal-header';
+      h.textContent = d;
+      grid.appendChild(h);
+    });
+
+    // Calcular primer día del mes (lunes = 0)
+    var primerDia = new Date(anioActual, mesActual - 1, 1);
+    var diaInicio = (primerDia.getDay() + 6) % 7; // Lunes = 0
+    var diasMes = new Date(anioActual, mesActual, 0).getDate();
+    var diasMesAnterior = new Date(anioActual, mesActual - 1, 0).getDate();
+
+    // Días del mes anterior (relleno)
+    for (var i = diaInicio - 1; i >= 0; i--) {
+      crearCelda(diasMesAnterior - i, true, -1);
+    }
+
+    // Días del mes actual
+    for (var d = 1; d <= diasMes; d++) {
+      crearCelda(d, false, 0);
+    }
+
+    // Días del mes siguiente (relleno hasta completar filas)
+    var totalCeldas = diaInicio + diasMes;
+    var restante = (7 - (totalCeldas % 7)) % 7;
+    for (var j = 1; j <= restante; j++) {
+      crearCelda(j, true, 1);
+    }
+  }
+
+  function crearCelda(dia, esOtroMes, offsetMes) {
+    var celda = document.createElement('div');
+    celda.className = 'cal-day';
+    if (esOtroMes) celda.classList.add('other-month');
+
+    // Fecha de esta celda
+    var mesReal = mesActual + offsetMes;
+    var anioReal = anioActual;
+    if (mesReal < 1) { mesReal = 12; anioReal--; }
+    if (mesReal > 12) { mesReal = 1; anioReal++; }
+    var fechaStr = anioReal + '-' + String(mesReal).padStart(2, '0') + '-' + String(dia).padStart(2, '0');
+
+    if (fechaStr === HOY) celda.classList.add('today');
+
+    // Número del día
+    var num = document.createElement('div');
+    num.className = 'cal-day-number';
+    num.textContent = dia;
+    celda.appendChild(num);
+
+    // Eventos para esta fecha
+    if (!esOtroMes) {
+      var eventosDelDia = eventosCache.filter(function(ev) {
+        return fechaStr >= ev.fecha_inicio && fechaStr <= ev.fecha_fin;
+      });
+
+      eventosDelDia.forEach(function(ev) {
+        var link = document.createElement('a');
+        link.className = 'cal-event ' + ev.tipo + ' ' + ev.estado;
+        link.href = ev.url;
+        link.title = ev.titulo + (ev.tecnico ? ' — ' + ev.tecnico : '') + (ev.proyecto ? ' — ' + ev.proyecto : '');
+
+        if (ev.tipo === 'ot') {
+          link.textContent = '🔧 ' + ev.titulo + (ev.hora ? ' ' + ev.hora : '');
+        } else {
+          link.textContent = '✈️ ' + (ev.proyecto || ev.titulo);
+        }
+
+        celda.appendChild(link);
+      });
+    }
+
+    grid.appendChild(celda);
+  }
+
+  // Carga inicial
+  cargarMes();
+})();
+</script>
+{% endblock %}

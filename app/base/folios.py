@@ -40,3 +40,4 @@ class EstrategiaFolioFechaId:
     def generar(self, prefijo: str, id_entidad: int, fecha: date) -> str:
         fecha_str = fecha.strftime("%y%m%d")
         return f"{prefijo}-{fecha_str}-{id_entidad}"
+

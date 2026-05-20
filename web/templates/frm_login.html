@@ -1,28 +1,71 @@
 <!--
-Formulario de Login.
+Formulario de Login Premium.
   Envia credenciales a /auth/validaUsuario y muestra mensajes de resultado.-->
 
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Login — TEAMSA{% endblock %}
 
 {% block customCSS %}{% endblock %}
 
 {% block content %}
-<form id="formLogin" class="mx-auto" style="max-width: 400px;">
-  <div class="mb-3">
-    <label class="form-label">Usuario</label>
-    <input type="text" name="txtNombre" class="form-control" required>
+<div class="login-bg d-flex justify-content-center align-items-center" style="min-height: 65vh;">
+  <div class="login-card card">
+    <div class="card-body text-center">
+      <img src="/static/images/teamsa_logo.png?v=3" alt="TEAMSA" class="login-logo mb-2">
+      <h5 class="fw-bold mb-1" style="color: var(--teamsa-primary);">Bienvenido</h5>
+      <p class="text-muted mb-4 text-md">Inicia sesión para continuar</p>
+
+      <form id="formLogin">
+        <div class="mb-3 text-start">
+          <label class="form-label">
+            <i class="fas fa-user me-1 text-muted"></i> Usuario
+          </label>
+          <input type="text" name="txtNombre" class="form-control" placeholder="Tu nombre de usuario" required
+            autofocus>
+        </div>
+        <div class="mb-3 text-start">
+          <label class="form-label">
+            <i class="fas fa-lock me-1 text-muted"></i> Contraseña
+          </label>
+          <div class="input-group">
+            <input type="password" id="txtPassword" name="txtPassword" class="form-control" placeholder="••••••••"
+              required>
+            <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+              <i class="fas fa-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="d-grid mt-4">
+          <button class="btn btn-teamsa-primary btn-lg" type="submit">
+            <i class="fas fa-sign-in-alt me-2"></i>Iniciar sesión
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
-  <div class="mb-3">
-    <label class="form-label">Contraseña</label>
-    <input type="password" name="txtPassword" class="form-control" required>
-  </div>
-  <div class="d-flex justify-content-center mt-3">
-    <button class="btn btn-teamsa-primary">Iniciar sesión</button>
-  </div>
-</form>
+</div>
 {% endblock %}
 
 {% block customJS %}
 <script src="/static/js/autenticacion.js"></script>
+<script>
+  (function () {
+    const btn = document.getElementById('togglePassword');
+    const input = document.getElementById('txtPassword');
+    if (btn && input) {
+      btn.addEventListener('click', function () {
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+          input.type = 'text';
+          icon.classList.remove('fa-eye');
+          icon.classList.add('fa-eye-slash');
+        } else {
+          input.type = 'password';
+          icon.classList.remove('fa-eye-slash');
+          icon.classList.add('fa-eye');
+        }
+      });
+    }
+  })();
+</script>
 {% endblock %}

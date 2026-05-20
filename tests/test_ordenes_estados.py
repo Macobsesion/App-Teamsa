@@ -2,8 +2,8 @@ import pytest
 from datetime import date
 from decimal import Decimal
 from unittest.mock import MagicMock
-from app.modulos.ordenes.enums import EstadoOrden
-from app.modulos.ordenes.ordenes_modelo import OrdenTrabajo
+from app.modulos.ordenes_trabajo.enums import EstadoOrden
+from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.clientes.clientes_modelo import Cliente
 

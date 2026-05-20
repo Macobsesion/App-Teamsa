@@ -1,5 +1,5 @@
 {% extends 'layouts/documento_detalle.html' %}
-{% import 'partials/components.html' as comp %}
+{% import 'ui/macros/components.html' as comp %}
 
 {% block header_title %}Cotización {{ cotizacion.numero }}{% endblock %}
 
@@ -9,7 +9,7 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(cotizacion.estado, extra_class='fs-5') }}
+{{ comp.status_badge(cotizacion.estado_visual or cotizacion.estado, extra_class='fs-5') }}
 {% endblock %}
 
 {% block items_content %}
@@ -17,6 +17,9 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
     {% include 'ui/cotizaciones/_conceptos_list.html' %}
 </div>
 
+{% endblock %}
+
+{% block modals %}
 <!-- Modal Cerrar Cotización -->
 <div class="modal fade" id="modalCerrarCotizacion" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
@@ -28,10 +31,10 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
             <div class="modal-body">
                 <p>¿Cómo deseas cerrar esta cotización?</p>
                 <div class="d-grid gap-2">
-                    <button type="button" class="btn btn-success" data-accion-cerrar="finalizada">
+                    <button type="button" class="btn btn-success" id="btn-cerrar-finalizada">
                         ✅ Finalizada (Completada exitosamente)
                     </button>
-                    <button type="button" class="btn btn-warning" data-accion-cerrar="cancelada">
+                    <button type="button" class="btn btn-warning" id="btn-cerrar-cancelada">
                         ❌ Cancelada (No se concretó)
                     </button>
                 </div>
@@ -43,12 +46,87 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
     </div>
 </div>
 
+<!-- Modal Crear OT -->
+<div class="modal fade" id="modalCrearOT" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">🛠️ Generar Orden de Trabajo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCrearOT">
+                    <input type="hidden" name="cotizacion_id" value="{{ cotizacion.id }}">
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold">Fecha Programada <span
+                                    class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="fecha_programada" required>
+                        </div>
+                        <div class="col-sm-4">
+                            <label class="form-label fw-semibold">Hora Inicio <span class="text-danger">*</span></label>
+                            <input type="time" class="form-control" name="hora_programada" required>
+                        </div>
+                        <div class="col-sm-5">
+                            <label class="form-label fw-semibold">Duración</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" name="duracion" value="1" min="1" max="24" id="duracion-valor">
+                                <select class="form-select" name="unidad_duracion" id="duracion-unidad" style="max-width: 100px;" onchange="ajustarMaxDuracion()">
+                                    <option value="horas" selected>Horas</option>
+                                    <option value="dias">Días</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Técnico asignado #}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">🔧 Técnico Asignado</label>
+                        <select class="form-select" name="tecnico_id" id="select-tecnico-modal">
+                            <option value="">— Sin asignar (opcional) —</option>
+                        </select>
+                        <div id="alerta-empalme" class="alert alert-warning d-none mt-2 py-2">
+                            <small>⚠️ <span id="alerta-empalme-msg"></span></small>
+                        </div>
+                    </div>
+
+                    {# Conceptos seleccionados #}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">📋 Servicios a incluir en la OT</label>
+                        <div id="conceptos-modal-resumen" class="border rounded p-2 bg-light"
+                            style="max-height:200px;overflow-y:auto;">
+                            <p class="text-muted text-center mb-0 py-2" id="no-conceptos-warning">
+                                Selecciona conceptos en la tabla para incluirlos en la OT.
+                            </p>
+                            {# Se rellena con JS al abrir el modal #}
+                        </div>
+                        <small class="text-muted">
+                            Conceptos marcados como ✅ en la tabla de izquierda. Solo los conceptos
+                            <strong>Libres</strong> pueden incluirse.
+                        </small>
+                    </div>
+
+                    <div class="alert alert-info py-2">
+                        <small>ℹ️ Al generar la OT, esta cotización pasará a estado <strong>Programada</strong>.</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" data-accion-crear-ot="true" id="btn-confirmar-ot">
+                    ✨ Confirmar y Crear OT
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block totals_content %}
 {# Usamos el parcial existente o lo reescribimos con macros.
 Por ahora reescribimos con macros para máxima consistencia #}
-<table class="table table-sm mb-0">
+<table class="table mb-0">
     {{ comp.totals_row('Subtotal', cotizacion.subtotal) }}
     {{ comp.totals_row('Descuento', cotizacion.descuento_global) }}
     {{ comp.totals_row('IVA (16%)', cotizacion.iva) }}
@@ -57,9 +135,8 @@ Por ahora reescribimos con macros para máxima consistencia #}
 {% endblock %}
 
 {% block info_content %}
-{{ comp.info_row('Fecha Emisión', cotizacion.fecha_emision.strftime('%d/%m/%Y')) }}
-{{ comp.info_row('Fecha Vigencia', cotizacion.fecha_vigencia.strftime('%d/%m/%Y') if cotizacion.fecha_vigencia else
-'N/A') }}
+{{ comp.info_row('Fecha Emisión', cotizacion.fecha_emision | fmt_date) }}
+{{ comp.info_row('Fecha Vigencia', cotizacion.fecha_vigencia | fmt_date) }}
 {{ comp.info_row('Método de Pago', cotizacion.metodo_pago) }}
 {# Forma de pago con lógica custom #}
 <tr>
@@ -96,14 +173,14 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
 {# Botón Editar Cotización #}
 {% if puede_editar %}
-    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+    {% if cotizacion.estado in ['borrador', 'emitida'] %}
     <a href="/ui/cotizaciones/{{ cotizacion.id }}/editar" class="btn btn-warning">
         ✏️ Editar Cotización
     </a>
     {% endif %}
 
     {# Botón Nueva Versión #}
-    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'programada', 'cerrada', 'cancelada'] %}
+    {% if cotizacion.estado in ['borrador', 'emitida'] %}
     <button type="button" class="btn btn-info" data-accion-version="true">
         📋 Nueva Versión
     </button>
@@ -112,7 +189,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
 {# Botón Crear OT — disponible si tiene permiso de CREAR en modulo 'ordenes' #}
 {% if puede_crear_ordenes %}
-    {% if cotizacion.estado not in ['aceptada', 'finalizada', 'modificada', 'cerrada', 'cancelada'] %}
+    {% if cotizacion.estado in ['borrador', 'emitida', 'programada'] %}
     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearOT">
         🛠️ Crear Orden de Trabajo
     </button>
@@ -121,7 +198,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
 {# Botón Cerrar Cotización — requiere permiso EDITAR en 'cotizaciones' #}
 {% if puede_editar %}
-    {% if cotizacion.estado in ['enviada', 'aceptada', 'programada'] %}
+    {% if cotizacion.estado in ['borrador', 'emitida', 'programada'] %}
     <button type="button" class="btn btn-dark" data-bs-toggle="modal" data-bs-target="#modalCerrarCotizacion">
         🔒 Cerrar Cotización
     </button>
@@ -135,92 +212,33 @@ Por ahora reescribimos con macros para máxima consistencia #}
 </a>
 {% endblock %}
 
-{% block extra_scripts %}
-<!-- Modal Crear OT -->
-<div class="modal fade" id="modalCrearOT" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">🛠️ Generar Orden de Trabajo</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formCrearOT">
-                    <input type="hidden" name="cotizacion_id" value="{{ cotizacion.id }}">
-
-                    <div class="row g-3 mb-3">
-                        <div class="col-sm-4">
-                            <label class="form-label fw-semibold">Fecha Programada <span
-                                    class="text-danger">*</span></label>
-                            <input type="date" class="form-control" name="fecha_programada" required>
-                        </div>
-                        <div class="col-sm-4">
-                            <label class="form-label fw-semibold">Hora Inicio <span class="text-danger">*</span></label>
-                            <input type="time" class="form-control" name="hora_programada" required>
-                        </div>
-                        <div class="col-sm-4">
-                            <label class="form-label fw-semibold">Duración (horas)</label>
-                            <input type="number" class="form-control" name="duracion" value="1" min="1" max="24">
-                        </div>
-                    </div>
-
-                    {# Técnico asignado #}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">🔧 Técnico Asignado</label>
-                        <select class="form-select" name="tecnico_id" id="select-tecnico-modal">
-                            <option value="">— Sin asignar (opcional) —</option>
-                        </select>
-                        <div id="alerta-empalme" class="alert alert-warning d-none mt-2 py-2">
-                            <small>⚠️ <span id="alerta-empalme-msg"></span></small>
-                        </div>
-                    </div>
-
-                    {# Conceptos seleccionados #}
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">📋 Servicios a incluir en la OT</label>
-                        <div id="conceptos-modal-resumen" class="border rounded p-2 bg-light"
-                            style="max-height:200px;overflow-y:auto;">
-                            <p class="text-muted text-center mb-0 py-2" id="no-conceptos-warning">
-                                Selecciona conceptos en la tabla para incluirlos en la OT.
-                            </p>
-                            {# Se rellena con JS al abrir el modal #}
-                        </div>
-                        <small class="text-muted">
-                            Conceptos marcados como ✅ en la tabla de izquierda. Solo los conceptos
-                            <strong>Libres</strong> pueden incluirse.
-                        </small>
-                    </div>
-
-                    <div class="alert alert-info py-2">
-                        <small>ℹ️ Al generar la OT, esta cotización pasará a estado <strong>Aceptada</strong>.</small>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" data-accion-crear-ot="true" id="btn-confirmar-ot">
-                    ✨ Confirmar y Crear OT
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+{% block customJS %}
 
 {# Contenedor invisible para datos persistentes (evita ruidos en IDE) #}
 <div id="cotizacion-data" data-cotizacion-id="{{ cotizacion.id }}" style="display:none;"></div>
 
 <script>
     // ---- Datos del documento (leídos desde data-attributes) ----
-    const _cotizacionId = document.getElementById('cotizacion-data').getAttribute('data-cotizacion-id');
+    const _cotizacionDataEl = document.getElementById('cotizacion-data');
+    const _cotizacionId = _cotizacionDataEl ? _cotizacionDataEl.getAttribute('data-cotizacion-id') : null;
 
-    // ---- Delegación de eventos para acciones ----
+    if (!_cotizacionId) {
+        console.error('No se pudo encontrar el ID de la cotización en el DOM.');
+    }
+
+    // ---- Listeners Directos para el Modal de Cierre ----
+    const btnCerrarFin = document.getElementById('btn-cerrar-finalizada');
+    const btnCerrarCan = document.getElementById('btn-cerrar-cancelada');
+
+    if (btnCerrarFin) {
+        btnCerrarFin.addEventListener('click', () => cerrarCotizacion('finalizada'));
+    }
+    if (btnCerrarCan) {
+        btnCerrarCan.addEventListener('click', () => cerrarCotizacion('cancelada'));
+    }
+
+    // ---- Delegación de eventos para otras acciones ----
     document.addEventListener('click', function(e) {
-        // Cerrar cotización
-        const btnCerrar = e.target.closest('[data-accion-cerrar]');
-        if (btnCerrar) {
-            cerrarCotizacion(btnCerrar.getAttribute('data-accion-cerrar'));
-        }
-
         // Nueva versión
         const btnVersion = e.target.closest('[data-accion-version]');
         if (btnVersion) {
@@ -235,20 +253,47 @@ Por ahora reescribimos con macros para máxima consistencia #}
     });
 
     // ---- Cerrar cotización ----
-    function cerrarCotizacion(estado) {
+    function cerrarCotizacion(estado, forzar = false) {
+        console.log(`Iniciando cierre de cotización: ${estado}, forzar=${forzar}`);
+        const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
+        
+        // Si no es forzado, pedimos confirmación
+        if (!forzar && !confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) {
+            console.log('Cierre cancelado por el usuario en el confirm.');
+            return;
+        }
+
         const modalEl = document.getElementById('modalCerrarCotizacion');
         const modal = bootstrap.Modal.getInstance(modalEl);
         if (modal) modal.hide();
 
-        const estadoTexto = estado === 'finalizada' ? 'Finalizada' : 'Cancelada';
-        if (!confirm(`¿Estás seguro de cerrar esta cotización como "${estadoTexto}"?`)) return;
-
         fetch(`/api/cotizaciones/${_cotizacionId}/cerrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ estado: estado })
+            body: JSON.stringify({ 
+                estado: estado, 
+                forzar: forzar,
+                motivo: `Cerrada como ${estadoTexto} por el usuario` 
+            })
         }).then(async res => {
-            if (res.ok) location.reload();
+            if (res.ok) {
+                location.reload();
+            } else if (res.status === 409 || res.status === 422 || res.status === 400) {
+                const err = await res.json();
+                if (err.codigo === 'REQUIERE_CONFIRMACION_CASCADA') {
+                    if (confirm(err.detail || err.mensaje)) {
+                        // El usuario aceptó la cascada destructiva
+                        cerrarCotizacion(estado, true);
+                    }
+                } else {
+                    alert(err.detail || err.mensaje || 'Error al cerrar cotización');
+                }
+            } else {
+                alert('Error inesperado al cerrar cotización');
+            }
+        }).catch(err => {
+            console.error(err);
+            alert('Error de conexión');
         });
     }
 
@@ -269,20 +314,35 @@ Por ahora reescribimos con macros para máxima consistencia #}
         const select = document.getElementById('select-tecnico-modal');
         if (select.children.length === 1) {  // solo la opción vacía
             try {
-                const resp = await fetch('/api/ordenes/tecnicos');
-                const tecnicos = await resp.json();
-                tecnicos.forEach(t => {
-                    const opt = document.createElement('option');
-                    opt.value = t.id;
-                    opt.textContent = t.nombres;
-                    select.appendChild(opt);
-                });
-            } catch (e) { console.error('Error cargando técnicos', e); }
+                const resp = await fetch('/api/ordenes-trabajo/tecnicos');
+                if (resp.ok) {
+                    const tecnicos = await resp.json();
+                    tecnicos.forEach(t => {
+                        const opt = document.createElement('option');
+                        opt.value = t.id;
+                        opt.textContent = t.nombres;
+                        select.appendChild(opt);
+                    });
+                } else {
+                    console.error('Error del servidor al cargar técnicos:', resp.status);
+                }
+            } catch (e) { console.error('Error de red cargando técnicos', e); }
         }
 
         // Mostrar resumen de conceptos seleccionados
         actualizarResumenConceptos();
     });
+
+    function ajustarMaxDuracion() {
+        const unidad = document.getElementById('duracion-unidad').value;
+        const valorInput = document.getElementById('duracion-valor');
+        if (unidad === 'horas') {
+            valorInput.max = 24;
+            if (parseInt(valorInput.value) > 24) valorInput.value = 24;
+        } else {
+            valorInput.removeAttribute('max');
+        }
+    }
 
     function actualizarResumenConceptos() {
         const checks = document.querySelectorAll('.concepto-check:checked');
@@ -296,12 +356,30 @@ Por ahora reescribimos con macros para máxima consistencia #}
             btnConfirmar.classList.add('btn-warning');
         } else {
             let html = '<ul class="list-unstyled mb-0">';
+            let tieneViaticos = false;
             checks.forEach(cb => {
                 const fila = cb.closest('tr');
                 const desc = fila.querySelector('td:nth-child(2) strong')?.textContent?.trim() || '—';
-                html += `<li>✅ <small>${desc}</small></li>`;
+                const viaticoId = fila.getAttribute('data-viatico-id');
+                html += `<li>✅ <small>${desc}</small>${viaticoId ? ' <span class="badge bg-info text-dark" style="font-size: 0.6rem;">🗺️ Viático</span>' : ''}</li>`;
+                if (viaticoId) tieneViaticos = true;
             });
             html += '</ul>';
+
+            if (tieneViaticos) {
+                html += `
+                <div class="alert alert-info mt-2 mb-0 py-2 border-primary" style="font-size: 0.75rem;">
+                    <i class="fas fa-info-circle me-1"></i> Se detectó un concepto de <strong>Viáticos</strong>. 
+                    Te recomendamos seleccionar duración en <strong>"Días"</strong> para sincronizar las fechas del viaje.
+                </div>`;
+                // Sugerir cambio a días si no estaba puesto
+                const unidadSelect = document.getElementById('duracion-unidad');
+                if (unidadSelect.value === 'horas') {
+                    unidadSelect.value = 'dias';
+                    ajustarMaxDuracion();
+                }
+            }
+
             container.innerHTML = html;
             btnConfirmar.classList.add('btn-success');
             btnConfirmar.classList.remove('btn-warning');
@@ -316,7 +394,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
     });
 
     // ---- Crear OT ----
-    async function crearOrdenTrabajo() {
+    async function crearOrdenTrabajo(fuerza = false) {
         const form = document.getElementById('formCrearOT');
         if (!form.reportValidity()) return;
 
@@ -332,8 +410,10 @@ Por ahora reescribimos con macros para máxima consistencia #}
             fecha_programada: form.fecha_programada.value,
             hora_programada: form.hora_programada.value.substring(0, 5),  // "HH:MM"
             duracion: parseInt(form.duracion.value),
+            unidad_duracion: form.unidad_duracion.value,
             concepto_ids: conceptoIds,
             tecnico_id: tecnicoId ? parseInt(tecnicoId) : null,
+            fuerza: fuerza
         };
 
         const btn = document.getElementById('btn-confirmar-ot');
@@ -341,7 +421,7 @@ Por ahora reescribimos con macros para máxima consistencia #}
         btn.textContent = '⏳ Creando...';
 
         try {
-            const resp = await fetch('/api/ordenes/crear-desde-cotizacion', {
+            const resp = await fetch('/api/ordenes-trabajo/crear-desde-cotizacion', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
@@ -349,22 +429,35 @@ Por ahora reescribimos con macros para máxima consistencia #}
 
             if (resp.ok) {
                 const json = await resp.json();
-                window.location.href = `/ui/ordenes/${json.id}/detalle`;
+                window.location.href = `/ui/ordenes-trabajo/${json.id}/detalle`;
             } else {
                 const err = await resp.json();
                 const alertaEmpalme = document.getElementById('alerta-empalme');
                 const alertaMsg = document.getElementById('alerta-empalme-msg');
 
                 alertaEmpalme.classList.remove('d-none');
-                alertaMsg.textContent = err.detail || 'No se pudo crear la OT';
+                alertaMsg.innerHTML = `${err.detail || 'No se pudo crear la OT'} <br><button type="button" class="btn btn-outline-danger mt-2" onclick="crearOrdenTrabajo(true)">⚠️ Asignar de todos modos</button>`;
                 btn.disabled = false;
                 btn.textContent = '✨ Confirmar y Crear OT';
             }
         } catch (e) {
-            alert('Error de conexión al crear la OT');
+            console.error('Error al crear OT:', e);
+            alert('Error de red o servidor al procesar la solicitud.');
+            const btn = document.getElementById('btn-confirmar-ot');
             btn.disabled = false;
             btn.textContent = '✨ Confirmar y Crear OT';
         }
+    }
+
+    // Bloquear fechas pasadas en modal OT
+    const modalCrearOT = document.getElementById('modalCrearOT');
+    if (modalCrearOT) {
+        modalCrearOT.addEventListener('show.bs.modal', function() {
+            const fechaInput = document.querySelector('input[name="fecha_programada"]');
+            const hoyMex = new Date().toLocaleDateString('en-CA', {timeZone: 'America/Mexico_City'});
+            fechaInput.min = hoyMex;
+            if (!fechaInput.value) fechaInput.value = hoyMex;
+        });
     }
 </script>
 {% endblock %}

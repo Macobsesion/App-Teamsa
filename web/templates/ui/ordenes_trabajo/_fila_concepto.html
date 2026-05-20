@@ -1,0 +1,35 @@
+<tr id="concepto-ot-row-{{ concepto.id }}">
+    <td>
+        {{ concepto.descripcion }}
+        <br><small class="text-muted">{{ concepto.unidad }}</small>
+        {% if concepto.concepto_cotizacion.viatico_id %}
+            <a href="/ui/viaticos/{{ concepto.concepto_cotizacion.viatico_id }}/detalle" class="badge bg-info text-dark text-decoration-none ms-2">✈️ Ver Viático</a>
+        {% endif %}
+    </td>
+    <td class="text-center">{{ concepto.cantidad }}</td>
+    <td class="text-center">
+        {% if concepto.estado == 'completado' %}
+        <span class="badge bg-success">✅ Completado</span>
+        {% if concepto.completado_por %}
+        <br><small class="text-muted">{{ concepto.completado_por }}</small>
+        {% endif %}
+        {% elif concepto.estado == 'cancelado' %}
+        <span class="badge bg-danger">❌ Cancelado</span>
+        {% if concepto.completado_por %}
+        <br><small class="text-muted">{{ concepto.completado_por }}</small>
+        {% endif %}
+        {% else %}
+        <span class="badge bg-warning text-dark">🟡 Pendiente</span>
+        {% endif %}
+    </td>
+    <td class="text-center">
+        {% if concepto.estado == 'pendiente' and (ot.es_editable if ot else True) and puede_editar %}
+        <button hx-post="/api/ordenes-trabajo/{{ ot.id if ot else concepto.orden_trabajo_id }}/conceptos/{{ concepto.id }}/completar"
+            hx-confirm="¿Marcar '{{ concepto.descripcion }}' como completado? Esta acción es irreversible."
+            hx-target="#concepto-ot-row-{{ concepto.id }}" hx-swap="outerHTML"
+            class="btn btn-outline-success" title="Marcar como completado">
+            ✅
+        </button>
+        {% endif %}
+    </td>
+</tr>

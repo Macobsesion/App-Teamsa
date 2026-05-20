@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}Auditoría y Monitoreo | TEAMSA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4 px-lg-5">
+    <!-- Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <h1 class="h3 fw-bold mb-0 text-teamsa-primary">
+                <i class="fas fa-shield-alt me-2"></i>Monitoreo de Actividad
+            </h1>
+            <p class="text-muted small mb-0">Seguimiento detallado de todas las acciones realizadas en la plataforma.
+            </p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-light-teamsa fw-bold" onclick="location.reload()">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <div class="card border-0 shadow-sm mb-4" style="border-radius: 1rem;">
+        <div class="card-body p-4">
+            <form id="form-filtros" hx-get="/auditoria/" hx-target="#contenedor-tabla"
+                hx-trigger="change, keyup delay:300ms from:#search-input" class="row g-3">
+
+                <div class="col-md-4">
+                    <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Búsqueda Rápida</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted"><i
+                                class="fas fa-search"></i></span>
+                        <input type="text" id="search-input" name="q"
+                            class="form-control form-control-premium border-start-0 ps-0"
+                            placeholder="Buscar por detalles o ID...">
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Módulo</label>
+                    <select name="modulo" class="form-select form-select-premium">
+                        <option value="">Todos los módulos</option>
+                        <option value="clientes">Clientes</option>
+                        <option value="cotizaciones">Cotizaciones</option>
+                        <option value="ordenes_trabajo">Órdenes de Trabajo</option>
+                        <option value="viaticos">Viáticos</option>
+                        <option value="usuarios">Usuarios</option>
+                        <option value="auth">Autenticación</option>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Acción</label>
+                    <select name="accion" class="form-select form-select-premium">
+                        <option value="">Todas las acciones</option>
+                        <option value="CREAR">CREAR</option>
+                        <option value="EDITAR">EDITAR</option>
+                        <option value="ELIMINAR">ELIMINAR</option>
+                        <option value="REPROGRAMAR">REPROGRAMAR</option>
+                        <option value="REASIGNAR">REASIGNAR</option>
+                        <option value="LOGIN">LOGIN</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Usuario</label>
+                    <input type="text" name="usuario" class="form-control form-control-premium"
+                        placeholder="Filtrar por nombre...">
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-light-teamsa w-100"
+                        onclick="document.getElementById('form-filtros').reset(); document.getElementById('form-filtros').dispatchEvent(new Event('change'));">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Contenedor Tabla -->
+    <div class="card border-0 shadow-sm overflow-hidden" style="border-radius: 1rem;">
+        <div id="contenedor-tabla">
+            {% include "ui/auditoria/_tabla_logs.html" %}
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-light-teamsa {
+        background-color: #f8fafc;
+    }
+
+    .avatar-sm-text {
+        line-height: 24px;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(5px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}

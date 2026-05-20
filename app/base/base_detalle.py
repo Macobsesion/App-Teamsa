@@ -5,9 +5,10 @@ Centraliza los campos de "Snapshot" y la lógica financiera de partidas.
 from decimal import Decimal
 from sqlmodel import Field, SQLModel
 from pydantic import field_validator
+from app.base.auditoria import AuditMixin
 from app.base.mixins_financieros import MixinDetalleFinanciero
 
-class BaseDetalleTransaccional(MixinDetalleFinanciero, SQLModel):
+class BaseDetalleTransaccional(MixinDetalleFinanciero, AuditMixin, SQLModel):
     """
     Clase base abstracta (table=False) para cualquier línea de detalle 
     que requiera persistir un snapshot del catálogo y cálculos financieros.

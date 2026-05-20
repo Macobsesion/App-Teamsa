@@ -1,0 +1,31 @@
+{# web/templates/ui/ordenes-trabajo/_form.html #}
+{% import 'ui/macros/forms.html' as f %}
+
+{% call f.modal_form_wrapper('Orden de Trabajo', 'editar', 'frmOrden', '/ui/ordenes-trabajo', item) %}
+    <div class="row">
+        <div class="col-md-6">
+            {{ f.field_input('fecha_programada', 'Fecha Programada', item=item, type='date', required=True) }}
+        </div>
+        <div class="col-md-6">
+            {{ f.field_input('hora_programada', 'Hora Programada', item=item, type='time', required=True) }}
+        </div>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label calc-label fw-bold">Estado</label>
+        <select name="estado" class="form-select">
+            <option value="programada" {{ 'selected' if item.estado == 'programada' else '' }}>Programada</option>
+            <option value="en_curso" {{ 'selected' if item.estado == 'en_curso' else '' }}>En Curso</option>
+            <option value="cerrada" {{ 'selected' if item.estado == 'cerrada' else '' }}>Cerrada</option>
+            <option value="cancelada" {{ 'selected' if item.estado == 'cancelada' else '' }}>Cancelada</option>
+        </select>
+    </div>
+
+    {{ f.field_textarea('notas_publicas', 'Notas Públicas', item=item) }}
+    {{ f.field_textarea('notas_privadas', 'Notas Privadas', item=item) }}
+
+    <div class="alert alert-premium-warning d-flex align-items-center mb-0 mt-3 small py-2">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <span>Los datos del cliente (Snapshot) son históricos y no se pueden editar aquí.</span>
+    </div>
+{% endcall %}

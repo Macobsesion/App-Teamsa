@@ -87,9 +87,9 @@
                 <td class="codigo-sku">{{ item.codigo_sku }}</td>
                 <td>{{ item.descripcion }}</td>
                 <td class="text-center">{{ item.unidad }}</td>
-                <td class="text-center">{{ "%.2f"|format(item.cantidad or 0) }}</td>
-                <td class="text-right">${{ "{:,.2f}".format(item.precio_unitario or 0) }}</td>
-                <td class="text-right negrita">${{ "{:,.2f}".format(item.importe or 0) }}</td>
+                <td class="text-center">{{ item.cantidad | fmt_currency }}</td>
+                <td class="text-right">${{ item.precio_unitario | fmt_currency }}</td>
+                <td class="text-right negrita">${{ item.importe | fmt_currency }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -100,15 +100,15 @@
         <table class="totales-table">
             <tr>
                 <td class="label">Subtotal:</td>
-                <td class="valor">${{ "{:,.2f}".format(orden.subtotal) }}</td>
+                <td class="valor">${{ orden.subtotal | fmt_currency }}</td>
             </tr>
             <tr>
                 <td class="label">IVA (16%):</td>
-                <td class="valor">${{ "{:,.2f}".format(orden.iva) }}</td>
+                <td class="valor">${{ orden.iva | fmt_currency }}</td>
             </tr>
             <tr class="total-row">
                 <td>TOTAL:</td>
-                <td>${{ "{:,.2f}".format(orden.total) }} MXN</td>
+                <td>${{ orden.total | fmt_currency }} MXN</td>
             </tr>
         </table>
     </div>

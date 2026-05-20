@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'ui/macros/tablas.html' import tabla_crud %}
+{% from 'ui/macros/tablas.html' import render_tabla_crud %}
 {% from 'ui/macros/modales.html' import modal_htmx %}
 {% import "ui/macros/botones.html" as btn %}
 {% block title %}{{ crud_config.titulo }}{% endblock %}
@@ -7,14 +7,43 @@
 {% block customCSS %}{% endblock %}
 
 {% block content %}
-<h2 class="mb-4">{{ crud_config.label }}</h2>
-<div class="row mb-3">
-  <div class="col-sm-6">
-    <div class="position-relative">
-      <input class="form-control pe-5" type="search" name="q" placeholder="Buscar en todos los campos..." 
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="m-0">{{ crud_config.label }}</h2>
+  
+  {% if puede_crear %}
+  <div>
+    {% if crud_config.botonCrear %}
+      {% if crud_config.botonCrear.modal %}
+      <button type="button" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}" data-bs-toggle="modal"
+        data-bs-target="#editModal" hx-get="{{ crud_config.botonCrear.url or (ui_base + '/form?modo=crear') }}"
+        hx-target="#modal-content" hx-swap="innerHTML">
+        <i class="fas fa-plus me-1"></i> {{ crud_config.botonCrear.texto or 'Agregar' }}
+      </button>
+      {% else %}
+      <a href="{{ crud_config.botonCrear.url }}" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}">
+        <i class="fas fa-plus me-1"></i> {{ crud_config.botonCrear.texto }}
+      </a>
+      {% endif %}
+    {% else %}
+    <button type="button" class="btn btn-teamsa-primary" data-bs-toggle="modal" data-bs-target="#editModal"
+      hx-get="{{ ui_base }}/form?modo=crear" hx-target="#modal-content" hx-swap="innerHTML">
+      <i class="fas fa-plus me-1"></i> Agregar
+    </button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<div class="row mb-4">
+  <div class="col-sm-6 col-md-4">
+    <div class="position-relative shadow-sm rounded-3">
+      <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
+        <i class="fas fa-search"></i>
+      </span>
+      <input class="form-control ps-5 pe-5 border-0 bg-white" type="search" name="q" placeholder="Buscar..." 
         hx-get="{{ ui_base }}/filas"
         hx-trigger="keyup changed delay:500ms, search" 
-        hx-target="#tbody-lista"
+        hx-target=".crud-table-container"
         hx-indicator="#search-indicator">
       <div id="search-indicator" class="htmx-indicator position-absolute top-50 end-0 translate-middle-y me-3">
         <div class="spinner-border spinner-border-sm text-primary" role="status">
@@ -24,29 +53,14 @@
     </div>
   </div>
 </div>
-{% if puede_crear %}
-<div class="d-flex justify-content-end mb-3">
-  {% if crud_config.botonCrear %}
-  {% if crud_config.botonCrear.modal %}
-  <button type="button" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}" data-bs-toggle="modal"
-    data-bs-target="#editModal" hx-get="{{ crud_config.botonCrear.url or (ui_base + '/form?modo=crear') }}"
-    hx-target="#modal-content" hx-swap="innerHTML">
-    {{ crud_config.botonCrear.texto or 'Agregar' }}
-  </button>
-  {% else %}
-  <a href="{{ crud_config.botonCrear.url }}" class="{{ crud_config.botonCrear.clase or 'btn btn-teamsa-primary' }}">
-    {{ crud_config.botonCrear.texto }}
-  </a>
-  {% endif %}
-  {% else %}
-  <button type="button" class="btn btn-teamsa-primary" data-bs-toggle="modal" data-bs-target="#editModal"
-    hx-get="{{ ui_base }}/form?modo=crear" hx-target="#modal-content" hx-swap="innerHTML">Agregar</button>
-  {% endif %}
-</div>
-{% endif %}
-{{ tabla_crud(crud_config, ui_base) }}
 
+<div class="fade-in">
+  {{ render_tabla_crud(crud_config, ui_base) }}
+</div>
+
+{% endblock %}
+
+{% block modals %}
 {# Modal HTMX #}
 {{ modal_htmx('editModal') }}
-
 {% endblock %}

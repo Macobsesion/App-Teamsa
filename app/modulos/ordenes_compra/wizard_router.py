@@ -22,13 +22,22 @@ TEMPLATES = get_templates()
 @router.get("/wizard")
 def mostrar_wizard_orden_compra(
     request: Request,
+    id: int | None = None,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_compra")),
+    usuario: Any = Depends(dp_usuario_actual),
 ):
     """Wizard para crear/editar orden de compra completa con proveedores."""
+    # Validación dinámica de permisos usando la dependencia centralizada
+    accion = "editar" if id else "crear"
+    verificador = para_modulo("ordenes_compra", accion)
+    
+    # Ejecutamos la verificación manualmente si no queremos usarla como Dependencia de FastAPI
+    # (aunque lo ideal es que sea un Depends en la firma, aquí lo hacemos así para mantener el flujo de id opcional)
+    u_db = verificador(usuario, db)
+
     return TEMPLATES.TemplateResponse(
         "ui/ordenes_compra/wizard.html",
-        {"request": request, "usuario": usuario}
+        {"request": request, "usuario": u_db}
     )
 
 
@@ -40,12 +49,12 @@ def ver_detalle_orden(
     usuario = Depends(para_modulo("ordenes_compra", "ver")),
 ):
     """Vista de detalle de una orden de compra."""
-    orden = db.get(OrdenCompra, orden_id)
+    from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
+    repo = RepositorioOrdenCompra(db)
+    orden = repo.obtener_por_id(orden_id)
+    
     if not orden:
         raise RecursoNoEncontradoError("Orden de Compra no encontrada")
-    
-    # Eager loading simulado (si no está configurado en relación lazy='joined')
-    proveedor = db.get(Proveedor, orden.proveedor_id)
     
     # RBAC context for detail view
     perms_edit = getattr(usuario, "permisos_editar", []) or []
@@ -60,7 +69,7 @@ def ver_detalle_orden(
             "request": request,
             "usuario": usuario,
             "orden": orden,
-            "proveedor": proveedor,
+            "proveedor": orden.proveedor, # Usamos la relación del modelo
             "detalles": orden.detalles,
             "puede_editar": puede_editar,
             "puede_eliminar": puede_eliminar,

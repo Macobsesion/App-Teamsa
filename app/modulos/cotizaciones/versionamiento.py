@@ -65,6 +65,27 @@ def actualizar_sin_versionar(cotizacion_id: int, data: dict, db: Session, usuari
             )
 
     repo.recalcular_totales(cotizacion_id)
+    
+    # NUEVO: Procesar viáticos desde el wizard si vienen (Sobrescribir actual)
+    viaticos_nuevos = data.get('viaticos_nuevos', [])
+    if viaticos_nuevos:
+        from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+        repo_v = RepositorioViatico(db)
+        repo_v.skip_injection = True
+        from app.modulos.usuarios.usuarios_modelo import Usuario
+        from sqlmodel import select
+        u = db.exec(select(Usuario).where(Usuario.usuario == usuario.usuario)).first()
+        r_id = u.id if u else 1
+
+        for v_data in viaticos_nuevos:
+            v_data['cotizacion_id'] = cotizacion.id
+            v_data['cliente_id'] = cotizacion.cliente_id
+            v_data['responsable_id'] = r_id
+            v_data['creado_por'] = usuario.usuario
+            v_data['estado'] = 'borrador'
+            repo_v.crear(**v_data) # Hace commit interno
+            
+    db.commit()
     db.refresh(cotizacion)
     
     return {"id": cotizacion.id, "numero": cotizacion.numero, "numero_version": cotizacion.numero_version}
@@ -163,6 +184,26 @@ def crear_nueva_version(cotizacion_id: int, data: dict, db: Session, usuario: Us
         )
     
     repo.recalcular_totales(nueva_cotizacion.id)
+    
+    # NUEVO: Procesar viáticos desde el wizard si vienen (Estarán atados a la NUEVA versión)
+    viaticos_nuevos = data.get('viaticos_nuevos', [])
+    if viaticos_nuevos:
+        from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+        repo_v = RepositorioViatico(db)
+        repo_v.skip_injection = True
+        from app.modulos.usuarios.usuarios_modelo import Usuario
+        from sqlmodel import select
+        u = db.exec(select(Usuario).where(Usuario.usuario == usuario.usuario)).first()
+        r_id = u.id if u else 1
+
+        for v_data in viaticos_nuevos:
+            v_data['cotizacion_id'] = nueva_cotizacion.id
+            v_data['cliente_id'] = nueva_cotizacion.cliente_id
+            v_data['responsable_id'] = r_id
+            v_data['creado_por'] = usuario.usuario
+            v_data['estado'] = 'borrador'
+            repo_v.crear(**v_data) # Hace commit interno
+            
     db.commit()
     db.refresh(nueva_cotizacion)
     

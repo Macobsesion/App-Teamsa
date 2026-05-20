@@ -9,7 +9,7 @@ Cliente: <strong>{{ cliente.nombre }}</strong>
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(cotizacion.estado) }}
+{{ comp.status_badge(cotizacion.estado, extra_class='fs-5') }}
 {% endblock %}
 
 {% block items_content %}

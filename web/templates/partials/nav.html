@@ -24,7 +24,7 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
  
           <!-- Módulo Ventas -->
           {% set v_perm = usuario.permisos_ver or [] %}
-          {% if 'cotizaciones' in v_perm or 'ordenes' in v_perm or 'clientes' in v_perm or 'servicios' in v_perm %}
+          {% if 'cotizaciones' in v_perm or 'ordenes' in v_perm or 'clientes' in v_perm or 'servicios' in v_perm or 'viaticos' in v_perm %}
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/cotizaciones', '/clientes', '/servicios', '/ordenes')) else '' }}"
               href="#" role="button" data-bs-toggle="dropdown">
@@ -32,6 +32,7 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
             </a>
             <ul class="dropdown-menu">
               {% if 'cotizaciones' in v_perm %}<li><a class="dropdown-item" href="/cotizaciones">📄 Cotizaciones</a></li>{% endif %}
+              {% if 'viaticos' in v_perm %}<li><a class="dropdown-item" href="/viaticos">🚗 Viáticos</a></li>{% endif %}
               {% if 'ordenes' in v_perm %}<li><a class="dropdown-item" href="/ordenes">🛠️ Órdenes de Trabajo</a></li>{% endif %}
               {% if 'clientes' in v_perm or 'servicios' in v_perm %}
               <li>

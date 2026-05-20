@@ -38,3 +38,11 @@ class EstadoCotizacion(str, Enum):
             EstadoCotizacion.FINALIZADA,
             EstadoCotizacion.CANCELADA
         )
+
+class EstadoViatico(str, Enum):
+    """Estados para el flujo de viáticos."""
+    BORRADOR = "borrador"
+    SOLICITADO = "solicitado"
+    APROBADO = "aprobado"
+    PAGADO = "pagado"
+    CANCELADO = "cancelado"

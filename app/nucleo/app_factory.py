@@ -28,6 +28,7 @@ from app.modulos.ordenes.ordenes_router import router as rt_ordenes
 from app.modulos.servicios_proveedores.servicios_proveedores_router import router as rt_servicios_proveedores
 from app.modulos.ordenes_compra.ordenes_compra_router import router as rt_ordenes_compra
 from app.modulos.ordenes_compra.wizard_router import router as rt_wizard_ordenes
+from app.modulos.viaticos.viaticos_router import router as rt_viaticos
 
 from app.nucleo.base_datos import crear_tablas
 from app.rutas import rt_autenticacion, rt_paginas
@@ -274,7 +275,7 @@ def create_app() -> FastAPI:
         rt_servicios_proveedores,
         rt_ordenes_compra,
         rt_wizard_ordenes,
-
+        rt_viaticos,
     ]
     for router in routers:
         app.include_router(router)

@@ -87,7 +87,37 @@ class ServicioCreacionCotizacion(ServicioDocumentoFinanciero[Cotizacion, Concept
         """Wrapper de compatibilidad para el router."""
         data['usuario_id'] = usuario_nombre
         items = data.get('servicios', [])
-        return self.crear_documento(data, items)
+        
+        # 1. Crear la cotización normalmente (esto hace commit)
+        cotizacion = self.crear_documento(data, items)
+        
+        # 2. Procesar viáticos nuevos si vienen en el payload
+        viaticos_nuevos = data.get('viaticos_nuevos', [])
+        if viaticos_nuevos:
+             self._procesar_viaticos_wizard(cotizacion, viaticos_nuevos, usuario_nombre)
+             
+        return cotizacion
+
+    def _procesar_viaticos_wizard(self, cotizacion: Cotizacion, viaticos_data: List[Dict[str, Any]], usuario: str) -> None:
+        """Instancia registros reales en el módulo de Viáticos atados a la cotización."""
+        from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+        # skip_injection=True porque el concepto YA fue inyectado por el frontend en 'servicios'
+        repo = RepositorioViatico(self.db)
+        repo.skip_injection = True
+        
+        from app.modulos.usuarios.usuarios_modelo import Usuario
+        from sqlmodel import select
+        u = self.db.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
+        r_id = u.id if u else 1 # Fallback al primer usuario si no se encuentra
+        
+        for v_data in viaticos_data:
+            v_data['cotizacion_id'] = cotizacion.id
+            v_data['cliente_id'] = cotizacion.cliente_id
+            v_data['responsable_id'] = r_id
+            v_data['creado_por'] = usuario
+            v_data['estado'] = 'borrador'
+            repo.crear(**v_data) # Esto hará commit dentro de RepositorioViatico._post_guardar
+            # Nota: RepositorioViatico._post_guardar hace commit final para asignar el folio real.
 
 
 class ServicioCotizaciones:

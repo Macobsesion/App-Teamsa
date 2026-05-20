@@ -1,0 +1,82 @@
+{% import 'partials/forms.html' as f %}
+
+{% call f.modal_wrapper('viatico', modo, 'frmViatico', '/ui/viaticos', item) %}
+<div class="row">
+    <div class="col-md-9 border-end border-2 border-primary border-opacity-25 pb-3">
+        <h5 class="text-primary mt-2 border-bottom pb-2">Destino y Fechas</h5>
+        <div class="row">
+            <div class="col-md-6">{{ f.field_input('proyecto', 'Descripción del Viaje (Opcional)', item=item) }}</div>
+            <div class="col-md-3">{{ f.field_input('origen', 'Origen', required=True, item=item) }}</div>
+            <div class="col-md-3">{{ f.field_input('destino', 'Destino', required=True, item=item) }}</div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-3">{{ f.field_input('fecha_salida', 'Fecha Salida', type='date', required=True, item=item) }}</div>
+            <div class="col-md-3">{{ f.field_input('fecha_regreso', 'Fecha Regreso', type='date', required=True, item=item) }}</div>
+            <div class="col-md-3">{{ f.field_input('personas', 'Personas', type='number', required=True, item=item) }}</div>
+            <div class="col-md-3">{{ f.field_select('tipo_transporte', 'Transporte', opciones_transporte, required=True, item=item) }}</div>
+        </div>
+
+        <h5 class="text-primary mt-4 border-bottom pb-2 pt-2">Vínculos Operacionales</h5>
+        <div class="row">
+            <div class="col-md-5">{{ f.field_select('cliente_id', 'Cliente', clientes, required=True, item=item, attrs='hx-get="/ui/viaticos/cotizaciones-cliente-html" hx-target="#cotizacion_id" hx-trigger="change"') }}</div>
+            <div class="col-md-4">{{ f.field_select('responsable_id', 'Responsable de Arqueo', usuarios, label_attr='nombres', required=True, item=item) }}</div>
+            <div class="col-md-3">
+            {% if modo == 'editar' and item.cotizacion_id %}
+                <div class="mb-3">
+                    <label class="form-label text-truncate" style="max-width: 100%;"><i class="fas fa-lock text-secondary"></i> Unido a Cot.</label>
+                    <input type="text" class="form-control text-muted bg-light border-secondary border-opacity-50" value="{{ item.cotizacion.numero if item.cotizacion else item.cotizacion_id }}" readonly>
+                    <!-- Enviamos el valor inmutable -->
+                    <input type="hidden" name="cotizacion_id" value="{{ item.cotizacion_id }}">
+                </div>
+            {% else %}
+                <div class="position-relative">
+                    {% if modo == 'crear' %}
+                    <span class="position-absolute translate-middle p-1 bg-warning border border-light rounded-circle" style="top: 10px; right: 0px;" title="Al unirse se re-calculará la cotización elegida permanentemente." data-bs-toggle="tooltip">
+                        <span class="visually-hidden">Atención</span>
+                    </span>
+                    {% endif %}
+                    {{ f.field_select('cotizacion_id', 'Unir a Cotización', cotizaciones, label_attr='numero', item=item) }}
+                </div>
+                {% if modo == 'editar' and item.cliente_id %}
+                <!-- HTMX pre-poblará las cotizaciones -->
+                <script>
+                    setTimeout(() => htmx.trigger('#cliente_id', 'change'), 100);
+                </script>
+                {% endif %}
+            {% endif %}
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-md-12">
+                <div class="form-group mb-3">
+                    <label class="form-label fw-bold">Órdenes de Trabajo Asignadas al Viaje</label>
+                    <select name="ot_ids" id="ot_ids" class="form-select" multiple size="4">
+                        {% if item and item.rutas_ot %}
+                            {% for ot in item.rutas_ot %}
+                                <option value="{{ ot.id }}" selected>{{ ot.numero_ot }} (Cliente: {{ ot.cliente_nombre }})</option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                    <div class="form-text mt-1 text-muted">
+                        <small>Deje vacío si este viático es de propósito general o se vinculará más tarde.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Columna Derecha: Boque Financiero Rápido -->
+    <div class="col-md-3 bg-light rounded pt-2 pb-3 mb-3">
+        <h5 class="text-danger mt-2 border-bottom pb-2"><i class="fas fa-money-bill-wave"></i> Arqueo Solicitado</h5>
+        <div class="row g-2 mt-2">
+            <div class="col-12">{{ f.field_input('costo_transporte', 'Transporte ($)', type='number', attrs='step="0.01"', item=item) }}</div>
+            <div class="col-12">{{ f.field_input('costo_alojamiento', 'Alojamiento ($)', type='number', attrs='step="0.01"', item=item) }}</div>
+            <div class="col-12">{{ f.field_input('costo_alimentos', 'Alimentos ($)', type='number', attrs='step="0.01"', item=item) }}</div>
+            <div class="col-12">{{ f.field_input('costo_otros', 'Otros Gastos ($)', type='number', attrs='step="0.01"', item=item) }}</div>
+        </div>
+        <hr class="my-3 border-secondary">
+        <label class="form-label fw-bold small text-muted">Anotaciones de Comprobación</label>
+        {{ f.field_textarea('notas_desglose', '', item=item) }}
+    </div>
+</div>
+{% endcall %}

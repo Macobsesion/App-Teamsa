@@ -19,6 +19,7 @@ from app.modulos.cotizaciones.cotizaciones_router import descriptor as cotizacio
 from app.modulos.ordenes.ordenes_router import descriptor as ordenes_descriptor
 from app.modulos.servicios_proveedores.servicios_proveedores_router import descriptor as servicios_proveedores_descriptor
 from app.modulos.ordenes_compra.ordenes_compra_router import descriptor as ordenes_compra_descriptor
+from app.modulos.viaticos.viaticos_router import descriptor as viaticos_descriptor
 
 from app.rutas.permisos import para_modulo
 
@@ -109,3 +110,7 @@ def pagina_servicios_proveedores(request: Request, usuario=Depends(para_modulo("
 @router.get("/ordenes-compra", response_class=HTMLResponse)
 def pagina_ordenes_compra(request: Request, usuario=Depends(para_modulo("ordenes_compra", "ver"))):
     return render_crud_page(request, template="crud_page.html", descriptor=ordenes_compra_descriptor, ui_base="/ui/ordenes-compra", usuario=usuario, modulo="ordenes_compra")
+
+@router.get("/viaticos", response_class=HTMLResponse)
+def pagina_listado_viaticos(request: Request, usuario=Depends(para_modulo("viaticos", "ver"))):
+    return render_crud_page(request, template="crud_page.html", descriptor=viaticos_descriptor, ui_base="/ui/viaticos", usuario=usuario, modulo="viaticos")

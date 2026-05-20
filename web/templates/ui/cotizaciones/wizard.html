@@ -90,6 +90,19 @@
                                             onclick="agregarServicio()">+ Agregar</button>
                                     </div>
                                 </div>
+                                <div class="row g-2 align-items-end mt-2">
+                                    <div class="col-md-9">
+                                        <label class="form-label text-primary mb-1 fw-bold"><i class="fas fa-plane"></i>
+                                            Viajes y Viáticos</label>
+                                        <p class="text-muted small mb-0">Calcula costos operativos nuevos o importa
+                                            viáticos ya registrados en la biblioteca.</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="button" class="btn btn-outline-primary w-100 fw-bold"
+                                            data-bs-toggle="modal" data-bs-target="#modalCalculadoraViaticos">✈️
+                                            Gestionar Viáticos</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -169,9 +182,143 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-danger" onclick="actualizarSinVersionarYForzar()"><i
+                        class="fas fa-exclamation-triangle"></i> Sobrescribir Actual</button>
+                <div class="ms-auto flex-grow-1"></div>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-warning" onclick="confirmarVersionamiento()">Sí, Crear Nueva
                     Versión</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Calculadora Viaticos Nativos -->
+<div class="modal fade" id="modalCalculadoraViaticos" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header text-white" style="background-color: #4148C3;">
+                <h5 class="modal-title">✈️ Gestión de Viáticos</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Nav tabs -->
+                <ul class="nav nav-tabs nav-fill" id="viaticoTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold" id="nueva-tab" data-bs-toggle="tab"
+                            data-bs-target="#nueva-viatico" type="button" role="tab">✨ Nueva Calculadora</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold" id="biblioteca-tab" data-bs-toggle="tab"
+                            data-bs-target="#biblioteca-viatico" type="button" role="tab">📚 Historial</button>
+                    </li>
+                </ul>
+
+                <!-- Tab panes -->
+                <div class="tab-content p-4">
+                    <!-- Tab: Nueva Calculadora -->
+                    <div class="tab-pane active" id="nueva-viatico" role="tabpanel">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Nombre del Viaje / Destino</label>
+                            <input type="text" class="form-control" id="viatico-destino"
+                                placeholder="Ej. Instalación en Monterrey" required>
+                        </div>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Personas viajando</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-users text-primary"></i></span>
+                                    <input type="number" class="form-control border-start-0" id="viatico-personas" value="1" min="1">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small fw-bold text-muted">Días de estancia</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="fas fa-calendar-day text-primary"></i></span>
+                                    <input type="number" class="form-control border-start-0 viatico-calc" id="viatico-dias" value="1" min="1">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sección de Alimentos Reubicada y Estilizada -->
+                        <div class="p-3 mb-4" style="background-color: #f8f9ff; border: 1px solid #4148C3; border-radius: 12px;">
+                            <h6 class="extra-small text-uppercase fw-bold mb-3" style="color: #4148C3; letter-spacing: 1px;">
+                                <i class="fas fa-utensils me-2"></i>Desglose de Alimentos (Persona/Día)
+                            </h6>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <label class="extra-small text-muted mb-1">Desayuno</label>
+                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-desayuno" value="0.00" min="0" step="10">
+                                </div>
+                                <div class="col-4">
+                                    <label class="extra-small text-muted mb-1">Comida</label>
+                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-comida" value="0.00" min="0" step="10">
+                                </div>
+                                <div class="col-4">
+                                    <label class="extra-small text-muted mb-1">Cena</label>
+                                    <input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-cena" value="0.00" min="0" step="10">
+                                </div>
+                            </div>
+                            <div class="mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+                                <span class="small text-muted">Subtotal Alimentos:</span>
+                                <span class="fw-bold" style="color: #4148C3;" id="viatico-alimentos-label">$0.00</span>
+                                <input type="hidden" id="viatico-alimentos" value="0.00">
+                            </div>
+                        </div>
+
+                        <h6 class="mt-4 mb-3 small text-uppercase fw-bold text-muted border-bottom pb-2">Otros Gastos Operativos</h6>
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-7"><label class="form-label text-muted small mb-0">Transporte / Vuelos</label></div>
+                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-transporte" value="0.00" min="0" step="10"></div>
+                        </div>
+                        <div class="row mb-2 align-items-center">
+                            <div class="col-7"><label class="form-label text-muted small mb-0">Alojamiento</label></div>
+                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-alojamiento" value="0.00" min="0" step="10"></div>
+                        </div>
+                        <div class="row mb-3 align-items-center">
+                            <div class="col-7"><label class="form-label text-muted small mb-0">Peajes / Otros</label></div>
+                            <div class="col-5"><input type="number" class="form-control form-control-sm text-end viatico-calc" id="viatico-otros" value="0.00" min="0" step="10"></div>
+                        </div>
+
+                        <div class="px-3 py-2 d-flex justify-content-between align-items-center mb-0" style="background: linear-gradient(135deg, #4148C3 0%, #3F48CB 100%); border-radius: 10px; color: white;">
+                            <div class="d-flex flex-column">
+                                <span class="extra-small text-uppercase opacity-75" style="font-size: 0.65rem;">Inversión Estimada</span>
+                                <strong style="font-size: 0.8rem;">TOTAL CALCULADO</strong>
+                            </div>
+                            <h5 class="mb-0 fw-bold">$<span id="viatico-total-suma">0.00</span></h5>
+                        </div>
+                        <div class="mt-3 text-end">
+                            <button type="button" class="btn fw-bold text-white shadow-sm py-2" style="background-color: #4148C3; border-radius: 8px; width: 100%; font-size: 0.9rem;" onclick="guardarViaticoNativo()">
+                                <i class="fas fa-plus-circle me-2"></i>Inyectar a Cotización
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tab: Biblioteca -->
+                    <div class="tab-pane" id="biblioteca-viatico" role="tabpanel">
+                        <p class="text-muted small mb-4">Selecciona un viático previamente autorizado para importarlo
+                            como concepto a esta cotización.</p>
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Buscar en Biblioteca</label>
+                            <select class="form-select border-primary" id="viatico-select-modal">
+                                <option value="">-- Seleccionar de viajes existentes --</option>
+                            </select>
+                        </div>
+                        <div id="viatico-preview-modal" class="alert alert-light border d-none">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1 fw-bold" id="v-prev-folio"></h6>
+                                    <span class="text-muted extra-small" id="v-prev-proyecto"></span>
+                                </div>
+                                <h5 class="text-primary mb-0" id="v-prev-total"></h5>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-end">
+                            <button type="button" class="btn btn-outline-primary px-4 fw-bold"
+                                onclick="agregarViaticoDesdeModal()">📥 Importar Viático</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -188,10 +335,12 @@
         forma_pago: '99',
         notas: '',
         servicios: [],  // Array de {servicio_id, descripcion, cantidad, precio_unitario, descuento_porcentaje, codigo_sat, unidad}
+        viaticos_nuevos: [] // Array temporal de viaticos por crear
     };
 
     let clientesData = [];
     let serviciosData = [];
+    let viaticosData = [];
 
     // Variables para modo edición
     let modoEdicion = false;
@@ -221,6 +370,12 @@
 
         cargarClientes();
         cargarServicios();
+        cargarViaticosParaWizard();
+
+        // Refrescar biblioteca al abrir el modal para ver registros recién creados
+        document.getElementById('modalCalculadoraViaticos')?.addEventListener('shown.bs.modal', function () {
+            cargarViaticosParaWizard();
+        });
 
         // Si es modo edición o versión, cargar datos después de cargar catálogos
         if (modoEdicion || modoVersion) {
@@ -277,6 +432,151 @@
         } catch (error) {
             console.error('Error cargando servicios:', error);
         }
+    }
+
+    async function cargarViaticosParaWizard() {
+        try {
+            const response = await fetch('/api/viaticos/disponibles-para-cotizacion');
+            viaticosData = await response.json();
+            const select = document.getElementById('viatico-select-modal');
+            select.innerHTML = '<option value="">-- Seleccionar de viajes existentes --</option>';
+            viaticosData.forEach(v => {
+                select.innerHTML += `<option value="${v.id}">${v.folio} - ${v.proyecto} ($${v.total.toFixed(2)})</option>`;
+            });
+        } catch (error) {
+            console.error('Error al cargar viáticos:', error);
+        }
+    }
+
+    // Preview de viático en modal
+    document.getElementById('viatico-select-modal')?.addEventListener('change', function (e) {
+        const val = e.target.value;
+        const preview = document.getElementById('viatico-preview-modal');
+        if (!val) {
+            preview.classList.add('d-none');
+            return;
+        }
+        const v = viaticosData.find(x => x.id == val);
+        if (v) {
+            document.getElementById('v-prev-folio').textContent = v.folio;
+            document.getElementById('v-prev-proyecto').textContent = v.proyecto;
+            document.getElementById('v-prev-total').textContent = '$' + v.total.toFixed(2);
+            preview.classList.remove('d-none');
+        }
+    });
+
+    function agregarViaticoDesdeModal() {
+        const viaticoId = document.getElementById('viatico-select-modal').value;
+        if (!viaticoId) {
+            alert('Por favor selecciona un viático para importar');
+            return;
+        }
+
+        const v = viaticosData.find(x => x.id == viaticoId);
+        if (!v) return;
+
+        wizardState.servicios.push({
+            servicio_id: null,
+            descripcion: `Gastos de Viaje o Viático (Ref: ${v.folio} / ${v.proyecto})`,
+            codigo_sat: '78111500', // Transporte de pasajeros
+            unidad: 'Viaje/Servicio',
+            cantidad: 1,
+            precio_unitario: v.total,
+            descuento_porcentaje: 0
+        });
+
+        renderizarServicios();
+
+        // Cerrar modal
+        const modalEl = document.getElementById('modalCalculadoraViaticos');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Reset select
+        document.getElementById('viatico-select-modal').value = '';
+        document.getElementById('viatico-preview-modal').classList.add('d-none');
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('viatico-calc') || e.target.id === 'viatico-personas') {
+            const personas = parseInt(document.getElementById('viatico-personas').value) || 1;
+            const dias = parseInt(document.getElementById('viatico-dias').value) || 1;
+            
+            const desayuno = parseFloat(document.getElementById('viatico-desayuno').value) || 0;
+            const comida = parseFloat(document.getElementById('viatico-comida').value) || 0;
+            const cena = parseFloat(document.getElementById('viatico-cena').value) || 0;
+            
+            // Calcular subtotal de alimentos: (D+C+C) * personas * dias
+            const totalAlimentos = (desayuno + comida + cena) * personas * dias;
+            document.getElementById('viatico-alimentos').value = totalAlimentos.toFixed(2);
+            document.getElementById('viatico-alimentos-label').textContent = '$' + totalAlimentos.toFixed(2);
+
+            const transporte = parseFloat(document.getElementById('viatico-transporte').value) || 0;
+            const alojamiento = parseFloat(document.getElementById('viatico-alojamiento').value) || 0;
+            const alimentos = totalAlimentos;
+            const otros = parseFloat(document.getElementById('viatico-otros').value) || 0;
+
+            const total = transporte + alojamiento + alimentos + otros;
+            document.getElementById('viatico-total-suma').textContent = total.toFixed(2);
+        }
+    });
+
+    function guardarViaticoNativo() {
+        const destino = document.getElementById('viatico-destino').value;
+        const personas = parseInt(document.getElementById('viatico-personas').value) || 1;
+        const dias = parseInt(document.getElementById('viatico-dias').value) || 1;
+        const transporte = parseFloat(document.getElementById('viatico-transporte').value) || 0;
+        const alojamiento = parseFloat(document.getElementById('viatico-alojamiento').value) || 0;
+        const alimentos = parseFloat(document.getElementById('viatico-alimentos').value) || 0;
+        const otros = parseFloat(document.getElementById('viatico-otros').value) || 0;
+
+        const total = parseFloat((transporte + alojamiento + alimentos + otros).toFixed(2));
+
+        if (!destino || total <= 0) {
+            alert('Falta nombre del destino o costos válidos.');
+            return;
+        }
+
+        // Push a objetos nuevos
+        wizardState.viaticos_nuevos.push({
+            proyecto: destino,
+            personas: personas,
+            costo_transporte: transporte,
+            costo_alojamiento: alojamiento,
+            costo_alimentos: alimentos,
+            costo_otros: otros,
+            total: total
+        });
+
+        // Push como servicio
+        wizardState.servicios.push({
+            servicio_id: null,
+            descripcion: `Costos Operativos de Viático - ${destino} (${personas} personas)`,
+            codigo_sat: '78111500',
+            unidad: 'Viaje/Servicio',
+            cantidad: 1,
+            precio_unitario: total,
+            descuento_porcentaje: 0
+        });
+
+        renderizarServicios();
+
+        const modalEl = document.getElementById('modalCalculadoraViaticos');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        // Clean modal
+        document.getElementById('viatico-destino').value = '';
+        document.getElementById('viatico-personas').value = '1';
+        document.getElementById('viatico-dias').value = '1';
+        document.getElementById('viatico-desayuno').value = '0.00';
+        document.getElementById('viatico-comida').value = '0.00';
+        document.getElementById('viatico-cena').value = '0.00';
+        document.getElementById('viatico-transporte').value = '0.00';
+        document.getElementById('viatico-alojamiento').value = '0.00';
+        document.getElementById('viatico-otros').value = '0.00';
+        document.getElementById('viatico-total-suma').textContent = '0.00';
+        document.getElementById('viatico-alimentos-label').textContent = '$0.00';
     }
 
     function nextStep() {
@@ -616,7 +916,8 @@
                     metodo_pago: wizardState.metodo_pago,
                     forma_pago: wizardState.forma_pago,
                     notas: wizardState.notas,
-                    servicios: wizardState.servicios
+                    servicios: wizardState.servicios,
+                    viaticos_nuevos: wizardState.viaticos_nuevos
                 })
             });
 
@@ -630,6 +931,14 @@
             btn.disabled = false;
             btn.innerHTML = '<span id="btn-submit-text">💾 Guardar Cambios</span>';
         }
+    }
+
+    async function actualizarSinVersionarYForzar() {
+        const modalEl = document.getElementById('modalVersionamiento');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+
+        await actualizarSinVersionar();
     }
 
     async function confirmarVersionamiento() {
@@ -650,7 +959,8 @@
                     metodo_pago: wizardState.metodo_pago,
                     forma_pago: wizardState.forma_pago,
                     notas: wizardState.notas,
-                    servicios: wizardState.servicios
+                    servicios: wizardState.servicios,
+                    viaticos_nuevos: wizardState.viaticos_nuevos
                 })
             });
 

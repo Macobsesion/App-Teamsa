@@ -1,5 +1,6 @@
 {% from 'ui/macros/tablas.html' import paginacion_htmx %}
 {% from 'ui/macros/botones.html' import acciones_crud as acciones %}
+{% import 'partials/components.html' as comp %}
 {% if items %}
 {% for item in items %}
 <tr>
@@ -29,19 +30,7 @@
     <td>{{ item.fecha_emision.strftime('%d/%m/%Y') if item.fecha_emision else '-' }}</td>
     <td class="text-end"><strong>${{ "%.2f"|format(item.total) }}</strong></td>
     <td>
-        {% set estado_color = {
-        'borrador': 'secondary',
-        'enviada': 'info text-dark',
-        'aceptada': 'primary',
-        'modificada': 'secondary',
-        'programada': 'warning text-dark',
-        'finalizada': 'success',
-        'cancelada': 'danger',
-        'rechazada': 'danger'
-        } %}
-        <span class="badge bg-{{ estado_color.get(item.estado, 'secondary') }}">
-            {{ item.estado|replace('_', ' ')|title }}
-        </span>
+        {{ comp.status_badge(item.estado) }}
     </td>
     {% set can_edit_negocio = item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
     {% set btns_extra = [

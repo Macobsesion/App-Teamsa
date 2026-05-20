@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% import 'partials/components.html' as comp %}
+{% block title %}Viático {{ viatico.folio }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    {# Encabezado #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2>Viático {{ viatico.folio }}</h2>
+            <p class="text-muted mb-0">
+                Cliente: <strong>{{ viatico.cliente.nombre if viatico.cliente else 'N/A' }}</strong>
+                <br>
+                <small>Asignado a: {{ viatico.responsable.nombres if viatico.responsable else 'N/A' }}</small>
+                {% if viatico.rutas_ot %}
+                <br><small>Ref. OTs:
+                    {% for ot in viatico.rutas_ot %}
+                    <span class="badge bg-secondary">{{ ot.numero_ot }}</span>
+                    {% endfor %}
+                </small>
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            {{ comp.status_badge(viatico.estado, extra_class='fs-5') }}
+        </div>
+    </div>
+
+    <div class="row">
+        {# Columna izquierda: Resumen de Viaje #}
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white" style="background-color: #4148C3;">
+                    <h5 class="mb-0">📍 Detalles del Viaje</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless mb-0">
+                        <tr>
+                            <td class="text-muted">Proyecto:</td>
+                            <td><strong>{{ viatico.proyecto or 'N/A' }}</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Ruta:</td>
+                            <td>{{ viatico.origen or 'N/A' }} → {{ viatico.destino or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Fechas:</td>
+                            <td>{{ viatico.fecha_salida or 'N/A' }} al {{ viatico.fecha_regreso or 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Personas:</td>
+                            <td>{{ viatico.personas }} <i class="fas fa-users text-muted"></i></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            {# Desglose Directo #}
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">📝 Notas Rápidas de Desglose</h6>
+                </div>
+                <div class="card-body text-muted" style="white-space: pre-wrap;">{{ viatico.notas_desglose or "Sin
+                    desglose manual registrado." }}</div>
+            </div>
+        </div>
+
+        {# Columna derecha: Totales Simplificados #}
+        <div class="col-lg-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header text-white" style="background-color: #2D3748;">
+                    <h5 class="mb-0">💰 Distrubución de Arqueo</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Rubro</th>
+                                <th class="text-end">Costo Asignado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>🚗 Transporte (Combustible, Vuelos, Peajes)</td>
+                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_transporte or 0) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>🏨 Alojamiento (Hoteles, Rentas)</td>
+                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_alojamiento or 0) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>🍔 Alimentos (Comidas de personal)</td>
+                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_alimentos or 0) }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>🛒 Otros Gastos de viaje</td>
+                                <td class="text-end text-danger">${{ "{:,.2f}".format(viatico.costo_otros or 0) }}</td>
+                            </tr>
+                        </tbody>
+                        <tfoot class="table-light fw-bold">
+                            <tr>
+                                <td class="text-end">TOTAL DE VIÁTICO:</td>
+                                <td class="text-end fs-5 text-primary">${{ "{:,.2f}".format(viatico.total or 0) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+
+            {# Acciones #}
+            <div class="d-flex gap-2 justify-content-end mt-3">
+                {% if viatico.estado == 'borrador' %}
+                <button type="button" class="btn btn-outline-warning text-dark" data-accion-proceso="solicitar"
+                    data-id="{{ viatico.id }}">
+                    📤 Solicitar Fondos
+                </button>
+                {% endif %}
+
+                {% if viatico.estado in ['borrador', 'solicitado'] %}
+                <button type="button" class="btn btn-outline-success" data-accion-proceso="aprobar"
+                    data-id="{{ viatico.id }}">
+                    ✅ Aprobar
+                </button>
+                {% endif %}
+
+                {% if viatico.estado not in ['cancelado'] %}
+                <button type="button" class="btn btn-outline-danger" data-accion-proceso="cancelar"
+                    data-id="{{ viatico.id }}">
+                    ❌ Cancelar
+                </button>
+                {% endif %}
+
+                <a href="/viaticos" class="btn btn-outline-secondary">
+                    ← Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('click', async function (e) {
+        const btnEstado = e.target.closest('[data-accion-proceso]');
+        if (btnEstado) {
+            const viaticoId = btnEstado.getAttribute('data-id');
+            const accion = btnEstado.getAttribute('data-accion-proceso');
+            await cambiarEstadoViatico(viaticoId, accion);
+        }
+    });
+
+    async function cambiarEstadoViatico(id, accion) {
+        const mensajes = {
+            'solicitar': '¿Estás seguro de solicitar la aprobación de los fondos de este viático?',
+            'aprobar': '¿Estás seguro de aprobar este viático? Ya no podrá ser editado.',
+            'cancelar': '¿Estás seguro de cancelar este viático? Esta acción es irreversible.'
+        };
+
+        if (!confirm(mensajes[accion])) return;
+
+        try {
+            const resp = await fetch(`/api/viaticos/${id}/${accion}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (resp.ok) {
+                location.reload();
+            } else {
+                const err = await resp.json();
+                alert('Error: ' + (err.detail || `No se pudo ${accion} el viático`));
+            }
+        } catch (e) {
+            alert(`Error de conexión al intentar ${accion} el viático`);
+        }
+    }
+</script>
+{% endblock %}

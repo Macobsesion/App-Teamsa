@@ -1,33 +1,45 @@
 {# Componentes UI Reutilizables #}
 
-{% macro status_badge(estado, labels=None) %}
+{% macro status_badge(estado, labels=None, extra_class='') %}
 {#
-Genera un badge de estado con colores estandarizados.
-estado: string (clave del estado)
-labels: dict opcional para mapear claves a textos legibles (ej. {'borrador': 'En Borrador'})
+Genera un badge de estado con colores estandarizados en toda la app.
 #}
-{% set estado_color = {
-'borrador': 'secondary',
-'enviada': 'info text-dark',
-'aceptada': 'primary',
-'modificada': 'secondary',
-'programada': 'warning text-dark',
-'en_curso': 'primary',
-'finalizada': 'success',
-'completada': 'success',
-'cerrada': 'success',
-'cancelada': 'danger',
-'rechazada': 'danger'
-} %}
-{% set color = estado_color.get(estado, 'secondary') %}
+{% set estado_dict = {
+'borrador': {'color': 'custom', 'icon': 'fa-pen', 'styles': 'background-color: #4148C3; color: white;'},
+'modificada': {'color': 'secondary bg-opacity-25 text-dark', 'icon': 'fa-history'},
 
-{% set label = estado|title %}
+'enviada': {'color': 'info text-dark', 'icon': 'fa-paper-plane'},
+'solicitado': {'color': 'info text-dark', 'icon': 'fa-hand-holding'},
+
+'aceptada': {'color': 'custom', 'icon': 'fa-check', 'styles': 'background-color: #3F48CB; color: white;'},
+'programada': {'color': 'custom', 'icon': 'fa-calendar-alt', 'styles': 'background-color: #4148C3; color: white;'},
+'emitida': {'color': 'custom', 'icon': 'fa-file-export', 'styles': 'background-color: #4148C3; color: white;'},
+
+'en_curso': {'color': 'custom border border-light border-opacity-50', 'icon': 'fa-running', 'styles': 'background: linear-gradient(135deg, #0d6efd 0%, #17a2b8 100%); color: white;'},
+
+'finalizada': {'color': 'success', 'icon': 'fa-flag-checkered'},
+'completada': {'color': 'success', 'icon': 'fa-check-double'},
+'cerrada': {'color': 'success', 'icon': 'fa-lock'},
+'aprobada': {'color': 'success', 'icon': 'fa-thumbs-up'},
+'aprobado': {'color': 'success', 'icon': 'fa-thumbs-up'},
+'pagado': {'color': 'success', 'icon': 'fa-coins'},
+'recibida': {'color': 'success', 'icon': 'fa-box-open'},
+
+'cancelada': {'color': 'danger', 'icon': 'fa-ban'},
+'rechazada': {'color': 'custom', 'icon': 'fa-times-circle', 'styles': 'background-color: #fd7e14; color: white;'},
+
+'parcial': {'color': 'warning text-dark', 'icon': 'fa-star-half-alt'}
+} %}
+
+{% set conf = estado_dict.get(estado|lower, {'color': 'secondary', 'icon': 'fa-circle'}) %}
+
+{% set label = estado|replace('_', ' ')|title %}
 {% if labels and estado in labels %}
-{% set label = labels[estado] %}
+    {% set label = labels[estado] %}
 {% endif %}
 
-<span class="badge bg-{{ color }} fs-5">
-    {{ label }}
+<span class="badge bg-{{ conf.color }} shadow-sm px-2 py-1 {{ extra_class }}" {% if conf.styles %}style="{{ conf.styles }}"{% endif %}>
+    <i class="fas {{ conf.icon }} me-1 opacity-75"></i> {{ label }}
 </span>
 {% endmacro %}
 

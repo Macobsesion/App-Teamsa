@@ -51,6 +51,33 @@ class ServicioOrdenes:
             fin_ot = inicio_ot + (ot.duracion * 60)
             if inicio_nuevo < fin_ot and fin_nuevo > inicio_ot:
                 return ot
+                
+        # Verificar empalmes de Viáticos para este técnico
+        from app.modulos.viaticos.viaticos_modelo import Viatico, ViaticoOrdenEnlace
+        consulta_v = select(Viatico).where(
+            Viatico.responsable_id == tecnico_id,
+            Viatico.estado.notin_(["cancelado", "borrador"]),
+            Viatico.fecha_salida <= fecha,
+            Viatico.fecha_regreso >= fecha
+        )
+        viaticos_activos = self.db.exec(consulta_v).all()
+        for v in viaticos_activos:
+            es_vinculado = False
+            if excluir_orden_id:
+                vinculo = self.db.exec(select(ViaticoOrdenEnlace).where(
+                    ViaticoOrdenEnlace.viatico_id == v.id,
+                    ViaticoOrdenEnlace.orden_id == excluir_orden_id
+                )).first()
+                if vinculo:
+                    es_vinculado = True
+                    
+            if not es_vinculado:
+                class SimulacionEmpalme:
+                    numero_ot = f"Viaje de Viáticos '{v.proyecto or v.folio}'"
+                    hora_programada = "Itinerario Completo"
+                    duracion = "N/A"
+                return SimulacionEmpalme() # type: ignore
+                
         return None
 
     def listar_tecnicos(self) -> list[Usuario]:
@@ -101,7 +128,17 @@ class ServicioOrdenes:
 
         self.db.add(orden)
         self.db.flush()
-        orden.asignar_folio(self.generador_folio)
+
+        # Calcular secuencia para esta cotización
+        from sqlalchemy import func
+        conteo = self.db.exec(
+            select(func.count(OrdenTrabajo.id))
+            .where(OrdenTrabajo.cotizacion_id == cotizacion_id)
+        ).first() or 0
+        # Debido al flush previo, el registro actual YA está en el conteo.
+        secuencia = conteo 
+
+        orden.asignar_folio(cotizacion_numero=cotizacion.numero, secuencia=secuencia)
 
         for concepto in conceptos_cot:
             snapshot = ConceptoOrdenTrabajo(

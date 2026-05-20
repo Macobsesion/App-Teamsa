@@ -6,6 +6,8 @@ from app.base.generador_pdf import GeneradorPDF
 
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion
+from app.modulos.viaticos.viaticos_repositorio import RepositorioViatico
+from app.modulos.viaticos.viaticos_modelo import Viatico
 from app.modulos.clientes.clientes_modelo import Cliente
 from app.base.constantes import FORMATO_FECHA_LARGA, IVA_DESCRIPCION, LOGO_PDF
 from app.base.utilidades_fecha import formatear_fecha_español
@@ -67,3 +69,33 @@ def generar_pdf_cotizacion(cotizacion_id: int, db: Session) -> bytes:
     
     # Generar PDF a través del generador central
     return GeneradorPDF.generar_pdf("pdf/cotizacion.html", contexto)
+
+
+
+def generar_pdf_viatico(viatico_id: int, db: Session) -> bytes:
+    """
+    Genera un PDF del reporte de viáticos.
+    """
+    from app.modulos.cotizaciones.viaticos_modelo import Viatico
+    from app.modulos.usuarios.usuarios_modelo import Usuario
+    from app.modulos.clientes.clientes_modelo import Cliente
+
+    viatico = db.get(Viatico, viatico_id)
+    if not viatico:
+        raise ValueError(f"Viático {viatico_id} no encontrado")
+
+    responsable = db.get(Usuario, viatico.responsable_id)
+    cliente = db.get(Cliente, viatico.cliente_id)
+
+    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
+
+    contexto = {
+        "viatico": viatico,
+        "responsable": responsable,
+        "cliente": cliente.nombre if cliente else "N/A",
+        "logo_path": logo_data_uri,
+        "fecha_inicio_formateada": formatear_fecha_español(viatico.fecha_creacion),
+        "fecha_fin_formateada": formatear_fecha_español(viatico.fecha_creacion), # Simplificación
+    }
+
+    return GeneradorPDF.generar_pdf("pdf/viatico.html", contexto)

@@ -8,8 +8,10 @@ from app.base.valores import Direccion
 from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+    from app.modulos.viaticos.viaticos_modelo import Viatico
     from app.base.folios import GeneradorFolio
 from app.modulos.ordenes.enums import EstadoOrden, EstadoConceptoOT
+from app.modulos.viaticos.viaticos_modelo import ViaticoOrdenEnlace
 
 
 class OrdenTrabajo(AuditMixin, SQLModel, table=True):
@@ -48,6 +50,10 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     
     # Relación con conceptos seleccionados
     conceptos: List["ConceptoOrdenTrabajo"] = Relationship(back_populates="orden")
+    
+    # Relación Muchos a Muchos con Viáticos
+    viaticos: List["Viatico"] = Relationship(back_populates="rutas_ot", link_model=ViaticoOrdenEnlace)
+
 
     # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
 
@@ -76,6 +82,19 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
     @property
     def es_cancelable(self) -> bool:
         return self.estado_enum.es_cancelable
+
+    @property
+    def esta_en_viaje(self) -> bool:
+        if not self.viaticos:
+            return False
+        from datetime import date
+        hoy = date.today()
+        for v in self.viaticos:
+            if v.estado not in ["cancelado", "borrador"]:
+                if v.fecha_salida and v.fecha_regreso:
+                    if v.fecha_salida <= hoy <= v.fecha_regreso:
+                        return True
+        return False
 
     @classmethod
     def crear_desde_cotizacion(
@@ -121,18 +140,16 @@ class OrdenTrabajo(AuditMixin, SQLModel, table=True):
             modificado_por=usuario_id
         )
 
-    def asignar_folio(self, generador_folio: "GeneradorFolio") -> None:
+    def asignar_folio(self, cotizacion_numero: str, secuencia: int) -> None:
         """
-        Asigna el numero_ot definitivo usando el ID de BD de la OT.
-        Debe llamarse DESPUÉS del flush() para que self.id esté disponible.
-        El folio queda como: OT-{AAMMDD}-{ID_OT}
+        Asigna el numero_ot definitivo basado en el número de cotización y secuencia.
         """
-        from datetime import date as date_type
-        self.numero_ot = generador_folio.generar(
-            prefijo="OT",
-            id_entidad=self.id,
-            fecha=date_type.today()
-        )
+        from app.base.folios import EstrategiaFolioHeredado
+        estrategia = EstrategiaFolioHeredado()
+        
+        # 'COT-260307-B' -> '260307B'
+        base_folio = cotizacion_numero.replace("COT-", "").replace("-", "")
+        self.numero_ot = estrategia.generar(prefijo="OT", base=base_folio, secuencia=secuencia)
 
 
 from app.base.base_detalle import BaseDetalleTransaccional

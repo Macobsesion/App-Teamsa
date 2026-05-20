@@ -1,0 +1,44 @@
+{% from 'ui/macros/tablas.html' import paginacion_htmx %}
+{% from 'ui/macros/botones.html' import acciones_crud as acciones %}
+{% import 'partials/components.html' as comp %}
+{% for item in items %}
+<tr>
+    <td>
+        <strong>{{ item.folio }}</strong>
+        <br><small class="text-muted">{{ item.proyecto or 'Sin descripción' }}</small>
+    </td>
+    <td>
+        {% if item.origen and item.destino %}
+        {{ item.origen }} <i class="fas fa-arrow-right mx-1 text-muted"></i> {{ item.destino }}
+        {% else %}
+        <span class="text-muted fst-italic">No especificado</span>
+        {% endif %}
+    </td>
+    <td>
+        {{ item.fecha_salida or '-' }}
+    </td>
+    <td class="text-end fw-bold text-danger">
+        ${{ "{:,.2f}".format(item.total) }}
+    </td>
+    <td class="text-center">
+        <div class="d-flex justify-content-center">
+            {{ comp.status_badge(item.estado) }}
+        </div>
+    </td>
+    <td class="text-center">
+        <a href="/ui/viaticos/{{ item.id }}/detalle" class="btn btn-sm btn-outline-info" title="Ver Detalle / Arqueo">
+            <i class="fas fa-eye"></i> Detalle
+        </a>
+    </td>
+    {{ acciones(ui_base, item.id, puede_editar, puede_eliminar=puede_eliminar, delete_confirm='¿Estás seguro de cancelar el viático ' ~ item.folio ~ '?') }}
+</tr>
+{% endfor %}
+{% if not items %}
+<tr>
+    <td colspan="100" class="text-center py-4 text-muted">
+        <i class="fas fa-plane-slash fs-2 mb-2 text-light"></i><br>
+        No se encontraron registros de viáticos.
+    </td>
+</tr>
+{% endif %}
+{{ paginacion_htmx(pagina_actual, total_paginas, ui_base) }}

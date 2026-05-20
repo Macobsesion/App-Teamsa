@@ -16,12 +16,12 @@
 {% endmacro %}
 
 {% macro field_select(name, label, options, item=None, required=False, multiple=False, value_attr='id',
-label_attr='nombre', empty_label='-- Selecciona --') %}
+label_attr='nombre', empty_label='-- Selecciona --', attrs='') %}
 {% set selected = (getv(item, name) if item else ( [] if multiple else '' )) %}
 <div class="mb-3">
   <label class="form-label">{{ label }}</label>
-  <select class="form-select" name="{{ name }}" {% if multiple %} multiple {% endif %} {% if required %} required {%
-    endif %}>
+  <select class="form-select" name="{{ name }}" id="{{ name }}" {% if multiple %} multiple {% endif %} {% if required %} required {%
+    endif %} {{ attrs|safe }}>
     {% if not multiple %}
     <option value="">{{ empty_label }}</option>
     {% endif %}

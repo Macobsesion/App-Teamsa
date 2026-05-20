@@ -16,13 +16,14 @@ from app.modulos.usuarios.usuarios_modelo import Usuario
 from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 from app.modulos.viaticos.enums import EstadoViatico
+from app.base.servicios import ServicioDominio
 
-class ServicioViaticos:
+class ServicioViaticos(ServicioDominio):
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
         self.repo = RepositorioViatico(db)
 
-    def crear_viatico(self, data: Dict[str, Any], usuario_nombre: str, confirmar: bool = True) -> Viatico:
+    def crear_viatico(self, data: Dict[str, Any], usuario_nombre: str, confirmar: bool = True, inyectar_concepto: bool = True) -> Viatico:
         """Crea un viático y maneja sus efectos secundarios."""
         # 1. Preparar datos y snapshots
         cliente_id = data.get("cliente_id")
@@ -40,7 +41,6 @@ class ServicioViaticos:
         data_modelo["total"] = total
 
         # 4. Crear vía repositorio (solo persistencia básica)
-        self.repo.skip_injection = True
         viatico = self.repo.crear(data_modelo)
 
         # Capturar snapshots históricos usando el nuevo mixin
@@ -50,7 +50,7 @@ class ServicioViaticos:
 
         # 5. Efecto secundario: Inyectar concepto en Cotización si aplica
         # Solo inyectar si skip_injection no está activo en el servicio (opcional)
-        if viatico.cotizacion_id and not getattr(self, 'skip_side_effects', False):
+        if viatico.cotizacion_id and inyectar_concepto:
             self.inyectar_en_cotizacion(viatico)
 
         if confirmar:
@@ -60,7 +60,7 @@ class ServicioViaticos:
             self.db.flush()
         return viatico
 
-    def actualizar_viatico(self, viatico_id: int, cambios: Dict[str, Any], confirmar: bool = True) -> Viatico:
+    def actualizar_viatico(self, viatico_id: int, cambios: Dict[str, Any], confirmar: bool = True, sincronizar_cotizacion: bool = True) -> Viatico:
         """Actualiza un viático y sincroniza dependencias."""
         viatico = self.repo.obtener_por_id(viatico_id)
         
@@ -69,16 +69,28 @@ class ServicioViaticos:
              raise ReglaNegocioError(f"El viático {viatico.folio} no es editable en su estado actual.")
 
         # Actualizar via repo
-        self.repo.skip_injection = True
         viatico_actualizado = self.repo.actualizar(viatico_id, cambios)
 
-        # Recalcular totales y sincronizar concepto si cambió el monto o destino
-        if any(k in cambios for k in ["costo_transporte", "costo_alojamiento", "costo_alimentos", "costo_otros", "proyecto"]):
+        # Recalcular total si cambia cualquier campo que afecte el cálculo
+        campos_calculo = [
+            "costo_transporte", "costo_alojamiento", "costo_alimentos", 
+            "costo_peajes", "costo_estacionamiento", "costo_otros",
+            "personas", "dias", "desayuno", "comida", "cena", "proyecto"
+        ]
+        if any(k in cambios for k in campos_calculo):
             viatico_actualizado.total = self._calcular_total_viatico(viatico_actualizado.__dict__)
             self.db.add(viatico_actualizado)
             
-            if not getattr(self, 'skip_side_effects', False):
+            if sincronizar_cotizacion:
                 self.sincronizar_con_cotizacion(viatico_actualizado)
+
+        # Capturar snapshots si cambió el cliente (Endurecimiento de relación)
+        if 'cliente_id' in cambios:
+            from app.modulos.clientes.clientes_modelo import Cliente
+            cliente = self.db.get(Cliente, cambios['cliente_id'])
+            if cliente:
+                viatico_actualizado.capturar_datos_cliente(cliente)
+                self.db.add(viatico_actualizado)
 
         if confirmar:
             self.db.commit()
@@ -119,19 +131,45 @@ class ServicioViaticos:
 
         if concepto:
             concepto.precio_unitario = viatico.total
-            concepto.descripcion = f"Viáticos: {viatico.proyecto or 'Servicio asignado'} (Ref: {viatico.folio})"
+            # Solo autocompletar descripción si está vacía
+            if not concepto.descripcion:
+                concepto.descripcion = f"Viáticos: {viatico.proyecto or 'Servicio asignado'} (Ref: {viatico.folio})"
             # Recalcular importe del concepto
             concepto.importe = concepto.cantidad * concepto.precio_unitario
             self.db.add(concepto)
+            
+            # Forzar recalcular totales de la cotización padre para mantener consistencia
+            if concepto.cotizacion:
+                concepto.cotizacion.recalcular_totales()
+                self.db.add(concepto.cotizacion)
         elif viatico.cotizacion_id:
             self.inyectar_en_cotizacion(viatico)
 
     def _calcular_total_viatico(self, data: Dict[str, Any]) -> Decimal:
-        """Calcula la suma de todos los rubros del viático."""
+        """
+        Calcula la suma de todos los rubros del viático.
+        Asegura que el costo de alimentos considere personas y días si hay desglose.
+        """
         def d(v): return Decimal(str(v or 0))
+        
+        personas = int(data.get("personas") or 1)
+        dias = int(data.get("dias") or 1)
+        
+        desayuno = d(data.get("desayuno"))
+        comida = d(data.get("comida"))
+        cena = d(data.get("cena"))
+        
+        # Si hay desglose de alimentos, lo usamos para calcular el costo total de alimentos
+        if desayuno > 0 or comida > 0 or cena > 0:
+            costo_alimentos = (desayuno + comida + cena) * personas * dias
+        else:
+            costo_alimentos = d(data.get("costo_alimentos"))
+            
         return d(data.get("costo_transporte")) + \
                d(data.get("costo_alojamiento")) + \
-               d(data.get("costo_alimentos")) + \
+               costo_alimentos + \
+               d(data.get("costo_peajes")) + \
+               d(data.get("costo_estacionamiento")) + \
                d(data.get("costo_otros"))
 
     def procesar_viaticos_wizard(self, cotizacion_id: int, cliente_id: int, viaticos_data: List[Dict[str, Any]], usuario: str) -> Dict[int, int]:
@@ -143,23 +181,24 @@ class ServicioViaticos:
         u = self.db.exec(select(Usuario).where(Usuario.usuario == usuario)).first()
         r_id = u.id if u else 1
         
-        # CONFIGURACIÓN PARA WIZARD: No disparar inyección de conceptos individualmente
-        self.skip_side_effects = True
+        # CONFIGURACIÓN PARA WIZARD: No disparar inyección de conceptos individualmente (el orquestador lo hará)
         
         mapping = {}
         for idx, v_data in enumerate(viaticos_data):
             v_id = v_data.get("id")
             
+            # Forzar sincronía con los datos maestros de la cotización
+            v_data["cotizacion_id"] = cotizacion_id
+            v_data["cliente_id"] = cliente_id
+
             if v_id:
-                # Actualización sin commit
-                self.actualizar_viatico(v_id, v_data, confirmar=False)
+                # Actualización sin commit y sin sincronizar cotización (el orquestador sincronizará todo al final)
+                self.actualizar_viatico(v_id, v_data, confirmar=False, sincronizar_cotizacion=False)
                 mapping[idx] = v_id
             else:
-                # Creación sin commit
-                v_data["cotizacion_id"] = cotizacion_id
-                v_data["cliente_id"] = cliente_id
-                v_data["responsable_id"] = r_id
-                nuevo_v = self.crear_viatico(v_data, usuario, confirmar=False)
+                # Creación sin commit y sin inyectar concepto (el orquestador inyectará/sincronizará al final)
+                # El responsable_id queda nulo (Pendiente) hasta que se asigne en la OT
+                nuevo_v = self.crear_viatico(v_data, usuario, confirmar=False, inyectar_concepto=False)
                 mapping[idx] = nuevo_v.id
 
         return mapping
@@ -168,13 +207,11 @@ class ServicioViaticos:
         """Maneja las transiciones de estado de un viático con validaciones de negocio."""
         viatico = self.repo.obtener_por_id(viatico_id)
         
-        # Lógica de transiciones
-        if accion == "solicitar" and viatico.estado == EstadoViatico.BORRADOR.value:
-            viatico.estado = EstadoViatico.SOLICITADO.value
-        elif accion == "aprobar" and viatico.estado in [EstadoViatico.BORRADOR.value, EstadoViatico.SOLICITADO.value]:
-            viatico.estado = EstadoViatico.APROBADO.value
-        elif accion == "cancelar" and viatico.estado != EstadoViatico.CANCELADO.value:
+        # Lógica de transiciones (Simplificada: Solo Cancelar y Finalizar manualmente)
+        if accion == "cancelar" and viatico.estado != EstadoViatico.CANCELADO.value:
             viatico.estado = EstadoViatico.CANCELADO.value
+        elif accion == "finalizar" and viatico.estado not in [EstadoViatico.FINALIZADO.value, EstadoViatico.CANCELADO.value]:
+            viatico.estado = EstadoViatico.FINALIZADO.value
         else:
             raise ReglaNegocioError(f"No se puede {accion} el viático en estado {viatico.estado}")
             
@@ -182,6 +219,15 @@ class ServicioViaticos:
         self.db.add(viatico)
         self.db.commit()
         self.db.refresh(viatico)
+
+        # Auditoría: Cambio de estado
+        self._auditar(
+            usuario=usuario_id, 
+            accion=accion.upper(), 
+            modulo="viaticos", 
+            detalles=f"Viático {viatico.folio} marcado como {accion.upper()}"
+        )
+
         return viatico
 
     @staticmethod

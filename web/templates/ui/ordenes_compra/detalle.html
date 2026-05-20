@@ -9,8 +9,7 @@ Proveedor: <strong>{{ proveedor.nombre }}</strong>
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(orden.estado, {'borrador': 'Borrador', 'emitida': 'Emitida', 'parcial': 'Parcialmente Recibida',
-'recibida': 'Recibida', 'cancelada': 'Cancelada'}, extra_class='fs-5') }}
+{{ comp.status_badge(orden.estado, extra_class='fs-5') }}
 {% endblock %}
 
 {% block items_title %}🛒 Partidas{% endblock %}

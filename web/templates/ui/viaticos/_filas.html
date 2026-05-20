@@ -27,7 +27,7 @@
         </td>
         <td class="text-center">
             <div class="d-flex justify-content-center">
-                {{ comp.status_badge(item.estado_visual) }}
+                {{ comp.status_badge(item.estado_visual or item.estado) }}
             </div>
         </td>
         {{ acciones(

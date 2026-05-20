@@ -2,11 +2,8 @@
 from datetime import datetime
 from typing import Literal
 
-# Enumeraciones simples expresadas como Literal para mantener validaciones tipadas.
-RolUsuario = Literal["admin", "funcionario", "productor", "conductor", "camarografo", "tecnico"]
-TipoPrograma = Literal["grabado", "en_vivo"]
-TipoInvitado = Literal["invitado", "testimonio"]
-EstadoReservacion = Literal["pendiente", "confirmada", "cancelada"]
+# Roles activos del sistema TEAMSA.
+RolUsuario = Literal["admin", "funcionario", "tecnico"]
 
 
 def formatear_fecha(valor: datetime | None) -> str | None:

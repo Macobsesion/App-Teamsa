@@ -101,48 +101,109 @@ def create_app() -> FastAPI:
     # Handler global para errores 404 en páginas HTML
     templates = get_templates()
 
+    def _renderizar_pagina_de_error(request: Request, codigo_estado_http: int, mensaje_error: str):
+        """Renderiza una página HTML de error inyectando el usuario para que la navbar funcione."""
+        usuario_contexto = None
+        from app.nucleo.sesion import obtener_token_cookie
+        from app.nucleo.cls_identidad import obtener_gestor_identidad
+        
+        token = obtener_token_cookie(request)
+        if token:
+            try:
+                u, _ = obtener_gestor_identidad().extraer_identidad(token)
+                from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+                usuario_contexto = UsuarioIdentity(usuario=u, rol=_)
+            except Exception:
+                pass
+
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "status": codigo_estado_http, "detail": mensaje_error, "usuario": usuario_contexto},
+            status_code=codigo_estado_http
+        )
+
+    def _es_peticion_html_no_htmx(request: Request) -> bool:
+        """Determina si la solicitud es para una página HTML completa (no API ni HTMX)."""
+        path = request.url.path
+        accept = request.headers.get("accept", "")
+        es_htmx = request.headers.get("hx-request") == "true"
+        return not path.startswith("/api/") and ("text/html" in accept or accept == "*/*") and not es_htmx
+
     @app.exception_handler(404)
     async def custom_404_handler(request: Request, exc):
-        path = request.url.path
-        wants_html = "text/html" in request.headers.get("accept", "")
-        if not path.startswith("/api/") and wants_html:
-            return templates.TemplateResponse(
-                "error.html", 
-                {"request": request, "status": 404, "detail": "Página no encontrada"},
-                status_code=404
-            )
+        if _es_peticion_html_no_htmx(request):
+            return _renderizar_pagina_de_error(request, 404, "Página no encontrada")
         return await default_http_exception_handler(request, exc)
 
     from fastapi import HTTPException
     from fastapi.responses import RedirectResponse
+    from fastapi.exceptions import RequestValidationError
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """Maneja excepciones HTTP, redirigiendo al login en caso de 401."""
         if exc.status_code == 401:
-            wants_html = "text/html" in request.headers.get("accept", "")
-            if wants_html:
-                # Redirigir al login (/) con un mensaje opcional
+            if _es_peticion_html_no_htmx(request):
                 return RedirectResponse(url="/?error=sesion_expirada", status_code=302)
         
+        if _es_peticion_html_no_htmx(request):
+            mensaje = exc.detail or "Error"
+            return _renderizar_pagina_de_error(request, exc.status_code, mensaje)
+        
         return await default_http_exception_handler(request, exc)
+
+    from app.base.excepciones import AppError, RecursoNoEncontradoError, ReglaNegocioError, PermisoDenegadoError
+
+    @app.exception_handler(AppError)
+    @app.exception_handler(ReglaNegocioError)
+    @app.exception_handler(RecursoNoEncontradoError)
+    @app.exception_handler(PermisoDenegadoError)
+    async def app_exception_handler(request: Request, exc: AppError):
+        """Maneja errores de dominio y negocio, devolviendo códigos HTTP semánticos."""
+        status_code = 400
+        if isinstance(exc, RecursoNoEncontradoError):
+            status_code = 404
+        elif isinstance(exc, PermisoDenegadoError):
+            status_code = 403
+        
+        # Loggear solo el mensaje para errores de negocio (no el traceback completo)
+        logging.getLogger("teamsa").warning(f"Error de Negocio [{exc.codigo}]: {exc.mensaje}")
+        
+        if _es_peticion_html_no_htmx(request):
+            return _renderizar_pagina_de_error(request, status_code, exc.mensaje)
+        
+        return JSONResponse(
+            status_code=status_code,
+            content={
+                "detail": exc.mensaje,
+                "mensaje": exc.mensaje,
+                "codigo": exc.codigo
+            }
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def manejador_errores_de_validacion(request: Request, exc: RequestValidationError):
+        """Maneja errores de validación de datos (campos faltantes, tipos incorrectos)."""
+        if _es_peticion_html_no_htmx(request):
+            return _renderizar_pagina_de_error(request, 422, "Solicitud inválida")
+        
+        return JSONResponse(
+            {"detail": "Solicitud inválida", "errors": exc.errors()},
+            status_code=422
+        )
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         # Capturar cualquier excepción no controlada (Error 500)
+        # Si por alguna razón AppError llega aquí, lo manejamos correctamente
+        if isinstance(exc, AppError):
+            return await app_exception_handler(request, exc)
+            
         logging.getLogger("teamsa").error(f"Error inesperado: {str(exc)}", exc_info=True)
         
-        path = request.url.path
-        wants_html = "text/html" in request.headers.get("accept", "")
+        if _es_peticion_html_no_htmx(request):
+            return _renderizar_pagina_de_error(request, 500, "Ha ocurrido un error inesperado")
         
-        if not path.startswith("/api/") and wants_html:
-            return templates.TemplateResponse(
-                "error.html", 
-                {"request": request, "status": 500, "detail": "Ha ocurrido un error inesperado"},
-                status_code=500
-            )
-        
-        # Para APIs o peticiones sin HTML, devolvemos JSON
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal Server Error", "tipo": type(exc).__name__}
@@ -179,6 +240,7 @@ def create_app() -> FastAPI:
     from app.modulos.usuarios.usuarios_modelo import Usuario
     from app.modulos.servicios_proveedores.servicios_proveedores_modelo import ServicioProveedor
     from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
+    from app.base.logs_modelo import LogActividad
 
     # FORZAR resolución de mappers (Regla de Oro para evitar NameError en Relationships)
     from sqlalchemy.orm import configure_mappers
@@ -189,6 +251,8 @@ def create_app() -> FastAPI:
     from app.modulos.viaticos.viaticos_router import router as rt_viaticos
     from app.modulos.usuarios.usuarios_router import router as rt_usuarios
     from app.modulos.ordenes_compra.ordenes_compra_router import router as rt_ordenes_compra
+    from app.modulos.cronograma.cronograma_router import router_cronograma_ui, router_cronograma_api
+    from app.modulos.auditoria.auditoria_router import router as rt_auditoria
     
     # Rutas de API y Datos
     app.include_router(rt_autenticacion.router)
@@ -199,6 +263,9 @@ def create_app() -> FastAPI:
     app.include_router(rt_usuarios)
     app.include_router(rt_ordenes_compra)
     app.include_router(rt_admin.router)
+    app.include_router(router_cronograma_api)
+    app.include_router(router_cronograma_ui)
+    app.include_router(rt_auditoria)
     
     # Rutas de Páginas Web (HTML)
     app.include_router(rt_paginas.router)

@@ -42,7 +42,7 @@ def login(
     if not usuario or not gestor_autenticacion.verificar_contrasena(txtPassword, usuario.contrasena):
         logger.warning("Login fallido para usuario '%s'", txtNombre)
         # Registrar intento fallido
-        ServicioLogs.registrar(db, usuario=txtNombre, accion="LOGIN_FALLIDO", modulo="auth", detalles="Contraseña incorrecta o usuario inexistente")
+        ServicioLogs.registrar(usuario=txtNombre, accion="LOGIN_FALLIDO", modulo="auth", detalles="Contraseña incorrecta o usuario inexistente")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos",
@@ -55,7 +55,7 @@ def login(
     establecer_cookie_sesion(response, token, max_age)
     logger.info("Login exitoso de '%s' (rol=%s)", usuario.usuario, usuario.rol)
     # Registrar log de actividad
-    ServicioLogs.registrar(db, usuario=usuario.usuario, accion="LOGIN", modulo="auth", detalles=f"Rol: {usuario.rol}")
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="LOGIN", modulo="auth", detalles=f"Rol: {usuario.rol}")
     return {"token_type": "cookie", "expires_in": max_age, "rol": usuario.rol}  # type: ignore[return-value]
 
 

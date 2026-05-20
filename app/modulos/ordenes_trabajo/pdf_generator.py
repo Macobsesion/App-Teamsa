@@ -1,47 +1,32 @@
-"""Generador de PDF para Ordenes de Trabajo."""
-from pathlib import Path
-from app.base.generador_pdf import GeneradorPDF
-from sqlmodel import Session  # type: ignore
-
+from app.base.generador_pdf import GeneradorPDF, GeneradorPDFDocumento
 from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
-from app.base.constantes import LOGO_PDF
 from app.base.utilidades_fecha import formatear_fecha_español
-from app.modulos.cotizaciones.pdf_generator import imagen_a_data_uri
+from sqlmodel import Session
+
+
+class GeneradorPDFOrdenTrabajo(GeneradorPDFDocumento):
+    """Generador especializado para Órdenes de Trabajo."""
+    plantilla = "pdf/orden.html"
+
+    def _obtener_entidad(self, entidad_id: int) -> OrdenTrabajo:
+        return self.db.get(OrdenTrabajo, entidad_id)
+
+    def _construir_contexto(self, entidad: OrdenTrabajo) -> dict:
+        cotizacion = self.db.get(Cotizacion, entidad.cotizacion_id)
+        
+        # Filtrar conceptos que son viáticos para que no aparezcan en el PDF (solicitud usuario)
+        conceptos_ot = [c for c in entidad.conceptos if not (c.concepto_cotizacion and c.concepto_cotizacion.viatico_id)]
+
+        return {
+            "ot": entidad,
+            "cotizacion": cotizacion,
+            "conceptos": conceptos_ot,
+            "fecha_programada_fmt": formatear_fecha_español(entidad.fecha_programada),
+        }
 
 
 def generar_pdf_orden(orden_id: int, db: Session) -> bytes:
-    """
-    Genera el PDF de una Orden de Trabajo.
-    Usa los conceptos SNAPSHOT de la OT (ConceptoOrdenTrabajo),
-    no todos los conceptos de la cotización.
-    """
-    ot = db.get(OrdenTrabajo, orden_id)
-    if not ot:
-        raise ValueError(f"Orden {orden_id} no encontrada")
-
-    # Cotización de referencia (solo para número y datos de cabecera)
-    cotizacion = db.get(Cotizacion, ot.cotizacion_id)
-
-    # ✅ Corrección: usar los conceptos de la OT (subconjunto seleccionado),
-    # NO todos los conceptos de la cotización.
-    conceptos_ot = ot.conceptos  # lista de ConceptoOrdenTrabajo
-
-
-
-    # Logo (manejo robusto de ruta no encontrada)
-    try:
-        logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
-    except Exception:
-        logo_data_uri = ""
-
-    contexto = {
-        "ot": ot,
-        "cotizacion": cotizacion,
-        "conceptos": conceptos_ot,  # solo los de esta OT
-        "logo_path": logo_data_uri,
-        "fecha_programada_fmt": formatear_fecha_español(ot.fecha_programada),
-    }
-
-    return GeneradorPDF.generar_pdf("pdf/orden.html", contexto)
+    """Genera el PDF de una Orden de Trabajo."""
+    return GeneradorPDFOrdenTrabajo(db).generar(orden_id)
 

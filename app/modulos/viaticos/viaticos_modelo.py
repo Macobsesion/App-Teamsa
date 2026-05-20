@@ -55,15 +55,30 @@ class Viatico(ViaticoBase, BaseDocumento, table=True):
 
     @property
     def estado_visual(self) -> str:
-        """Determina el estado dinámico basado en las fechas actuales."""
-        from datetime import date
+        """Calcula el estado visual dinámico basado en las fechas del viaje."""
+        from app.base.timezone import calcular_estado_temporal
         from app.modulos.viaticos.enums import EstadoViatico
-        hoy = date.today()
         
-        # Lógica de "En curso"
-        if self.estado in [EstadoViatico.APROBADO.value, EstadoViatico.PROGRAMADO.value]:
-            if self.fecha_salida and self.fecha_regreso:
-                if self.fecha_salida <= hoy <= self.fecha_regreso:
-                    return "en_curso"
+        estados_dinamicos = [
+            EstadoViatico.BORRADOR.value, 
+            EstadoViatico.SOLICITADO.value, 
+            EstadoViatico.APROBADO.value
+        ]
+        
+        if self.fecha_salida and self.fecha_regreso:
+            return calcular_estado_temporal(
+                self.fecha_salida, 
+                self.fecha_regreso, 
+                estados_dinamicos, 
+                self.estado
+            )
         
         return self.estado
+
+    def finalizar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a finalizada con registro de auditoría."""
+        super().finalizar(usuario=usuario)
+
+    def cancelar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a cancelada con registro de auditoría."""
+        super().cancelar(usuario=usuario)

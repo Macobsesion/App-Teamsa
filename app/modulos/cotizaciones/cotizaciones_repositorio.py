@@ -8,12 +8,18 @@ from app.base.constantes import IVA_PORCENTAJE, VIGENCIA_DIAS_DEFAULT, PREFIJO_N
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
 from app.modulos.cotizaciones.enums import EstadoCotizacion
 from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
+from app.base.mixin_repositorio import MixinFolioMensual
 
 
-class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
+class RepositorioCotizacion(MixinFolioMensual, RepositorioCRUD[Cotizacion]):
     """Repositorio de cotizaciones con lógica de numeración y cálculos."""
 
     modelo = Cotizacion
+    prefijo_folio = PREFIJO_NUMERO_COTIZACION
+    campo_fecha = "fecha_emision"
+
+    def filtro_secuencia_extra(self) -> list:
+        return [Cotizacion.cotizacion_original_id == None]
     campos_filtrables = {"estado", "cliente_id"}
     campos_actualizables = {
         "cliente_id", "estado", "notas", "notas_privadas", "metodo_pago",
@@ -38,47 +44,14 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         )
 
 
-    def _obtener_siguiente_secuencia_mensual(self, fecha: date) -> int:
-        """
-        Calcula el siguiente número secuencial para el mes y año de la fecha dada.
-        """
-        from sqlalchemy import func
-        from sqlmodel import and_
-        
-        primer_dia_mes = date(fecha.year, fecha.month, 1)
-        if fecha.month == 12:
-            primer_dia_sgte_mes = date(fecha.year + 1, 1, 1)
-        else:
-            primer_dia_sgte_mes = date(fecha.year, fecha.month + 1, 1)
-            
-        # Contar cuántas cotizaciones existen en este mes
-        # Filtramos por fecha_emision dentro del mes
-        conteo = self.db.exec(
-            select(func.count(Cotizacion.id))
-            .where(
-                and_(
-                    Cotizacion.fecha_emision >= primer_dia_mes,
-                    Cotizacion.fecha_emision < primer_dia_sgte_mes,
-                    Cotizacion.cotizacion_original_id == None # Solo contamos 'madres', no versiones
-                )
-            )
-        ).first() or 0
-        
-        return conteo + 1
-
-    def generar_numero_desde_id(self, cotizacion_id: int, fecha_emision: date) -> str:
+    def generar_numero_desde_id(self, fecha_emision: date) -> str:
         """
         Genera el número de cotización basado en la secuencia mensual.
         
         Formato: COT-YYMMNN
         Ejemplo: COT-260401
         """
-        from app.base.folios import EstrategiaFolioMensual
-        from app.base.constantes import PREFIJO_NUMERO_COTIZACION
-        
-        secuencia = self._obtener_siguiente_secuencia_mensual(fecha_emision)
-        estrategia = EstrategiaFolioMensual()
-        return estrategia.generar(PREFIJO_NUMERO_COTIZACION, fecha_emision, secuencia)
+        return self.generar_folio_mensual(fecha_emision)
     
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
         """Calcula fecha de vigencia y garantiza folio/número provisionales."""
@@ -114,7 +87,7 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
                 madre = self.obtener_por_id(entidad.cotizacion_original_id)
                 entidad.numero = f"{madre.numero}-{entidad.version_letra}"
             else:
-                nuevo_numero = self.generar_numero_desde_id(entidad.id, entidad.fecha_emision) # type: ignore
+                nuevo_numero = self.generar_numero_desde_id(entidad.fecha_emision) # type: ignore
                 entidad.numero = nuevo_numero
             
             entidad.numero_version = entidad.numero
@@ -140,13 +113,17 @@ class RepositorioCotizacion(RepositorioCRUD[Cotizacion]):
         """
         Obtiene el estado de ejecución (OT) para cada concepto de una cotización.
         
-        Delega al ServicioCotizaciones para mantener este repositorio
-        enfocado en acceso a datos, sin acoplarse directamente a RepositorioOrden.
+        Delega al RepositorioOrden para obtener el estado de ejecución
+        de las partidas vinculadas.
         
         Retorna: {concepto_id: {"estado": ..., "numero_ot": ..., "orden_id": ...}}
         """
-        from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
-        return ServicioCotizaciones(self.db).obtener_estado_conceptos(cotizacion_id)
+        from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
+        repo_ot = RepositorioOrden(self.db)
+        
+        conceptos = self.obtener_conceptos(cotizacion_id)
+        ids = [c.id for c in conceptos if c.id is not None]
+        return repo_ot.obtener_estado_por_conceptos_cotizacion(ids)
     
     def recalcular_totales(self, cotizacion_id: int) -> None:
         """

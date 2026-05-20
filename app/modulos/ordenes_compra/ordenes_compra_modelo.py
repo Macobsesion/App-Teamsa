@@ -11,28 +11,13 @@ from app.base.documentos_modelo import BaseDocumento
 from app.base.mixins_financieros import MixinDetalleFinanciero
 from app.base.mixins_snapshots import SnapshotProveedorMixin
 from typing import TYPE_CHECKING
-from enum import Enum
+from app.modulos.ordenes_compra.enums import EstadoOrdenCompra
 
 if TYPE_CHECKING:
     from app.modulos.proveedores.proveedores_modelo import Proveedor
     from app.modulos.servicios_proveedores.servicios_proveedores_modelo import ServicioProveedor
 
-class EstadoOrdenCompra(str, Enum):
-    BORRADOR = "borrador"
-    EMITIDA = "emitida" # Enviada al proveedor
-    PARCIALMENTE_RECIBIDA = "parcial"
-    RECIBIDA = "recibida" # Completa
-    CANCELADA = "cancelada"
-
-    @property
-    def es_editable(self) -> bool:
-        """Determina si la OC puede ser editada."""
-        return self == EstadoOrdenCompra.BORRADOR
-
-    @property
-    def es_cancelable(self) -> bool:
-        """Determina si la OC puede ser cancelada."""
-        return self not in (EstadoOrdenCompra.CANCELADA, EstadoOrdenCompra.RECIBIDA)
+# El Enum ahora se importa desde .enums
 
 class OrdenCompra(SnapshotProveedorMixin, BaseDocumento, table=True):
     """Encabezado de la Orden de Compra."""
@@ -64,6 +49,13 @@ class OrdenCompra(SnapshotProveedorMixin, BaseDocumento, table=True):
     @property
     def estado_enum(self) -> EstadoOrdenCompra:
         return EstadoOrdenCompra(self.estado)
+
+    def recalcular_totales(self) -> None:
+        """
+        Actualiza los totales de la orden basándose en sus detalles actuales.
+        Usa lógica del MixinDocumentoFinanciero.
+        """
+        self.calcular_totales(self.detalles)
 
 
 from app.base.base_detalle import BaseDetalleTransaccional

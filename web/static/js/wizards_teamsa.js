@@ -18,7 +18,7 @@ class TeamSADocumentWizard {
     }
 
     init() {
-        console.log("TeamSADocumentWizard inicializado");
+
     }
 
     /**
@@ -110,6 +110,30 @@ class TeamSADocumentWizard {
         const total = baseIva + iva;
 
         return { subtotal, descuentoTotal, baseIva, iva, total };
+    }
+
+    /**
+     * Sincroniza los totales calculados con los elementos del DOM si existen
+     */
+    refreshUI() {
+        const totals = this.calcularTotales();
+        
+        // Buscar y actualizar elementos comunes de totales
+        const ids = {
+            'resumen-subtotal': totals.subtotal,
+            'resumen-descuento': totals.descuentoTotal,
+            'resumen-iva': totals.iva,
+            'resumen-total': totals.total,
+            'total-step-2': totals.subtotal
+        };
+
+        for (const [id, value] of Object.entries(ids)) {
+            const el = document.getElementById(id);
+            if (el) {
+                // Si el ID es total-step-2 usamos formato moneda con $, sino solo el número
+                el.textContent = id === 'total-step-2' ? `$${value.toFixed(2)}` : value.toFixed(2);
+            }
+        }
     }
 
     /**

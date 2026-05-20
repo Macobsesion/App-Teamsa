@@ -48,8 +48,12 @@ def engine():
     print(f"\n[SEGURIDAD] Tests corriendo contra base de datos EXCLUSIVA: {motor.url.database}")
     print("[SEGURIDAD] Modo: Creación fresca desde cero y Rollback por test.")
 
-    # Asegurar que base de tests esté limpia (Drop All solo seguro aquí)
-    SQLModel.metadata.drop_all(motor)
+    # Asegurar que base de tests esté limpia (Drop All con CASCADE)
+    from sqlalchemy import text
+    with motor.connect() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
+        conn.commit()
+    
     SQLModel.metadata.create_all(motor) 
     return motor
 

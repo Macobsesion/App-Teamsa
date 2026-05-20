@@ -53,14 +53,8 @@ class CotizacionBase(SnapshotClienteMixin, SQLModel):
     # Relación Viva con cliente
     cliente_id: int = Field(foreign_key="cliente.id", index=True)
 
-    # Campos heredados de BaseDocumento (vía Mixins en el modelo físico)
-    # pero los definimos aquí para el esquema de lectura/creación si no deseamos magia Mixin en esquemas.
-    # Siguiendo la Regla 1, las propiedades con Field(...) van aquí.
-    estado: str = Field(default="borrador", index=True)
-    metodo_pago: str | None = Field(default="PPD", max_length=3)
-    forma_pago: str | None = Field(default="99", max_length=2)
-    notas: str | None = Field(default=None)
-    notas_privadas: str | None = Field(default=None)
+    # Nota: Los campos estado, metodo_pago, forma_pago, notas y notas_privadas 
+    # se heredan directamente de BaseDocumento en el modelo ORM para evitar duplicidad.
 
 
 class CotizacionRead(CotizacionBase):
@@ -68,10 +62,17 @@ class CotizacionRead(CotizacionBase):
     id: int
     numero: str = PYField(title="Folio")
     cliente_id: int = PYField(title="Cliente")
+    
+    estado: str = PYField(default="borrador")
+    
+    # El campo estado_visual se obtendrá del modelo si existe
+    estado_visual: str | None = None
+    
     numero_version: str  # Campo agregado para versionamiento
     version_letra: str | None = None  # Letra de versión (None, "B", "C", etc.)
     cotizacion_original_id: int | None = None  # FK al original si es versión
     forma_pago: str = PYField(default="99")  # Forma de pago SAT
+    
     subtotal: Decimal
     descuento_global: Decimal
     iva: Decimal
@@ -83,6 +84,8 @@ class CotizacionRead(CotizacionBase):
     ejecucion_ot: str | None = PYField(default=None, title="OTs asociadas")
     fecha_creacion: datetime
     fecha_modificacion: datetime | None
+
+    model_config = {"from_attributes": True}
 
 
 class CotizacionCreate(CotizacionBase):
@@ -104,3 +107,34 @@ class CotizacionUpdate(SQLModel):
 class CotizacionConConceptos(CotizacionRead):
     """Schema extendido que incluye los conceptos."""
     conceptos: list[ConceptoRead] = []
+
+
+# --- Esquemas para el Wizard (Compatibilidad Frontend) ---
+
+class CotizacionItemWizard(BaseModel):
+    id: int | None = None
+    servicio_id: int | None = None
+    viatico_id: int | None = None
+    descripcion: str
+    codigo_sat: str = ""
+    unidad: str = "pieza"
+    cantidad: float
+    precio_unitario: float
+    descuento_porcentaje: float = 0.0
+
+    model_config = {"from_attributes": True}
+
+
+class CotizacionWizardRead(BaseModel):
+    id: int
+    numero: str
+    cliente_id: int
+    fecha_emision: date
+    fecha_vigencia: date | None = None
+    metodo_pago: str = "POR_DEFINIR"
+    forma_pago: str = "99"
+    notas: str | None = ""
+    estado: str = "borrador"
+    servicios: list[CotizacionItemWizard] = PYField(..., serialization_alias="servicios", validation_alias="conceptos")
+
+    model_config = {"populate_by_name": True, "from_attributes": True}

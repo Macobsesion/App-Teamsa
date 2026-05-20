@@ -45,6 +45,17 @@ class DescriptorUI:
     def __str__(self):
         return self.prefix or ""
 
+
+def _obtener_usuario_db(db: Session, actor: Any):
+    """Obtiene el objeto Usuario completo de la BD a partir del actor de identidad.
+    Centraliza la consulta para evitar duplicación en las vistas."""
+    if not actor:
+        return None
+    from app.modulos.usuarios.usuarios_modelo import Usuario
+    from sqlmodel import select
+    return db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
+
+
 def construir_enrutador_ui(
     *,
     prefix: str,
@@ -54,7 +65,8 @@ def construir_enrutador_ui(
     hooks: GanchosCRUD,
     obtener_sesion: Callable[..., Session],
     list_dependencies: Optional[list[Depends]] = None,
-    write_dependency: Optional[Callable[..., Any]] = None,
+    create_dependency: Optional[Callable[..., Any]] = None,
+    update_dependency: Optional[Callable[..., Any]] = None,
     delete_dependency: Optional[Callable[..., Any]] = None,
     ui: DescriptorUI,
     label: str,
@@ -108,12 +120,12 @@ def construir_enrutador_ui(
         db: Session = Depends(obtener_sesion),
         actor: Any = Depends(actor_dependency) if actor_dependency else None,
     ):
+        # Consulta única del usuario completo para RBAC + seguridad + permisos de botones
+        u_db = _obtener_usuario_db(db, actor)
+
         # RBAC: Verificar permiso de "ver"
-        if nombre_modulo and actor:
-            from app.modulos.usuarios.usuarios_modelo import Usuario
-            from sqlmodel import select
-            u_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
-            if u_db and nombre_modulo not in (u_db.permisos_ver or []):
+        if nombre_modulo and u_db:
+            if nombre_modulo not in (u_db.permisos_ver or []):
                 raise PermisoDenegadoError(f"No tienes permiso para ver {label}")
 
         repo = _get_repo(db)
@@ -129,13 +141,6 @@ def construir_enrutador_ui(
                     if k in repo.campos_filtrables and v:
                         filtros[k] = v
         except Exception: pass
-            
-        # RBAC: Obtener objeto usuario completo para filtros de seguridad y permisos
-        u_db = None
-        if actor:
-            from app.modulos.usuarios.usuarios_modelo import Usuario
-            from sqlmodel import select
-            u_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
 
         # Inyectar filtros de seguridad si el repositorio lo soporta
         filtros = repo.aplicar_seguridad_filtro(filtros, u_db)
@@ -157,7 +162,7 @@ def construir_enrutador_ui(
             puede_eliminar = mod_key in (u_db.permisos_eliminar or [])
             es_admin = getattr(u_db, "rol", "") == "admin"
 
-        print(f">>> DEBUG PAGINATION - Base: {ui} | Pag: {pagina}/{total_paginas} | Prefix: {ui.prefix}", flush=True)
+        logger.debug(f"Paginación: {ui.prefix} | Pag: {pagina}/{total_paginas}")
 
         return templates.TemplateResponse(ui.tpl_filas, {
             "request": request,
@@ -165,6 +170,7 @@ def construir_enrutador_ui(
             "puede_editar": puede_editar,
             "puede_eliminar": puede_eliminar,
             "es_admin": es_admin,
+            "usuario_actual": u_db,
             "ui_base": ui,
             "columnas": columnas or [],
             "pagina_actual": pagina,
@@ -180,31 +186,34 @@ def construir_enrutador_ui(
         db: Session = Depends(obtener_sesion),
         actor: Any = Depends(actor_dependency) if actor_dependency else None,
     ):
-        if nombre_modulo and actor:
-            from app.modulos.usuarios.usuarios_modelo import Usuario
-            from sqlmodel import select
-            u_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
-            if u_db:
-                permiso_req = "editar" if id else "crear"
-                lista = getattr(u_db, f"permisos_{permiso_req}", []) or []
-                if nombre_modulo not in lista:
-                    raise PermisoDenegadoError(f"No tienes permiso para {permiso_req} en {label}")
+        # Consulta única del usuario completo
+        u_db = _obtener_usuario_db(db, actor)
+
+        if nombre_modulo and u_db:
+            permiso_req = "editar" if id else "crear"
+            lista = getattr(u_db, f"permisos_{permiso_req}", []) or []
+            if nombre_modulo not in lista:
+                raise PermisoDenegadoError(f"No tienes permiso para {permiso_req} en {label}")
 
         repo = _get_repo(db)
         item = repo.db.get(repo.modelo, id) if id else None
         puede_editar = False
         es_admin = False
-        if actor:
-            from app.modulos.usuarios.usuarios_modelo import Usuario
-            from sqlmodel import select
-            u_db = db.exec(select(Usuario).where(Usuario.usuario == getattr(actor, "usuario", ""))).first()
-            if u_db:
-                mod_key = nombre_modulo or prefix.strip("/").split("/")[-1].replace("-", "_")
-                puede_editar = mod_key in (u_db.permisos_editar or [])
-                es_admin = getattr(u_db, "rol", "") == "admin"
+        if u_db:
+            mod_key = nombre_modulo or prefix.strip("/").split("/")[-1].replace("-", "_")
+            puede_editar = mod_key in (u_db.permisos_editar or [])
+            es_admin = getattr(u_db, "rol", "") == "admin"
 
         extra_ctx = extra_context_provider(db) if extra_context_provider else {}
-        ctx = {"request": request, "item": item, "modo": modo, "puede_editar": puede_editar, "es_admin": es_admin, "ui_base": ui}
+        ctx = {
+            "request": request, 
+            "item": item, 
+            "modo": modo, 
+            "puede_editar": puede_editar, 
+            "es_admin": es_admin, 
+            "usuario_actual": u_db,
+            "ui_base": ui
+        }
         ctx.update(extra_ctx)
         return templates.TemplateResponse(ui.tpl_form, ctx)
 
@@ -214,7 +223,7 @@ def construir_enrutador_ui(
         response: Response,
         actor: Any = Depends(actor_dependency) if actor_dependency else None,
         db: Session = Depends(obtener_sesion),
-        _permiso: Any = Depends(write_dependency) if write_dependency else None,
+        _permiso: Any = Depends(create_dependency) if create_dependency else None,
     ):
         repo = _get_repo(db)
         form = await request.form()
@@ -239,18 +248,16 @@ def construir_enrutador_ui(
             base = hooks.preparar_creacion(payload, actor)
             extras = (hooks.extra_kwargs_creacion(payload, actor) or {}).copy()
             
-            # DETECCIÓN DE ACTOR (ULTRA-ROBUSTA)
+            # Detección robusta del actor para auditoría
             u_login = getattr(actor, "usuario", None) or getattr(actor, "nombre", None) or "SISTEMA"
-            
-            # LOG DE SERVIDOR (Visible en docker logs)
-            print(f">>> AUDITORIA UI - Actor: {u_login} | Extras originales: {extras}", flush=True)
+            logger.debug(f"AUDITORIA UI - Actor: {u_login}")
             
             # Blindaje forzoso
             if not extras.get("creado_por"): extras["creado_por"] = u_login
             if not extras.get("modificado_por"): extras["modificado_por"] = u_login
             
             datos_finales = {**base, **extras}
-            print(f">>> AUDITORIA UI - Datos finales para Repo: {list(datos_finales.keys())}", flush=True)
+            logger.debug(f"AUDITORIA UI - Campos finales: {list(datos_finales.keys())}")
             
             entidad = repo.crear(datos_finales)
             
@@ -263,6 +270,15 @@ def construir_enrutador_ui(
                         if finales: cambios[campo] = finales
                     except ValueError as e: return templates.TemplateResponse(ui.tpl_form, {"request": request, "item": entidad, "modo": "editar", "error": str(e)}, status_code=200)
                 if cambios: repo.actualizar(entidad.id, cambios)
+
+            # Registrar Log de Actividad
+            from app.base.logs_servicio import ServicioLogs
+            ServicioLogs.registrar(
+                usuario=u_login, 
+                accion="CREAR", 
+                modulo=(nombre_modulo or label.lower()), 
+                detalles=str(getattr(entidad, "id", ""))
+            )
 
             response.headers["HX-Trigger"] = json.dumps({"refrescarLista": True, "modalClose": True, "flash": {"tipo": "success", "texto": msg_creado}})
             response.headers["HX-Refresh"] = "true"
@@ -279,7 +295,7 @@ def construir_enrutador_ui(
         response: Response,
         actor: Any = Depends(actor_dependency) if actor_dependency else None,
         db: Session = Depends(obtener_sesion),
-        _permiso: Any = Depends(write_dependency) if write_dependency else None,
+        _permiso: Any = Depends(update_dependency) if update_dependency else None,
     ):
         repo = _get_repo(db)
         entidad_actual = repo.db.get(repo.modelo, id)
@@ -292,13 +308,22 @@ def construir_enrutador_ui(
             base = hooks.preparar_actualizacion(payload, actor)
             extras = (hooks.extra_kwargs_actualizacion(payload, actor) or {}).copy()
             
-            # FAIL-SAFE: Asegurar auditoría si el hook falló
+            # Asegurar auditoría
             u_login = getattr(actor, "usuario", None) or getattr(actor, "nombre", None) or "SISTEMA"
             if not extras.get("modificado_por"): extras["modificado_por"] = u_login
-            
-            print(f">>> AUDITORIA UI UPDATE - Actor: {u_login}", flush=True)
+            logger.debug(f"AUDITORIA UI UPDATE - Actor: {u_login}")
             
             repo.actualizar(id, {**base, **archivos, **extras})
+            
+            # Registrar Log de Actividad
+            from app.base.logs_servicio import ServicioLogs
+            ServicioLogs.registrar(
+                usuario=u_login, 
+                accion="EDITAR", 
+                modulo=(nombre_modulo or label.lower()), 
+                detalles=str(id)
+            )
+
             response.headers["HX-Trigger"] = json.dumps({"refrescarLista": True, "modalClose": True, "flash": {"tipo": "success", "texto": msg_actualizado}})
             response.headers["HX-Refresh"] = "true"
             return HTMLResponse("")
@@ -307,8 +332,8 @@ def construir_enrutador_ui(
             headers = {"HX-Trigger": json.dumps({"mostrarError": msg_err})}
             return templates.TemplateResponse(ui.tpl_form, {"request": request, "item": entidad_actual, "modo": "editar", "error": msg_err, "ui_base": ui}, status_code=200, headers=headers)
 
-    # Determinar dependencia de borrado (protección robusta)
-    dep_borrado = delete_dependency or write_dependency or (lambda: None)
+    # Dependencia de borrado
+    dep_borrado = delete_dependency or (lambda: None)
 
     @router.delete("/{id}")
     def ui_eliminar(
@@ -320,6 +345,17 @@ def construir_enrutador_ui(
         repo = _get_repo(db)
         try:
             repo.eliminar(id)
+            
+            # Registrar Log de Actividad
+            u_login = getattr(_actor, "usuario", None) or getattr(_actor, "nombre", None) or "SISTEMA"
+            from app.base.logs_servicio import ServicioLogs
+            ServicioLogs.registrar(
+                usuario=u_login, 
+                accion="ELIMINAR", 
+                modulo=(nombre_modulo or label.lower()), 
+                detalles=str(id)
+            )
+
             response.headers["HX-Trigger"] = json.dumps({
                 "refrescarLista": True,
                 "flash": {"tipo": "success", "texto": msg_eliminado},

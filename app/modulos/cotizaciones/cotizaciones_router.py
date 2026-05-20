@@ -10,7 +10,9 @@ from app.base.factory_modulo import crear_modulo_crud_estandar
 from app.nucleo.base_datos import obtener_sesion_bd, obtener_motor
 from app.rutas.dependencias import dp_usuario_actual
 from app.rutas.permisos import para_modulo
-from app.modulos.cotizaciones.cotizaciones_esquemas import CotizacionRead, CotizacionCreate, CotizacionUpdate, ConceptoRead
+from app.modulos.cotizaciones.cotizaciones_esquemas import (
+    CotizacionRead, CotizacionCreate, CotizacionUpdate, ConceptoRead, CotizacionWizardRead
+)
 from app.modulos.cotizaciones.cotizaciones_repositorio import RepositorioCotizacion, RepositorioConcepto
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
@@ -28,29 +30,22 @@ router_extras = APIRouter(prefix="/api/cotizaciones", tags=["Cotizaciones - Extr
 # ---------- Router Wizard API (Específico para la lógica del Wizard) ----------
 router_wizard_api = APIRouter(prefix="/api/wizard/cotizaciones", tags=["Cotizaciones - Wizard API"])
 
-@router_wizard_api.get("/{cotizacion_id}/completa")
-@router_wizard_api.get("/{cotizacion_id}/completa/")
+@router_wizard_api.get("/{cotizacion_id}/completa", response_model=CotizacionWizardRead)
+@router_wizard_api.get("/{cotizacion_id}/completa/", response_model=CotizacionWizardRead)
 def obtener_completa(
     cotizacion_id: int,
     db: Session = Depends(obtener_sesion_bd),
     _usuario: UsuarioIdentity = Depends(dp_usuario_actual),
 ):
     """Obtiene una cotización con sus conceptos (para edición)."""
-    from app.modulos.cotizaciones.cotizaciones_esquemas import ConceptoRead
-
     cotizacion = db.get(Cotizacion, cotizacion_id)
     if not cotizacion:
         raise RecursoNoEncontradoError("Cotización no encontrada")
 
     repo = RepositorioCotizacion(db)
-    conceptos = repo.obtener_conceptos(cotizacion_id)
+    cotizacion.conceptos = repo.obtener_conceptos(cotizacion_id)
 
-    cotizacion_dict = cotizacion.model_dump()
-    cotizacion_dict["conceptos"] = [
-        ConceptoRead.model_validate(c) for c in conceptos
-    ]
-
-    return cotizacion_dict
+    return cotizacion
 
 
 @router_extras.get("/{cotizacion_id}/pdf")
@@ -66,6 +61,11 @@ def descargar_pdf(
     if not cotizacion:
         raise RecursoNoEncontradoError("Cotización no encontrada")
     filename = f"{cotizacion.numero}.pdf"
+    
+    # Auditoría: Descarga de documento
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=_usuario.usuario, accion="DESCARGAR", modulo="cotizaciones", detalles=f"PDF {filename}")
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -88,6 +88,11 @@ def actualizar_notas_privadas(
         data.get('notas_privadas'),
         usuario.usuario
     )
+    
+    # Auditoría: Notas privadas
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="EDITAR", modulo="cotizaciones", detalles=f"Notas privadas de {cotizacion.numero}")
+
     return {"detail": "Notas privadas actualizadas", "notas_privadas": cotizacion.notas_privadas}
 
 
@@ -104,6 +109,10 @@ def crear_cotizacion_completa(
     servicio = ServicioCotizaciones(db)
     cotizacion = servicio.crear_cotizacion_completa(data, usuario.usuario)
     
+    # Auditoría: Creación desde Wizard
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="CREAR", modulo="cotizaciones", detalles=f"Cotización {cotizacion.numero} (Wizard)")
+
     return {
         "id": cotizacion.id, 
         "numero": cotizacion.numero, 
@@ -136,7 +145,13 @@ def crear_version(
     """Crea nueva VERSIÓN de cotización."""
     from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
     servicio = ServicioCotizaciones(db)
-    return servicio.crear_nueva_version(cotizacion_id, data, usuario.usuario)
+    res = servicio.crear_nueva_version(cotizacion_id, data, usuario.usuario)
+    
+    # Auditoría: Nueva versión
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="VERSIONAR", modulo="cotizaciones", detalles=f"Nueva versión de ID {cotizacion_id}")
+
+    return res
 
 
 @router_extras.post("/{id}/cerrar")

@@ -1,160 +1,341 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* Ajustes globales de UI de TEAMSA */:root {
-  /* Paleta Corporativa */
-  /* 1. Enfasis y letras del navbar */
-  --teamsa-primary: #4148C3;
-  /* 2. Hover / Darker */
-  --teamsa-primary-dark: #3F48CB;
-  /* 3. Info / Secondary */
-  --teamsa-secondary: #027DC0;
-  /* 4. Accent / Light Blue */
-  --teamsa-accent: #97DBE6;
-  /* 5. Background / Lightest */
-  --teamsa-light-bg: #C6EBF1;
+/* ========================================
+   Design System: TEAMSA Premium
+   ======================================== */
+:root {
+  /* Paleta Corporativa (HSL para control dinámico) */
+  --teamsa-primary-h: 237;
+  --teamsa-primary-s: 54%;
+  --teamsa-primary-l: 51%;
+  --teamsa-primary: hsl(var(--teamsa-primary-h), var(--teamsa-primary-s), var(--teamsa-primary-l));
+  --teamsa-primary-dark: hsl(var(--teamsa-primary-h), var(--teamsa-primary-s), 42%);
+  --teamsa-primary-light: hsl(var(--teamsa-primary-h), var(--teamsa-primary-s), 65%);
+  --teamsa-primary-glow: hsla(var(--teamsa-primary-h), var(--teamsa-primary-s), var(--teamsa-primary-l), 0.15);
 
-  --teamsa-success: #198754;
-  --teamsa-warning: #ffc107;
-  --teamsa-danger: #dc3545;
-  --teamsa-text-dark: #212529;
+  --teamsa-secondary-h: 201;
+  --teamsa-secondary-s: 98%;
+  --teamsa-secondary-l: 38%;
+  --teamsa-secondary: hsl(var(--teamsa-secondary-h), var(--teamsa-secondary-s), var(--teamsa-secondary-l));
 
-  /* Gradiente sutil usando los tonos medios */
-  --teamsa-gradient: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+  --teamsa-accent-h: 189;
+  --teamsa-accent-s: 63%;
+  --teamsa-accent-l: 75%;
+  --teamsa-accent: hsl(var(--teamsa-accent-h), var(--teamsa-accent-s), var(--teamsa-accent-l));
+  --teamsa-light-bg: hsl(var(--teamsa-accent-h), 58%, 86%);
+
+  /* Semántica UI */
+  --teamsa-success: #10b981;
+  --teamsa-warning: #f59e0b;
+  --teamsa-danger: #ef4444;
+  --teamsa-text-dark: #1e293b;
+  --teamsa-text-muted: #64748b;
+  --body-bg: #f8fafc;
+
+  /* --- Red de Seguridad (Sobreescritura de Bootstrap 5) --- */
+  --bs-primary: var(--teamsa-primary);
+  /* Bootstrap usa valores RGB sin comas ni 'rgb()' para opacidades */
+  --bs-primary-rgb: 65, 72, 195;
+  --bs-secondary: var(--teamsa-secondary);
+  --bs-body-bg: var(--body-bg);
+  --bs-body-color: var(--teamsa-text-dark);
+  --bs-link-color: var(--teamsa-primary);
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--teamsa-text-dark);
+
+  /* Fase 2: Botones y Formularios Globales */
+  --bs-border-radius: 0.75rem;
+  --bs-btn-border-radius: 0.75rem;
+  --bs-border-color: #e2e8f0;
+  --bs-focus-ring-color: rgba(65, 72, 195, 0.25);
+  /* rgba de var(--teamsa-primary) */
+
+  /* Tipografía Estándar */
+  --fs-2xs: 0.625rem;
+  /* 10px */
+  --fs-xs: 0.75rem;
+  /* 12px */
+  --fs-sm: 0.8125rem;
+  /* 13px */
+  --fs-base: 0.9375rem;
+  /* 15px */
+  --fs-md: 1rem;
+  /* 16px */
+  --fs-lg: 1.125rem;
+  /* 18px */
+  --fs-xl: 1.25rem;
+  /* 20px */
+  --fs-2xl: 1.5rem;
+  /* 24px */
+  --fs-3xl: 1.875rem;
+  /* 30px */
+
+  /* Efectos Premium */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --glass-blur: blur(12px);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-premium: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --transition-base: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ========================================
+   Base Styles
+   ======================================== */
 body {
-  background-color: #f5f7fa;
-  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--body-bg);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-base);
   color: var(--teamsa-text-dark);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--teamsa-primary);
+  margin-bottom: 1rem;
+}
+
+h1 {
+  font-size: var(--fs-3xl);
 }
 
 h2 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--teamsa-primary);
-  margin-bottom: 1.5rem;
+  font-size: var(--fs-2xl);
 }
 
-/* Navbar Premium - Fondo Corporativo Azul, Letras Blancas */
+h3 {
+  font-size: var(--fs-xl);
+}
+
+h4 {
+  font-size: var(--fs-lg);
+}
+
+h5 {
+  font-size: var(--fs-md);
+}
+
+h6 {
+  font-size: var(--fs-base);
+}
+
+/* ========================================
+   Navbar: Glassmorphism & Sticky
+   ======================================== */
 .navbar-teamsa {
-  background: var(--teamsa-primary-dark);
-  border-bottom: 2px solid var(--teamsa-accent);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  padding-top: 0.5rem;
-  padding-bottom: 0.5rem;
+  background: hsla(var(--teamsa-primary-h), var(--teamsa-primary-s), 40%, 0.9);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-lg);
+  padding: 0.75rem 0;
+  position: sticky;
+  top: 0;
+  z-index: 1020;
 }
 
 .navbar-teamsa .navbar-brand {
-  color: white !important;
-  font-weight: 700;
-  font-size: 1.6rem;
-  letter-spacing: 1px;
-}
-
-.navbar-logo {
-  filter: brightness(0) invert(1);
-  /* Convierte el logo azul en blanco puro */
-  transition: transform 0.3s ease;
-}
-
-.navbar-logo:hover {
-  transform: scale(1.05);
+  font-weight: 800;
+  font-size: var(--fs-xl);
+  letter-spacing: -0.01em;
 }
 
 .navbar-teamsa .nav-link {
-  color: rgba(255, 255, 255, 0.9) !important;
-  font-weight: 400; /* Limpio, sin negritas */
-  font-size: 0.95rem;
-  transition: all 0.2s ease;
-  padding-left: 1.2rem;
-  padding-right: 1.2rem;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  padding: 0.5rem 1rem !important;
+  transition: var(--transition-base);
 }
 
-.navbar-teamsa .nav-link:hover,
-.navbar-teamsa .nav-link.active {
-  color: white !important;
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 5px;
+.dropdown-menu {
+  font-size: var(--fs-sm);
+  border-radius: 0.75rem;
+  padding: 0.5rem;
 }
 
-.navbar-teamsa .dropdown-menu {
-  border: none;
-  border-top: 3px solid var(--teamsa-primary);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-  border-radius: 0 0 8px 8px;
-}
-
-.navbar-teamsa .dropdown-item {
-  color: var(--teamsa-text-dark);
-  padding: 0.5rem 1.5rem;
-}
-
-.navbar-teamsa .dropdown-item:active,
-.navbar-teamsa .dropdown-item:hover {
-  background-color: var(--teamsa-light-bg);
-  /* Color #5 */
-  color: var(--teamsa-primary);
-}
-
-/* Login Logo */
-.login-logo {
-  max-width: 180px;
-  height: auto;
-  margin-bottom: 20px;
-}
-
-/* Cards & Containers */
+/* ========================================
+   Cards & Layout
+   ======================================== */
 .card {
-  border: none;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-  transition: transform 0.2s, box-shadow 0.2s;
-  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: var(--transition-base);
+  overflow: hidden;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
 }
 
 .card-header {
-  background-color: white;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  font-weight: 600;
-  color: var(--teamsa-primary);
-}
-
-.card-header-primary {
-  background: var(--teamsa-primary);
+  background-color: var(--teamsa-primary);
   color: white;
-  border-radius: 10px 10px 0 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1.25rem 1.5rem;
+  font-weight: 700;
+  font-size: var(--fs-md);
 }
 
-/* Wizard Styles (Unificado) */
+/* ========================================
+   Tablas: Premium Design
+   ======================================== */
+.table-responsive {
+  border-radius: 1rem;
+  background: white;
+}
+
+.table {
+  margin-bottom: 0;
+  font-size: var(--fs-sm);
+}
+
+.table thead th {
+  background-color: var(--teamsa-primary);
+  color: white;
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.05em;
+  padding: 1rem 1.5rem;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.table tbody td {
+  padding: 1rem 1.5rem;
+  color: var(--teamsa-text-dark);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Badges de servicios resumidos en tablas */
+.badge-mini {
+  background-color: var(--teamsa-primary-glow);
+  color: var(--teamsa-primary);
+  border: 1px solid rgba(var(--teamsa-primary-h), var(--teamsa-primary-s), var(--teamsa-primary-l), 0.1);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ========================================
+   Buttons & Inputs
+   ======================================== */
+.btn {
+  font-weight: 600;
+  font-size: var(--fs-sm);
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.75rem;
+  transition: var(--transition-base);
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: var(--fs-xs);
+}
+
+/* Botones Corporativos (Nativos Bootstrap y TEAMSA) */
+.btn-primary,
+.btn-teamsa-primary {
+  background-color: var(--teamsa-primary);
+  color: white;
+  border: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover,
+.btn-teamsa-primary:hover {
+  background-color: var(--teamsa-primary-dark);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.form-control,
+.form-select {
+  font-size: var(--fs-base);
+  padding: 0.625rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5e1;
+  transition: var(--transition-base);
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--teamsa-primary-light);
+  box-shadow: 0 0 0 0.25rem var(--teamsa-primary-glow);
+  background-color: #ffffff;
+}
+
+.form-label {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--teamsa-text-dark);
+  margin-bottom: 0.5rem;
+}
+
+/* ========================================
+   Wizard Progress Indicator
+   ======================================== */
 .wizard-step {
-  text-align: center;
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   position: relative;
-  opacity: 0.6;
-  transition: all 0.3s ease;
+  z-index: 1;
+  flex: 1;
 }
 
-.wizard-step.active {
-  opacity: 1;
-  font-weight: bold;
+.step-number {
+  width: 2.5rem;
+  height: 2.5rem;
+  background-color: #f1f5f9;
+  color: var(--teamsa-text-muted);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  transition: var(--transition-base);
+  border: 2px solid transparent;
 }
 
 .wizard-step.active .step-number {
-  background: var(--teamsa-primary);
-  /* Color #1 */
+  background-color: var(--teamsa-primary);
   color: white;
-  box-shadow: 0 0 0 4px var(--teamsa-light-bg);
-  /* Color #5 como anillo */
+  box-shadow: 0 0 0 4px var(--teamsa-primary-glow);
 }
 
 .wizard-step.completed .step-number {
-  background: var(--teamsa-secondary);
-  /* Color #3 */
+  background-color: var(--teamsa-success);
   color: white;
 }
 
-.wizard-step.completed .step-label {
-  color: var(--teamsa-secondary);
+.step-label {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  color: var(--teamsa-text-muted);
+  text-align: center;
 }
 
 .wizard-step.active .step-label {
@@ -163,36 +344,56 @@ h2 {
 
 .wizard-step-line {
   flex: 1;
-  height: 3px;
-  background: var(--teamsa-light-bg);
-  /* Color #5 para línea inactiva */
-  margin-top: 20px;
-  margin-left: 10px;
-  margin-right: 10px;
+  height: 2px;
+  background-color: #f1f5f9;
+  margin-top: 1.25rem;
 }
 
-.wizard-step .step-number {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #e9ecef;
-  color: var(--teamsa-text-dark);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  margin-bottom: 8px;
-  transition: all 0.3s ease;
+/* ========================================
+   Badges & Status
+   ======================================== */
+.badge {
+  font-weight: 600;
+  font-size: var(--fs-2xs);
+  padding: 0.35em 0.65em;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
-.wizard-step .step-label {
-  font-size: 0.9rem;
-  color: var(--teamsa-text-dark);
-  font-weight: 500;
+.badge-md {
+  font-size: var(--fs-xs);
+  padding: 0.5em 0.8em;
 }
 
-.wizard-content {
-  animation: fadeIn 0.4s ease-in-out;
+.badge-lg {
+  font-size: var(--fs-sm);
+  padding: 0.6em 1em;
+}
+
+/* Utilitarios de texto */
+.text-2xs {
+  font-size: var(--fs-2xs) !important;
+}
+
+.text-xs {
+  font-size: var(--fs-xs) !important;
+}
+
+.text-sm {
+  font-size: var(--fs-sm) !important;
+}
+
+.text-md {
+  font-size: var(--fs-md) !important;
+}
+
+.text-lg {
+  font-size: var(--fs-lg) !important;
+}
+
+/* Animaciones */
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
 }
 
 @keyframes fadeIn {
@@ -207,278 +408,209 @@ h2 {
   }
 }
 
-/* Tablas */
-.table-responsive {
-  overflow-x: auto;
-  border-radius: 8px;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  border: 1px solid #eee;
+/* Colores de estado (Subtle directos en backgrounds genéricos y Badges) */
+.badge.bg-success,
+.bg-success-subtle {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  color: #065f46 !important;
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
-.table thead th {
-  background-color: var(--teamsa-primary);
-  /* Color #5 para headers de tabla */
-  border-bottom: 2px solid var(--teamsa-accent);
-  /* Color #4 para borde */
-  color: white;
-  /* Color #1 */
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.85rem;
-  padding: 1rem;
+.badge.bg-info,
+.bg-info-subtle {
+  background-color: rgba(14, 165, 233, 0.15) !important;
+  color: #0369a1 !important;
+  border: 1px solid rgba(14, 165, 233, 0.2);
 }
 
-.table td {
-  vertical-align: middle;
-  padding: 0.75rem 1rem;
+.badge.bg-danger,
+.bg-danger-subtle {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: #991b1b !important;
+  border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
-.table-striped>tbody>tr:nth-of-type(odd)>* {
-  --bs-table-accent-bg: rgba(198, 235, 241, 0.15);
-  /* Color #5 muy transparente */
-  color: var(--teamsa-text-dark);
+.badge.bg-warning,
+.bg-warning-subtle {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #92400e !important;
+  border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
-/* Botones */
+.badge.bg-primary,
+.bg-primary-subtle {
+  background-color: var(--teamsa-primary-glow) !important;
+  color: var(--teamsa-primary) !important;
+  border: 1px solid rgba(var(--teamsa-primary-h), var(--teamsa-primary-s), var(--teamsa-primary-l), 0.2);
+}
+
+.badge.bg-secondary,
+.bg-secondary-subtle {
+  background-color: rgba(100, 116, 139, 0.15) !important;
+  color: #334155 !important;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.text-success {
+  color: #10b981 !important;
+}
+
+.text-info {
+  color: #0ea5e9 !important;
+}
+
+.text-danger {
+  color: #ef4444 !important;
+}
+
+.text-warning {
+  color: #f59e0b !important;
+}
+
+.text-primary {
+  color: var(--teamsa-primary) !important;
+}
+
+.text-secondary {
+  color: var(--teamsa-text-muted) !important;
+}
+
+.alert-premium-info {
+  background-color: var(--teamsa-primary-glow);
+  border: 1px solid rgba(var(--teamsa-primary-h), var(--teamsa-primary-s), var(--teamsa-primary-l), 0.1);
+  color: var(--teamsa-primary-dark);
+  border-radius: 0.75rem;
+  font-size: var(--fs-sm);
+}
+
+.bg-light-teamsa {
+  background-color: #f8fafc;
+}
+
+.bg-teamsa-gradient {
+  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
+}
+
+.round-4 {
+  border-radius: 1rem !important;
+}
+
+/* ========================================
+   Login Premium & Responsive
+   ======================================== */
+.mx-auto {
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+}
+
+.login-card {
+  width: 100%;
+  max-width: 450px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-premium);
+  border-radius: 1.5rem;
+  padding: 2.5rem 2rem;
+}
+
+.login-logo {
+  max-width: 180px;
+  height: auto;
+  margin: 0 auto 1.5rem;
+}
+
+@media (max-width: 576px) {
+  .login-card {
+    padding: 2rem 1.5rem;
+    border-radius: 1rem;
+  }
+
+  .login-logo {
+    max-width: 150px;
+  }
+
+  .btn-teamsa-primary {
+    font-size: var(--fs-md);
+    padding: 0.75rem;
+  }
+}
+
+/* ========================================
+   Premium UI Utilities
+   ======================================== */
+.bg-light-teamsa {
+  background-color: #f1f5f9;
+}
+
+.text-teamsa-primary {
+  color: var(--teamsa-primary);
+}
+
 .btn-teamsa-primary {
   background-color: var(--teamsa-primary);
-  border-color: var(--teamsa-primary);
   color: white;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  transition: var(--transition-base);
+  border: none;
+  box-shadow: 0 4px 6px -1px rgba(65, 72, 195, 0.2);
 }
 
 .btn-teamsa-primary:hover {
   background-color: var(--teamsa-primary-dark);
-  /* Color #2 */
-  border-color: var(--teamsa-primary-dark);
   color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(65, 72, 195, 0.3);
 }
 
-/* Modales */
-.modal-header {
-  background-color: white;
-  border-bottom: 1px solid #dee2e6;
+.btn-light-teamsa {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-radius: 0.75rem;
+  transition: var(--transition-base);
 }
 
-.modal-header.bg-primary-gradient {
-  background: var(--teamsa-primary);
-  color: white;
+.btn-light-teamsa:hover {
+  background-color: #e2e8f0;
+  color: #1e293b;
 }
 
-.modal-title {
-  font-weight: 600;
+.form-control-premium,
+.form-select-premium {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #e2e8f0;
+  background-color: #fcfdfe;
+  transition: var(--transition-base);
 }
 
-/* Fallback simple para modales */
-.modal {
-  display: none;
-}
-
-.modal.show {
-  display: block;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-/* Footer UI */
-footer.teamsa-footer {
-  background: white;
-  /* Footer limpio */
-  border-top: 3px solid var(--teamsa-accent);
-  /* Color #4 */
-  padding: 3rem 0;
-  margin-top: 8rem;
-  /* Mayor espacio vertical */
-  color: var(--teamsa-text-dark);
-}
-
-/* Ajustes de Visibilidad Solicitados */
-.navbar-toggler {
-  border: 1px solid var(--teamsa-primary) !important;
-  padding: 0.25rem 0.5rem;
-}
-
-.navbar-toggler-icon {
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(65, 72, 195, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
-}
-
-.table-primary td, .table-primary th {
-  color: #084298 !important;
-  background-color: #e2e3ff !important; /* Un poco mas oscuro que light-bg para contraste */
-}
-
-.table-primary strong, .table-primary h5 {
-  color: var(--teamsa-primary) !important;
-}
-
-/* ========================================
-   Design System: Utilidades Tipográficas
-   ======================================== */
-.text-2xs { font-size: 0.6rem !important; }
-.text-xs  { font-size: 0.7rem !important; }
-.text-sm  { font-size: 0.8rem !important; }
-.text-md  { font-size: 0.9rem !important; }
-
-/* ========================================
-   Componentes: Badge Mini (Conceptos en tablas)
-   ======================================== */
-.badge-mini {
-  font-size: 0.7rem;
-  font-weight: 500;
-  background-color: #f0f2f5 !important;
-  color: #495057;
-  border: 1px solid #e9ecef;
-  padding: 2px 6px;
-  border-radius: 4px;
-  line-height: 1.4;
-}
-
-/* ========================================
-   Componentes: Alertas Premium
-   ======================================== */
-.alert-premium-danger {
-  background: rgba(220, 53, 69, 0.05);
-  border: 1px solid rgba(220, 53, 69, 0.15);
-  border-left: 4px solid #dc3545;
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  color: var(--teamsa-text-dark);
+.form-control-premium:focus,
+.form-select-premium:focus {
+  border-color: var(--teamsa-primary);
+  box-shadow: 0 0 0 4px var(--teamsa-primary-glow);
+  background-color: #fff;
 }
 
 .alert-premium-info {
-  background: rgba(65, 72, 195, 0.05);
-  border: 1px solid rgba(65, 72, 195, 0.15);
+  background-color: var(--teamsa-primary-glow);
   border-left: 4px solid var(--teamsa-primary);
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  color: var(--teamsa-text-dark);
+  color: var(--teamsa-primary-dark);
+  border-radius: 0.5rem;
+  font-size: var(--fs-sm);
+  padding: 1rem;
 }
 
-.alert-premium-warning {
-  background: rgba(255, 193, 7, 0.08);
-  border: 1px solid rgba(255, 193, 7, 0.2);
-  border-left: 4px solid #ffc107;
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  color: var(--teamsa-text-dark);
+.text-xs {
+  font-size: var(--fs-xs);
 }
 
-/* ========================================
-   Componentes: Status Badge (Animación)
-   ======================================== */
-@keyframes status-pulse {
-  0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(240, 147, 43, 0.4); }
-  70%  { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(240, 147, 43, 0); }
-  100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(240, 147, 43, 0); }
-}
-
-/* ========================================
-   Layout: Login
-   ======================================== */
-.login-bg {
-  min-height: 70vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.login-card {
-  max-width: 420px;
-  width: 100%;
-  border-radius: 16px !important;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08) !important;
-}
-
-/* ========================================
-   Componentes: Gradiente Corporativo
-   (Reutilizable: headers de cards, botones PDF)
-   ======================================== */
-.bg-teamsa-gradient {
-  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
-  color: white;
-}
-
-.text-teamsa-primary {
-  color: var(--teamsa-primary) !important;
-}
-
-/* ========================================
-   Logs Admin: Badges de acción
-   ======================================== */
-.bg-success-subtle  { background-color: rgba(25, 135, 84, 0.1) !important; }
-.bg-info-subtle     { background-color: rgba(13, 202, 240, 0.1) !important; }
-.bg-danger-subtle   { background-color: rgba(220, 53, 69, 0.1) !important; }
-.bg-warning-subtle  { background-color: rgba(255, 193, 7, 0.1) !important; }
-.bg-secondary-subtle { background-color: rgba(108, 117, 125, 0.1) !important; }
-
-/* ========================================
-   Logs Admin: Tabla compacta
-   ======================================== */
-.table-logs th {
-  font-weight: 600;
-  font-size: 0.85rem;
-  letter-spacing: 0.5px;
+.text-uppercase-letter-spacing {
   text-transform: uppercase;
-  color: #6c757d;
-}
-
-.table-logs td {
-  font-size: 0.9rem;
-}
-
-/* ========================================
-   Componentes: Modal Header Corporativo
-   (Para modales con fondo de color TEAMSA)
-   ======================================== */
-.modal-header-teamsa {
-  background: linear-gradient(135deg, var(--teamsa-primary) 0%, var(--teamsa-primary-dark) 100%);
-  color: white;
-  border-bottom: none;
-}
-
-.modal-header-teamsa .btn-close {
-  filter: brightness(0) invert(1);
-}
-
-.modal-header-teamsa .modal-title {
-  color: white;
-}
-
-/* ========================================
-   Calculadora: Tipografía estandarizada
-   ======================================== */
-/* Títulos de sección (ej: "Logística de Traslado", "Desglose de Alimentos") */
-.calc-section-title {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #6c757d;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e9ecef;
-}
-
-/* Labels de campos en calculadora */
-.calc-label {
-  font-size: 0.78rem;
-  color: #6c757d;
-  margin-bottom: 0.25rem;
-  display: block;
-}
-
-/* Color para totales y subtotales */
-.text-total-primary {
-  color: var(--teamsa-primary) !important;
-}
-
-/* ========================================
-   Tablas: Utilidades de diseño
-   ======================================== */
-.bg-light-teamsa {
-  background-color: #f8f9fa !important;
-  border-bottom: 2px solid #e9ecef !important;
-}
-
-.shadow-xs {
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+  letter-spacing: 0.05em;
+  color: var(--teamsa-text-muted);
 }

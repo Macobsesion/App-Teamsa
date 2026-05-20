@@ -18,6 +18,8 @@ from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCot
 from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
 from app.modulos.clientes.clientes_modelo import Cliente
 from app.modulos.viaticos.viaticos_modelo import Viatico
+from app.modulos.ordenes_trabajo.enums import EstadoOrden
+from app.modulos.cotizaciones.enums import EstadoCotizacion
 from app.modulos.viaticos.viaticos_servicios import ServicioViaticos
 from app.base.servicios_documentos import ServicioDocumentoFinanciero
 
@@ -32,25 +34,12 @@ class ServicioCotizaciones:
         self.db = db
         self.repo = RepositorioCotizacion(db)
 
-    def _hacer_snapshot_cliente(self, cotizacion: Cotizacion, cliente_id: int):
-        """Copia los datos actuales del cliente a la cotización para persistencia histórica."""
-        cliente = self.db.get(Cliente, cliente_id)
-        if not cliente:
-            return
-        
-        cotizacion.cliente_id = cliente.id
-        cotizacion.cliente_nombre = cliente.nombre
-        cotizacion.cliente_rfc = cliente.rfc
-        cotizacion.cliente_direccion = cliente.direccion
-        cotizacion.cliente_ciudad = cliente.ciudad
-        cotizacion.cliente_cp = cliente.cp
-        cotizacion.cliente_telefono = cliente.telefono
-        cotizacion.cliente_email = cliente.email
+
 
     def _procesar_conceptos_y_viaticos(self, cotizacion: Cotizacion, data: Dict[str, Any], usuario: str):
         """
-        Lógica unificada para procesar viáticos nuevos del wizard y vincular conceptos.
-        Maneja el mapeo de viatico_temp_id -> viatico_id real.
+        Orquesta el proceso de sincronización de conceptos y viáticos.
+        Delega la lógica pesada de merge al modelo de dominio.
         """
         from app.modulos.viaticos.viaticos_servicios import ServicioViaticos
         from app.modulos.viaticos.viaticos_modelo import Viatico
@@ -59,90 +48,65 @@ class ServicioCotizaciones:
         items_data = data.get('servicios', [])
         viaticos_nuevos_data = data.get('viaticos_nuevos', [])
 
-        # 1. Obtener viaticos previos para conciliación (si es actualización)
+        # 1. Obtener viaticos previos para conciliación
+        from app.modulos.viaticos.enums import EstadoViatico
         viaticos_previos = self.db.exec(select(Viatico).where(
             Viatico.cotizacion_id == cotizacion.id,
-            Viatico.estado != "cancelado"
+            Viatico.estado != EstadoViatico.CANCELADO.value
         )).all()
-        viaticos_en_uso = set()
 
-        # 2. Procesar viáticos nuevos del Wizard
+        # 2. Procesar viáticos nuevos del Wizard (Servicio de Aplicación Externo)
         viatico_mapping = {}
         if viaticos_nuevos_data:
             srv_v = ServicioViaticos(self.db)
             viatico_mapping = srv_v.procesar_viaticos_wizard(cotizacion.id, cotizacion.cliente_id, viaticos_nuevos_data, usuario)
-            # Los IDs reales resultantes del mapeo se consideran "en uso"
-            for real_id in viatico_mapping.values():
-                viaticos_en_uso.add(real_id)
 
-        # 3. Estrategia de Fusión para Conceptos (Merge)
-        conceptos_db = {c.id: c for c in self.repo.obtener_conceptos(cotizacion.id)}
-        nuevos_conceptos_ids = set()
-        
-        repo_concepto = RepositorioConcepto(self.db)
+        # 3. Enriquecer items_data con información real de los viáticos (Regla de negocio: Precio = Total Viático)
+        for row in items_data:
+            v_temp_id = row.get('viatico_temp_id')
+            v_id_final = row.get('viatico_id')
 
-        # 4. Procesar nuevos y actualizaciones
-        for s_row in items_data:
-            c_id = s_row.get('id')
-            v_temp_id = s_row.get('viatico_temp_id')
-            v_id_final = s_row.get('viatico_id')
-
-            # Resolver mapping si es un viático recién creado en el wizard
+            # Resolver mapping si es un viático recién creado
             if v_temp_id is not None:
                 try:
                     idx_map = int(v_temp_id)
                     if idx_map in viatico_mapping:
                         v_id_final = viatico_mapping[idx_map]
+                        row['viatico_id'] = v_id_final # Actualizar en el row para el modelo
                 except (ValueError, TypeError):
                     pass
 
-            if c_id and c_id in conceptos_db:
-                # ACTUALIZAR EXISTENTE
-                c_obj = conceptos_db[c_id]
-                c_obj.cantidad = Decimal(str(s_row.get('cantidad', 1)))
-                c_obj.precio_unitario = Decimal(str(s_row.get('precio_unitario', 0)))
-                c_obj.descuento_porcentaje = Decimal(str(s_row.get('descuento_porcentaje', 0)))
-                # Snapshot: solo actualizar si viene descripción nueva
-                if s_row.get('descripcion'):
-                    c_obj.descripcion = s_row['descripcion']
-                c_obj.viatico_id = v_id_final
-                self.db.add(c_obj)
-                nuevos_conceptos_ids.add(c_id)
-            else:
-                # CREAR NUEVO
-                nuevo_c = repo_concepto.crear_concepto(
-                    cotizacion_id=cotizacion.id,
-                    servicio_id=s_row.get('servicio_id'),
-                    viatico_id=v_id_final,
-                    codigo_sat=s_row.get('codigo_sat', ''),
-                    descripcion=s_row.get('descripcion', ''),
-                    unidad=s_row.get('unidad', 'pieza'),
-                    cantidad=Decimal(str(s_row.get('cantidad', 1))),
-                    precio_unitario=Decimal(str(s_row.get('precio_unitario', 0))),
-                    descuento_porcentaje=Decimal(str(s_row.get('descuento_porcentaje', 0))),
-                )
-                self.db.add(nuevo_c)
-            
             if v_id_final:
-                viaticos_en_uso.add(int(v_id_final))
-                v_obj = self.db.get(Viatico, v_id_final)
-                if v_obj and v_obj.cotizacion_id != cotizacion.id:
-                    v_obj.cotizacion_id = cotizacion.id
-                    self.db.add(v_obj)
+                v_record = self.db.get(Viatico, v_id_final)
+                if v_record:
+                    # El precio unitario SIEMPRE debe ser el total del viático
+                    row['precio_unitario'] = v_record.total
+                    # Recomendación de descripción si viene vacía
+                    if not row.get('descripcion'):
+                        row['descripcion'] = f"Viáticos: {v_record.proyecto or 'Servicio asignado'} (Ref: {v_record.folio})"
 
-        # 5. Eliminar conceptos que ya no están en el request
-        for old_id, old_obj in conceptos_db.items():
-            if old_id not in nuevos_conceptos_ids:
-                self.db.delete(old_obj)
+        # 4. Delegar sincronización de conceptos al MODELO (OOP)
+        # El modelo ahora recibe datos ya validados y enriquecidos
+        viaticos_en_uso = cotizacion.sincronizar_conceptos(items_data)
 
-        # 5. Cancelar viáticos que ya no están en la lista (Conciliación)
+        # 4. Vincular viáticos nuevos o actualizados que no estuvieran vinculados
+        for v_id in viaticos_en_uso:
+            v_obj = self.db.get(Viatico, v_id)
+            if v_obj and v_obj.cotizacion_id != cotizacion.id:
+                v_obj.cotizacion_id = cotizacion.id
+                self.db.add(v_obj)
+
+        # 5. Cancelar viáticos que ya no aparecen en los conceptos (Conciliación)
         for v_old in viaticos_previos:
             if v_old.id not in viaticos_en_uso:
-                v_old.estado = "cancelado"
+                v_old.estado = EstadoViatico.CANCELADO.value
                 self.db.add(v_old)
 
+        self.db.add(cotizacion)
+        self.db.flush()
+        
+        # Forzar recalculo de totales tras sincronizar conceptos y viáticos
         self.repo.recalcular_totales(cotizacion.id)
-        self.db.flush() # Sincronizar cambios financieros antes de continuar
 
     def crear_cotizacion_completa(self, data: Dict[str, Any], usuario: str) -> Cotizacion:
         """Crea una cotización nueva con conceptos y viáticos vinculados."""
@@ -164,11 +128,19 @@ class ServicioCotizaciones:
         self.db.add(cotizacion)
         self.db.flush() # Obtenemos ID real para vinculación de viáticos
 
+        import logging
+        logger = logging.getLogger("teamsa.cotizaciones.debug")
+        logger.info(f"RECIBIENDO DATA PARA COTIZACION: {data.get('servicios')}")
+
         # Procesar detalles y viáticos
         self._procesar_conceptos_y_viaticos(cotizacion, data, usuario)
         
         # Generar número definitivo (atómico)
         self.repo._post_guardar(cotizacion, es_nuevo=True)
+
+        # Sincronizar folios de viáticos con el nuevo número de cotización
+        srv_v = ServicioViaticos(self.db)
+        srv_v.repo.sincronizar_folios_con_cotizacion(cotizacion.id)
 
         self.db.commit()
         self.db.refresh(cotizacion)
@@ -187,7 +159,9 @@ class ServicioCotizaciones:
         cotizacion.modificado_por = usuario
         
         # Actualizar snapshot por si cambiaron datos del cliente
-        self._hacer_snapshot_cliente(cotizacion, cotizacion.cliente_id)
+        cliente = self.db.get(Cliente, cotizacion.cliente_id)
+        if cliente:
+            cotizacion.capturar_datos_cliente(cliente)
         self.db.add(cotizacion)
         
         self._procesar_conceptos_y_viaticos(cotizacion, data, usuario)
@@ -213,7 +187,8 @@ class ServicioCotizaciones:
         nueva_letra = ServicioCalculadoraCotizacion.calcular_siguiente_letra(letras_usadas)
         
         # 2. Marcar anterior como modificada
-        cotizacion_anterior.estado = "modificada"
+        from app.modulos.cotizaciones.enums import EstadoCotizacion
+        cotizacion_anterior.estado = EstadoCotizacion.MODIFICADA.value
         self.db.add(cotizacion_anterior)
 
         # 3. Crear nueva instancia heredando datos
@@ -228,7 +203,7 @@ class ServicioCotizaciones:
             metodo_pago=data.get('metodo_pago', cotizacion_anterior.metodo_pago),
             forma_pago=data.get('forma_pago', cotizacion_anterior.forma_pago),
             notas=data.get('notas'),
-            estado='borrador',
+            estado=EstadoCotizacion.BORRADOR.value,
             folio=folio_temp,
             numero=folio_temp, # Temporal
             numero_version=folio_temp, # Temporal
@@ -236,7 +211,10 @@ class ServicioCotizaciones:
             modificado_por=usuario,
             fecha_emision=date.today()
         )
-        self._hacer_snapshot_cliente(nueva, cotizacion_anterior.cliente_id)
+        # Actualizar snapshot por si cambiaron datos del cliente
+        cliente = self.db.get(Cliente, cotizacion_anterior.cliente_id)
+        if cliente:
+            nueva.capturar_datos_cliente(cliente)
         nueva.actualizar_vigencia()
         
         self.db.add(nueva)
@@ -248,15 +226,22 @@ class ServicioCotizaciones:
         # Generar número definitivo (ej. COT-240101-B)
         self.repo._post_guardar(nueva, es_nuevo=True)
 
+        # Sincronizar folios de viáticos con el nuevo número de cotización
+        srv_v = ServicioViaticos(self.db)
+        srv_v.repo.sincronizar_folios_con_cotizacion(nueva.id)
+
         self.db.commit()
         self.db.refresh(nueva)
         return nueva
 
-    def cerrar_cotizacion(self, cotizacion_id: int, motivo: str, forzar: bool = False, estado_final: str = "cancelada") -> Cotizacion:
+    def cerrar_cotizacion(self, cotizacion_id: int, motivo: str, forzar: bool = False, estado_final: str = None) -> Cotizacion:
         """
         Cierra una cotización (estado 'cancelada' o 'finalizada').
         Valida dependencias y ofrece cierre en cascada.
         """
+        from app.modulos.cotizaciones.enums import EstadoCotizacion
+        if not estado_final:
+            estado_final = EstadoCotizacion.CANCELADA.value
         cotizacion = self.db.get(Cotizacion, cotizacion_id)
         if not cotizacion:
             from app.base.excepciones import RecursoNoEncontradoError
@@ -267,16 +252,12 @@ class ServicioCotizaciones:
         from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
         from app.modulos.viaticos.viaticos_modelo import Viatico
         from app.modulos.viaticos.enums import EstadoViatico
-        from sqlalchemy import select
 
-        es_cancelacion = estado_final == "cancelada"
+        es_cancelacion = estado_final == EstadoCotizacion.CANCELADA.value
         
-        if es_cancelacion:
-            excluir_ot = [EstadoOrden.CANCELADA.value]
-            excluir_via = [EstadoViatico.CANCELADO.value]
-        else:
-            excluir_ot = [EstadoOrden.FINALIZADA.value, EstadoOrden.CANCELADA.value]
-            excluir_via = [EstadoViatico.FINALIZADO.value, EstadoViatico.CANCELADO.value]
+        # SIEMPRE excluimos los estados terminales (no podemos re-cancelar ni re-finalizar algo ya cerrado)
+        excluir_ot = [EstadoOrden.FINALIZADA.value, EstadoOrden.CANCELADA.value]
+        excluir_via = [EstadoViatico.FINALIZADO.value, EstadoViatico.CANCELADO.value]
 
         ots_pendientes = self.db.exec(
             select(OrdenTrabajo).where(
@@ -305,84 +286,58 @@ class ServicioCotizaciones:
 
         # 2. Cascada de estados
         if forzar:
-            from app.modulos.ordenes_trabajo.ordenes_trabajo_servicios import ServicioOrdenes
-            from app.base.folios import EstrategiaFolioMensual
-            # Usamos EstrategiaFolioMensual por ser la estándar actual de COTs/OTs
-            servicio_ot = ServicioOrdenes(self.db, EstrategiaFolioMensual())
+            from app.modulos.ordenes_trabajo.enums import EstadoConceptoOT
+            from datetime import datetime
+            
+            # Recuperar TODAS las OTs asociadas a la cotización para sincronizar sus conceptos,
+            # incluso si la OT ya estaba marcada como terminal.
+            todas_las_ots = self.db.exec(
+                select(OrdenTrabajo).where(OrdenTrabajo.cotizacion_id == cotizacion_id)
+            ).all()
             
             if es_cancelacion:
                 for ot in ots_pendientes:
-                    servicio_ot.cancelar_orden(ot.id)
+                    ot.cancelar(usuario="sistema")
+                    self.db.add(ot)
+                
+                # Actualizar conceptos de TODAS las OTs asociadas
+                for ot in todas_las_ots:
+                    for concepto in ot.conceptos:
+                        if concepto.estado == EstadoConceptoOT.PENDIENTE.value:
+                            concepto.estado = EstadoConceptoOT.CANCELADO.value
+                            concepto.fecha_completado = datetime.now()
+                            concepto.completado_por = "sistema (cascada)"
+                            self.db.add(concepto)
+                
                 for v in viaticos_pendientes:
-                    v.estado = EstadoViatico.CANCELADO.value
+                    v.cancelar(usuario="sistema")
                     self.db.add(v)
             else:
                 for ot in ots_pendientes:
-                    servicio_ot.finalizar_orden(ot.id)
+                    ot.finalizar(usuario="sistema")
+                    self.db.add(ot)
+                
+                # Actualizar conceptos de TODAS las OTs asociadas
+                for ot in todas_las_ots:
+                    for concepto in ot.conceptos:
+                        if concepto.estado == EstadoConceptoOT.PENDIENTE.value:
+                            concepto.estado = EstadoConceptoOT.COMPLETADO.value
+                            concepto.fecha_completado = datetime.now()
+                            concepto.completado_por = "sistema (cascada)"
+                            self.db.add(concepto)
+                
                 for v in viaticos_pendientes:
-                    v.estado = EstadoViatico.FINALIZADO.value
+                    v.finalizar(usuario="sistema")
                     self.db.add(v)
         
-        cotizacion.estado = estado_final
-        cotizacion.notas = f"{cotizacion.notas or ''}\nEstado cambiado a {estado_final}: {motivo}".strip()
+        if es_cancelacion:
+            cotizacion.cancelar(motivo, "sistema")
+        else:
+            cotizacion.finalizar(motivo, "sistema")
         
         self.db.add(cotizacion)
         self.db.commit()
         self.db.refresh(cotizacion)
         return cotizacion
 
-    def obtener_estado_conceptos(self, cotizacion_id: int) -> Dict[int, Dict[str, Any]]:
-        """Obtiene el estado de ejecución de cada concepto consultando las OTs."""
-        from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import ConceptoOrdenTrabajo, OrdenTrabajo
-        from sqlalchemy import select
-        
-        query = (
-            select(ConceptoOrdenTrabajo, OrdenTrabajo.numero_ot, OrdenTrabajo.id.label("orden_id"))
-            .join(OrdenTrabajo, ConceptoOrdenTrabajo.orden_id == OrdenTrabajo.id)
-            .where(ConceptoOrdenTrabajo.concepto_cotizacion_id.in_(
-                select(ConceptoCotizacion.id).where(ConceptoCotizacion.cotizacion_id == cotizacion_id)
-            ))
-        )
-        
-        resultados = self.db.exec(query).all()
-        estado_map = {}
-        for concepto_ot, numero_ot, orden_id in resultados:
-            estado_map[concepto_ot.concepto_cotizacion_id] = {
-                "estado": concepto_ot.estado,
-                "numero_ot": numero_ot,
-                "orden_id": orden_id
-            }
-        return estado_map
 
-    def generar_ot_desde_cotizacion(self, cotizacion_id: int, usuario: str, concepto_ids: List[int] = None) -> Any:
-        """
-        Genera una o varias OTs desde la cotización.
-        CORRECCIÓN: Delega correctamente en ServicioOrdenes para permitir Multi-OT.
-        """
-        from app.modulos.ordenes_trabajo.ordenes_trabajo_servicios import ServicioOrdenes
-        from app.base.folios import EstrategiaFolioMensual
-        from datetime import date
-        
-        servicio_ot = ServicioOrdenes(self.db, EstrategiaFolioMensual())
-        
-        # Si no se pasan IDs, se asumen todos los conceptos libres (comportamiento por defecto)
-        if not concepto_ids:
-            conceptos = self.repo.obtener_conceptos(cotizacion_id)
-            # Filtrar solo los que aún no tienen OT (obtener_estado_conceptos ayuda aquí)
-            est_map = self.obtener_estado_conceptos(cotizacion_id)
-            concepto_ids = [c.id for c in conceptos if c.id not in est_map]
-
-        if not concepto_ids:
-            from app.base.excepciones import ReglaNegocioError
-            raise ReglaNegocioError("No hay conceptos disponibles para generar una nueva OT.")
-
-        # Por defecto programamos para hoy a las 09:00 AM si es una generación rápida
-        # En la realidad el UI llama directamente al API de órdenes con estos datos.
-        return servicio_ot.crear_desde_cotizacion(
-            cotizacion_id=cotizacion_id,
-            fecha_programada=date.today(),
-            hora_programada="09:00",
-            duracion=1,
-            usuario=usuario,
-            concepto_ids=concepto_ids
-        )

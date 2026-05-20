@@ -70,13 +70,6 @@ def mostrar_login(request: Request):
     return templates.TemplateResponse(request, "frm_login.html")
 
 
-@router.get("/error", include_in_schema=False)
-def pagina_error(request: Request, status: int = 401, detail: str = "No autenticado"):
-    """Ruta auxiliar para mostrar errores de API como página HTML."""
-    from fastapi import HTTPException
-    raise HTTPException(status_code=status, detail=detail)
-
-
 @router.get("/usuarios", response_class=HTMLResponse)
 def pagina_listado_usuarios(request: Request, usuario=Depends(para_modulo("usuarios", "ver"))):
     return render_crud_page(request, template="crud_page.html", descriptor=usuarios_descriptor, ui_base="/ui/usuarios", usuario=usuario, modulo="usuarios")

@@ -5,8 +5,9 @@ from typing import Optional, Any
 
 from app.base.auditoria import AuditMixin
 from app.base.mixins_financieros import MixinDocumentoFinanciero
+from app.base.mixin_estado import MixinEstadoDocumento
 
-class BaseDocumento(MixinDocumentoFinanciero, AuditMixin, SQLModel):
+class BaseDocumento(MixinDocumentoFinanciero, MixinEstadoDocumento, AuditMixin, SQLModel):
     """
     Clase base abstracta para documentos financieros.
     Centraliza campos comunes y lógica compartida entre Cotizaciones y Ordenes de Compra.
@@ -40,16 +41,12 @@ class BaseDocumento(MixinDocumentoFinanciero, AuditMixin, SQLModel):
     @property
     def es_editable(self) -> bool:
         """Delega la verificación al enum subyacente de forma polimórfica."""
-        if hasattr(self.estado_enum, "es_editable"):
-            return self.estado_enum.es_editable
-        return False
+        return self.estado_enum.es_editable
 
     @property
     def es_cancelable(self) -> bool:
         """Delega la verificación al enum subyacente de forma polimórfica."""
-        if hasattr(self.estado_enum, "es_cancelable"):
-            return self.estado_enum.es_cancelable
-        return False
+        return self.estado_enum.es_cancelable
 
     def actualizar_notas_privadas(self, notas: Optional[str], usuario_id: str) -> None:
         """Encapsula la mutación de notas privadas con rastro de auditoría."""

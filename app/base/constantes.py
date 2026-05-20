@@ -22,8 +22,9 @@ FORMATO_FECHA_HORA = "%d/%m/%Y %H:%M"
 # Logotipos
 from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent.parent
-LOGO_WEB = "/static/images/teamsa_logo.webp"  # Para web (navbar, login) optimizado
-LOGO_PDF = str(_ROOT / "web" / "static" / "images" / "teamsa_logo.webp")  # Ruta dinámica para el generador PDF
+LOGO_WEB = "/static/images/teamsa_logo.png"  # Para web (navbar, login) optimizado
+LOGO_PDF = str(_ROOT / "web" / "static" / "images" / "teamsa_logo.png")  # Ruta dinámica para el generador PDF
+FIRMA_PDF = str(_ROOT / "web" / "static" / "images" / "firma_jefe.png")
 
 # Catálogos SAT (ejemplos - completar según necesidad)
 # Unidades SAT

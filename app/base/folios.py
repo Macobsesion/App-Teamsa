@@ -41,14 +41,3 @@ class EstrategiaFolioFechaId:
         fecha_str = fecha.strftime("%y%m%d")
         return f"{prefijo}-{fecha_str}-{id_entidad}"
 
-class EstrategiaFolioSimple:
-    """
-    Estrategia simple: PREFIJO-ID (con padding de ceros)
-    Mantenida por compatibilidad con tests y casos básicos.
-    """
-    def __init__(self, ceros: int = 4):
-        self.ceros = ceros
-
-    def generar(self, prefijo: str, id_entidad: int, fecha: date = None) -> str:
-        con_ceros = str(id_entidad).zfill(self.ceros)
-        return f"{prefijo}-{con_ceros}"

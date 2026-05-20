@@ -115,7 +115,8 @@ def form_permisos(id: int, request: Request, db: Session = Depends(obtener_sesio
         {"id": "cotizaciones", "nombre": "Cotizaciones"},
         {"id": "ordenes_trabajo", "nombre": "Órdenes de Trabajo"},
         {"id": "ordenes_compra", "nombre": "Órdenes de Compra"},
-        {"id": "viaticos", "nombre": "Gestión de Viáticos"}
+        {"id": "viaticos", "nombre": "Gestión de Viáticos"},
+        {"id": "auditoria", "nombre": "Auditoría y Logs"}
     ]
     
     return get_templates().TemplateResponse(
@@ -154,6 +155,11 @@ async def guardar_permisos(
     
     repo.actualizar(usuario_id, payload.model_dump(exclude_unset=True))
     
+    # Auditoría: Registrar cambio de permisos
+    from app.base.logs_servicio import ServicioLogs
+    detalles = f"Actualizados permisos para usuario ID: {usuario_id}"
+    ServicioLogs.registrar(usuario=_actor.usuario, accion="EDITAR_PERMISOS", modulo="usuarios", detalles=detalles)
+
     resp = HTMLResponse("Permisos actualizados")
     resp.headers["HX-Trigger"] = "load" 
     # Podríamos sumar un evento de flash para notificar

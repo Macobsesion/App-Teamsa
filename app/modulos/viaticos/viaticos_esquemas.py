@@ -10,7 +10,7 @@ from app.base.mixins_snapshots import SnapshotClienteMixin
 class ViaticoBase(SnapshotClienteMixin, SQLModel):
     """Campos base para Viáticos."""
     cliente_id: int = Field(foreign_key="cliente.id", index=True)
-    responsable_id: int = Field(foreign_key="usuario.id", index=True)
+    responsable_id: int | None = Field(default=None, foreign_key="usuario.id", index=True)
     proyecto: str | None = Field(default=None, max_length=200)
     
     
@@ -33,19 +33,23 @@ class ViaticoBase(SnapshotClienteMixin, SQLModel):
     cena: Decimal = Field(default=Decimal("0.00"), ge=0)
 
     costo_alimentos: Decimal = Field(default=Decimal("0.00"), ge=0)
-    costo_otros: Decimal = Field(default=Decimal("0.00"), ge=0)
+
+    # Otros Gastos Desglosados
+    costo_peajes: Decimal = Field(default=Decimal("0.00"), ge=0)
+    costo_estacionamiento: Decimal = Field(default=Decimal("0.00"), ge=0)
+    costo_otros: Decimal = Field(default=Decimal("0.00"), ge=0) # Varios
     
     notas_desglose: str | None = Field(default=None)
     estado: str = Field(default="borrador", index=True)
 
-    @field_validator("costo_transporte", "costo_alojamiento", "costo_alimentos", "costo_otros", mode="before")
+    @field_validator("costo_transporte", "costo_alojamiento", "costo_alimentos", "costo_peajes", "costo_estacionamiento", "costo_otros", mode="before", check_fields=False)
     @classmethod
-    def cast_empty_cost(cls, v: Any) -> Decimal:
-        if v == "" or v is None:
+    def set_zero_if_empty(cls, v):
+        if not v or str(v).strip() == "":
             return Decimal("0.00")
-        return Decimal(str(v))
+        return v
 
-    @field_validator("personas", mode="before")
+    @field_validator("personas", mode="before", check_fields=False)
     @classmethod
     def cast_empty_personas(cls, v: Any) -> int:
         if v == "" or v is None:
@@ -74,7 +78,12 @@ class ViaticoUpdate(SQLModel):
     dias: int | None = None
     costo_transporte: Decimal | None = None
     costo_alojamiento: Decimal | None = None
+    desayuno: Decimal | None = None
+    comida: Decimal | None = None
+    cena: Decimal | None = None
     costo_alimentos: Decimal | None = None
+    costo_peajes: Decimal | None = None
+    costo_estacionamiento: Decimal | None = None
     costo_otros: Decimal | None = None
     notas_desglose: str | None = None
     estado: str | None = None
@@ -83,6 +92,7 @@ class ViaticoRead(ViaticoBase):
     """Esquema para lectura."""
     id: int
     folio: str
+    estado_visual: str | None = None
     total: Decimal
     
     creado_por: str

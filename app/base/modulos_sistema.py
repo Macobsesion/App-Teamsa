@@ -18,6 +18,7 @@ class ModuloSistema(str, Enum):
     ORDENES = "ordenes_trabajo"
     ORDENES_COMPRA = "ordenes_compra"
     VIATICOS = "viaticos"
+    AUDITORIA = "auditoria"
 
     @property
     def label(self) -> str:

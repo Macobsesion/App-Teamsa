@@ -53,13 +53,16 @@ class OrdenCompraRead(OrdenCompraBase):
 # --- Esquemas para el Wizard (Compatibilidad Frontend) ---
 
 class ItemWizard(BaseModel):
+    id: Optional[int] = None
     servicio_id: Optional[int] = Field(None, alias="servicio_proveedor_id")
-    codigo: str = Field(..., alias="codigo_sku")
-    descripcion: str
-    unidad: str
-    cantidad: float
-    precio_unitario: float
-    descuento_porcentaje: float = 0.0
+    codigo: Optional[str] = Field(None, alias="codigo_sku")
+    descripcion: Optional[str] = "Sin descripción"
+    unidad: Optional[str] = "Pieza"
+    cantidad: Decimal = Decimal("1.00")
+    precio_unitario: Decimal = Decimal("0.00")
+    descuento_porcentaje: Decimal = Decimal("0.00")
+
+    model_config = {"populate_by_name": True, "from_attributes": True}
 
     model_config = {"populate_by_name": True, "from_attributes": True}
 
@@ -68,11 +71,12 @@ class OrdenCompraWizardRead(BaseModel):
     folio: str
     proveedor_id: int
     fecha_emision: date
-    fecha_entrega: Optional[date] = Field(None, alias="fecha_entrega_estimada")
-    metodo_pago: str
-    forma_pago: str
+    # Usamos alias de serialización para que el JSON tenga las llaves que el JS ya conoce
+    fecha_entrega: Optional[date] = Field(None, serialization_alias="fecha_entrega", validation_alias="fecha_entrega_estimada")
+    metodo_pago: Optional[str] = "POR_DEFINIR"
+    forma_pago: Optional[str] = "99"
     notas: Optional[str] = ""
-    estado: str
-    items: List[ItemWizard] = Field(..., alias="detalles")
+    estado: Optional[str] = "borrador"
+    items: List[ItemWizard] = Field(..., serialization_alias="items", validation_alias="detalles")
 
     model_config = {"populate_by_name": True, "from_attributes": True}

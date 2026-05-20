@@ -16,10 +16,15 @@ class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
     """
     Servicio base abstracto para gestionar el ciclo de vida de documentos financieros
     (Cotizaciones, Ordenes de Compra) usando el patrón Template Method.
+    Depende de la abstracción de un Repositorio, no directamente de la base de datos.
     """
     
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, repo_documento: Any):
+        self.repo_documento = repo_documento
+        # Aislamos la db en caso de necesitar flush directos por SQLAlchemy
+        self.db = getattr(repo_documento, "db", None)
+        if not self.db:
+            raise ValueError("El repositorio inyectado debe proveer acceso a la sesión (db)")
 
     def crear_documento(self, datos_cabecera: Dict[str, Any], items: List[Dict[str, Any]]) -> TDocumento:
         """
@@ -59,12 +64,11 @@ class ServicioDocumentoFinanciero(Generic[TDocumento, TDetalle], ABC):
         # Calcular totales (subtotal, iva, total) usando los objetos instanciados para saltar el lazy load ORM cache
         self._calcular_totales_cabecera(documento, items_orm)
         
-        # Guardar final
-        self.db.add(documento)
-        self.db.commit()
-        self.db.refresh(documento)
+        # Guardado final DELEGADO AL REPOSITORIO
+        # En lugar de hacer commit manual, usamos el repo para asegurar auditoría y Domain Events
+        documento_guardado = self.repo_documento.guardar(documento)
         
-        return documento
+        return documento_guardado
 
     @abstractmethod
     def _crear_instancia_cabecera(self, datos: Dict[str, Any]) -> TDocumento:

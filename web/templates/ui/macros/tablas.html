@@ -2,12 +2,15 @@
 
 {% macro render_celdas(item, columnas) %}
   {# Render genérico de celdas basado en `columnas` del descriptor. #}
+  {% import "ui/macros/components.html" as comp %}
   {% for col in columnas %}
     {% set name = col.campo %}
     {% set val = getv(item, name) %}
     <td class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }}">
       {# Formatos avanzados siguiendo el Design System #}
-      {% if val is iterable and (val is not string) %}
+      {% if name == 'estado' or name == 'estado_visual' %}
+        {{ comp.status_badge(val) }}
+      {% elif val is iterable and (val is not string) %}
         {{ val|join(', ') }}
       {% elif col.tipo == 'time' %}
         <span class="text-secondary"><i class="far fa-clock me-1"></i>{{ val|fmt_time }}</span>
@@ -24,15 +27,15 @@
 
 {% macro table_header(id, columnas, include_actions=true) %}
   <table class="table table-hover align-middle mb-0" id="{{ id }}">
-    <thead class="bg-light-teamsa border-bottom shadow-xs">
+    <thead class="border-bottom">
         <tr>
             {% for col in columnas %}
-            <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold text-secondary">
+            <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold px-3 py-3">
                 {{ col.etiqueta }}
             </th>
             {% endfor %}
             {% if include_actions %}
-            <th class="text-center text-uppercase text-xs fw-bold text-secondary" style="width: 100px;">Acciones</th>
+            <th class="text-center text-uppercase text-xs fw-bold py-3" style="width: 100px;">Acciones</th>
             {% endif %}
         </tr>
     </thead>
@@ -44,7 +47,7 @@
 
 {% macro render_tabla_crud(config, ui_base) %}
   {% set container_id = "tabla-container-" ~ (ui_base|string).strip('/').replace('/', '-') %}
-  <div id="{{ container_id }}" class="table-responsive shadow-sm" 
+  <div id="{{ container_id }}" class="table-responsive crud-table-container shadow-sm" 
        hx-get="{{ ui_base }}/filas" hx-trigger="load" 
        hx-target="this" hx-swap="innerHTML">
       {# Se renderiza inicialmente el esqueleto con spinner #}
@@ -54,14 +57,14 @@
 
 {% macro render_cuerpo_tabla(columnas, items, actual, total, base, loading=false) %}
   <table class="table table-hover align-middle mb-0">
-      <thead class="bg-light-teamsa border-bottom shadow-xs">
+      <thead class="border-bottom">
           <tr>
               {% for col in columnas %}
-              <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold text-secondary px-3 py-3">
+              <th class="{{ 'text-end' if col.tipo == 'money' or col.tipo == 'number' else '' }} text-uppercase text-xs fw-bold px-3 py-3">
                   {{ col.etiqueta }}
               </th>
               {% endfor %}
-              <th class="text-center text-uppercase text-xs fw-bold text-secondary py-3" style="width: 120px;">Acciones</th>
+              <th class="text-center text-uppercase text-xs fw-bold py-3" style="width: 120px;">Acciones</th>
           </tr>
       </thead>
       <tbody id="tbody-lista">
@@ -93,7 +96,7 @@
           </div>
           <ul class="pagination pagination-sm mb-0">
             <li class="page-item {{ 'disabled' if actual == 1 }}">
-              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual - 1 }}" hx-target="closest .table-responsive">
+              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual - 1 }}" hx-target="closest .crud-table-container">
                 <i class="fas fa-chevron-left"></i>
               </button>
             </li>
@@ -102,14 +105,14 @@
               <li class="page-item active"><span class="page-link bg-teamsa-gradient">{{ p }}</span></li>
               {% else %}
               <li class="page-item">
-                <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ p }}" hx-target="closest .table-responsive">
+                <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ p }}" hx-target="closest .crud-table-container">
                   {{ p }}
                 </button>
               </li>
               {% endif %}
             {% endfor %}
             <li class="page-item {{ 'disabled' if actual == total }}">
-              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual + 1 }}" hx-target="closest .table-responsive">
+              <button class="page-link border-0" hx-get="{{ base }}/filas?pagina={{ actual + 1 }}" hx-target="closest .crud-table-container">
                 <i class="fas fa-chevron-right"></i>
               </button>
             </li>

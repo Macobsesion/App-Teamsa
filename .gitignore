@@ -52,3 +52,15 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Archivos sensibles
+db/password.txt
+
+# SQLite (dev local)
+*.db
+
+# Logs de debug
+error_debug.log
+
+# Uploads generados
+uploads/

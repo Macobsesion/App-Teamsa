@@ -1,48 +1,29 @@
-from sqlmodel import Session
-from pathlib import Path
-from fastapi.responses import Response
-
-from app.base.generador_pdf import GeneradorPDF
-from app.base.constantes import LOGO_PDF
-from app.base.utilidades_fecha import formatear_fecha_español
-from app.base.excepciones import RecursoNoEncontradoError
-
+from app.base.generador_pdf import GeneradorPDF, GeneradorPDFDocumento
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
 from app.modulos.proveedores.proveedores_modelo import Proveedor
-from app.modulos.cotizaciones.pdf_generator import imagen_a_data_uri
+from app.base.utilidades_fecha import formatear_fecha_español
+from sqlmodel import Session
+
+
+class GeneradorPDFOrdenCompra(GeneradorPDFDocumento):
+    """Generador especializado para Órdenes de Compra."""
+    plantilla = "pdf/orden_compra.html"
+
+    def _obtener_entidad(self, entidad_id: int) -> OrdenCompra:
+        return self.db.get(OrdenCompra, entidad_id)
+
+    def _construir_contexto(self, entidad: OrdenCompra) -> dict:
+        proveedor = self.db.get(Proveedor, entidad.proveedor_id)
+
+        return {
+            "orden": entidad,
+            "proveedor": proveedor,
+            "detalles": entidad.detalles,
+            "fecha_emision_formateada": formatear_fecha_español(entidad.fecha_emision) if entidad.fecha_emision else "N/A",
+            "fecha_entrega_formateada": formatear_fecha_español(entidad.fecha_entrega_estimada) if entidad.fecha_entrega_estimada else "Por Confirmar",
+        }
+
 
 def generar_pdf_orden_compra(orden_id: int, db: Session) -> bytes:
     """Genera el PDF de una orden de compra."""
-    
-    orden = db.get(OrdenCompra, orden_id)
-    if not orden:
-        raise RecursoNoEncontradoError("Orden de compra no encontrada")
-        
-    proveedor = db.get(Proveedor, orden.proveedor_id)
-    
-    # Resolución dinámica de rutas para assets
-    from app.base.constantes import _ROOT
-    
-    # Manejo robusto de firma
-    firma_path = _ROOT / "web" / "static" / "img" / "firma_jefe.png"
-    firma_data_uri = imagen_a_data_uri(firma_path)
-
-    # Manejo robusto de logo
-    logo_data_uri = imagen_a_data_uri(Path(LOGO_PDF))
-    
-    # Formatear fechas en español
-    fecha_emision_es = formatear_fecha_español(orden.fecha_emision) if orden.fecha_emision else "N/A"
-    fecha_entrega_es = formatear_fecha_español(orden.fecha_entrega_estimada) if orden.fecha_entrega_estimada else "Por Confirmar"
-    
-    # Contexto para el template
-    context = {
-        "orden": orden,
-        "proveedor": proveedor,
-        "detalles": orden.detalles,
-        "logo_path": logo_data_uri,
-        "firma_responsable": firma_data_uri,
-        "fecha_emision_formateada": fecha_emision_es,
-        "fecha_entrega_formateada": fecha_entrega_es,
-    }
-    
-    return GeneradorPDF.generar_pdf("pdf/orden_compra.html", context)
+    return GeneradorPDFOrdenCompra(db).generar(orden_id)

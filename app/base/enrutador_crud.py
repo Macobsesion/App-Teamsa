@@ -103,13 +103,12 @@ def construir_enrutador_crud(
         if not extras.get("creado_por"): extras["creado_por"] = u_login
         if not extras.get("modificado_por"): extras["modificado_por"] = u_login
         
-        print(f">>> AUDITORIA API - Actor: {u_login}", flush=True)
+        logger.debug(f"AUDITORIA API - Actor: {u_login}")
         
         res = repo.crear({**datos, **extras})
         
         # Registrar Log de Actividad
         ServicioLogs.registrar(
-            db, 
             usuario=u_login, 
             accion="CREAR", 
             modulo=tag.lower(), 
@@ -143,7 +142,6 @@ def construir_enrutador_crud(
         # Registrar Log de Actividad
         u_login = getattr(actor, "usuario", None) or getattr(actor, "nombre", None) or "SISTEMA"
         ServicioLogs.registrar(
-            db, 
             usuario=u_login, 
             accion="EDITAR", 
             modulo=tag.lower(), 
@@ -171,7 +169,6 @@ def construir_enrutador_crud(
         # Registrar Log de Actividad
         u_login = getattr(_actor, "usuario", None) or getattr(_actor, "nombre", None) or "SISTEMA"
         ServicioLogs.registrar(
-            db, 
             usuario=u_login, 
             accion="ELIMINAR", 
             modulo=tag.lower(), 
@@ -183,8 +180,6 @@ def construir_enrutador_crud(
     if descriptor:
         @router.get("/metadata")
         def obtener_metadata():
-            if hasattr(descriptor, "configuracion_frontend"):
-                return descriptor.configuracion_frontend()
             return descriptor.frontend_config()
 
     return router

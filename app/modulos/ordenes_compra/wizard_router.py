@@ -27,19 +27,13 @@ def mostrar_wizard_orden_compra(
     usuario: Any = Depends(dp_usuario_actual),
 ):
     """Wizard para crear/editar orden de compra completa con proveedores."""
-    # Validación manual de permisos por acción
+    # Validación dinámica de permisos usando la dependencia centralizada
     accion = "editar" if id else "crear"
-    from app.modulos.usuarios.usuarios_modelo import Usuario
-    from sqlmodel import select
-    from app.base.excepciones import PermisoDenegadoError
-
-    u_db = db.exec(select(Usuario).where(Usuario.usuario == usuario.usuario)).first()
-    if not u_db:
-        raise RecursoNoEncontradoError("Usuario no encontrado")
-        
-    permisos = getattr(u_db, f"permisos_{accion}", []) or []
-    if "ordenes_compra" not in permisos:
-        raise PermisoDenegadoError(f"No tienes permiso de {accion} para ordenes_compra")
+    verificador = para_modulo("ordenes_compra", accion)
+    
+    # Ejecutamos la verificación manualmente si no queremos usarla como Dependencia de FastAPI
+    # (aunque lo ideal es que sea un Depends en la firma, aquí lo hacemos así para mantener el flujo de id opcional)
+    u_db = verificador(usuario, db)
 
     return TEMPLATES.TemplateResponse(
         "ui/ordenes_compra/wizard.html",
@@ -62,9 +56,6 @@ def ver_detalle_orden(
     if not orden:
         raise RecursoNoEncontradoError("Orden de Compra no encontrada")
     
-    # Eager loading simulado (si no está configurado en relación lazy='joined')
-    proveedor = db.get(Proveedor, orden.proveedor_id)
-    
     # RBAC context for detail view
     perms_edit = getattr(usuario, "permisos_editar", []) or []
     perms_delete = getattr(usuario, "permisos_eliminar", []) or []
@@ -78,7 +69,7 @@ def ver_detalle_orden(
             "request": request,
             "usuario": usuario,
             "orden": orden,
-            "proveedor": proveedor,
+            "proveedor": orden.proveedor, # Usamos la relación del modelo
             "detalles": orden.detalles,
             "puede_editar": puede_editar,
             "puede_eliminar": puede_eliminar,

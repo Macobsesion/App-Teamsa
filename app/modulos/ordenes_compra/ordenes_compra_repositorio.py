@@ -3,11 +3,14 @@ from typing import List, Mapping, Any
 from sqlmodel import select, func
 
 from app.base.repositorio import RepositorioCRUD
+from app.base.mixin_repositorio import MixinFolioMensual
 from app.base.folios import GeneradorFolio, EstrategiaFolioMensual
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
 from app.base.constantes import PREFIJO_NUMERO_ORDEN_COMPRA
 
-class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
+class RepositorioOrdenCompra(MixinFolioMensual, RepositorioCRUD[OrdenCompra]):
+    prefijo_folio = PREFIJO_NUMERO_ORDEN_COMPRA
+    campo_fecha = "fecha_emision"
     modelo = OrdenCompra
     campos_filtrables = {"proveedor_id", "estado", "fecha_emision"}
     campos_actualizables = {
@@ -46,22 +49,6 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
         from sqlalchemy.orm import selectinload
         return consulta.options(selectinload(OrdenCompra.detalles))
     
-    def _obtener_siguiente_secuencia_mensual(self, fecha: date) -> int:
-        """Obtiene el siguiente número secuencial para el mes/año dado."""
-        primer_dia = fecha.replace(day=1)
-        # Cálculo robusto del primer día del siguiente mes
-        if primer_dia.month == 12:
-            ultimo_dia = primer_dia.replace(year=primer_dia.year + 1, month=1)
-        else:
-            ultimo_dia = primer_dia.replace(month=primer_dia.month + 1)
-
-        statement = select(func.count(OrdenCompra.id)).where(
-            OrdenCompra.fecha_emision >= primer_dia,
-            OrdenCompra.fecha_emision < ultimo_dia
-        )
-        count = self.db.exec(statement).one()
-        return count + 1
-
     def _pre_procesar_datos_creacion(self, datos: dict[str, Any]) -> dict[str, Any]:
         """Asigna un folio temporal para evitar violaciones de NOT NULL antes del commit final."""
         import uuid
@@ -73,10 +60,7 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
     def generar_numero_desde_id(self, fecha: date | None = None) -> str:
         """Genera el folio con formato OC-YYMMNN."""
         fecha_eval = fecha or date.today()
-        secuencia = self._obtener_siguiente_secuencia_mensual(fecha_eval)
-        
-        estrategia = EstrategiaFolioMensual()
-        return estrategia.generar(prefijo=PREFIJO_NUMERO_ORDEN_COMPRA, fecha=fecha_eval, secuencia=secuencia)
+        return self.generar_folio_mensual(fecha_eval)
 
     def _post_guardar(self, entidad: OrdenCompra, es_nuevo: bool) -> None:
         """Si es nueva, asigna el folio secuencial mensual."""
@@ -96,3 +80,7 @@ class RepositorioOrdenCompra(RepositorioCRUD[OrdenCompra]):
 
 class RepositorioDetalleOrdenCompra(RepositorioCRUD[DetalleOrdenCompra]):
     modelo = DetalleOrdenCompra
+    campos_actualizables = {
+        "orden_id", "servicio_id", "descripcion", "cantidad",
+        "precio_unitario", "descuento_porcentaje"
+    }

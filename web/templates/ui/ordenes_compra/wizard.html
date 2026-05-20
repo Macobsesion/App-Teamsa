@@ -172,13 +172,16 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block modals %}
+{# Aquí irían modales específicos si se añadieran en el futuro #}
 {% endblock %}
 
 {% block customJS %}
 <script src="/static/js/wizard_manager.js"></script>
 <script>
-    // Inicializar el controlador del wizard usando la nueva clase compartida
+    // Inicializar el controlador del wizard
     const wiz = new TEAMSA.DocumentWizard({
         initialState: {
             step: 1,
@@ -196,13 +199,12 @@
         },
         endpoints: {
             proveedores: '/api/proveedores/select',
-            catalogo: '/api/servicios-proveedores/select' // Dinámico, ver cargarServiciosProveedor
+            catalogo: '/api/servicios-proveedores/select'
         },
         callbacks: {
             onItemsChange: () => {
                 renderItems();
-                const totales = wiz.calcularTotales();
-                document.getElementById('total-step-2').textContent = `$${totales.subtotal.toFixed(2)}`;
+                wiz.refreshUI();
             }
         }
     });
@@ -231,7 +233,7 @@
             setTimeout(() => cargarOrdenParaEditar(ordenId), 500);
         }
 
-        // Inicializar UI de pasos (TeamSAWizard maneja el cambio visual)
+        // Inicializar UI de pasos
         new TeamSAWizard({
             totalSteps: 3,
             onValidateStep: (step) => {
@@ -321,7 +323,6 @@
     }
 
     function renderResumen() {
-        const totals = wiz.calcularTotales();
         const prov = proveedoresData.find(p => p.id == wiz.state.proveedor_id);
         
         document.getElementById('resumen-proveedor').textContent = prov?.nombre || '-';
@@ -329,7 +330,6 @@
         document.getElementById('resumen-fecha-entrega').textContent = wiz.state.fecha_entrega || 'N/A';
         document.getElementById('resumen-notas').textContent = wiz.state.notas || '-';
         
-        // Tablar resumida
         let html = '<table class="table table-sm mb-0"><thead><tr class="table-light text-xs"><th>Concepto</th><th class="text-center">Cant</th><th class="text-end">P.Unit</th><th class="text-end">Total</th></tr></thead><tbody>';
         wiz.state.items.forEach(it => {
             const tot = (it.cantidad * it.precio_unitario) * (1 - (it.descuento_porcentaje / 100));
@@ -337,23 +337,18 @@
         });
         html += '</tbody></table>';
         document.getElementById('resumen-items-tabla').innerHTML = html;
-
-        document.getElementById('resumen-subtotal').textContent = totals.subtotal.toFixed(2);
-        document.getElementById('resumen-descuento').textContent = totals.descuentoTotal.toFixed(2);
-        document.getElementById('resumen-iva').textContent = totals.iva.toFixed(2);
-        document.getElementById('resumen-total').textContent = totals.total.toFixed(2);
+        wiz.refreshUI();
     }
 
     async function submitOrden() {
         if (!confirm("¿Deseas finalizar la orden de compra?")) return;
-        
         const btn = document.getElementById('btn-submit');
         const url = modoEdicion ? `/api/ordenes-compra/${ordenId}/actualizar-completa` : '/api/ordenes-compra/completa';
         const method = modoEdicion ? 'PUT' : 'POST';
 
         try {
             btn.disabled = true;
-            const data = await wiz.guardar(url, method);
+            await wiz.guardar(url, method);
             mostrarFlash('✅ Orden procesada exitosamente', 'success');
             window.location.href = '/ui/ordenes-compra';
         } catch (e) {
@@ -367,26 +362,19 @@
             const resp = await fetch(`/api/ordenes-compra/${id}/completa`);
             const orden = await resp.json();
 
-            Object.assign(wiz.state, {
-                proveedor_id: orden.proveedor_id,
-                fecha_emision: orden.fecha_emision,
-                fecha_entrega: orden.fecha_entrega || '',
-                metodo_pago: orden.metodo_pago,
-                forma_pago: orden.forma_pago,
-                notas: orden.notas,
-                items: orden.items.map(i => ({...i, descuento_porcentaje: i.descuento_porcentaje || 0}))
-            });
+            Object.assign(wiz.state, orden);
 
-            document.getElementById('proveedor-select').value = orden.proveedor_id;
+            document.getElementById('proveedor-select').value = wiz.state.proveedor_id;
             document.getElementById('proveedor-select').disabled = true;
-            document.getElementById('fecha-emision').value = orden.fecha_emision;
-            document.getElementById('fecha-entrega').value = orden.fecha_entrega || '';
-            document.getElementById('metodo-pago').value = orden.metodo_pago;
-            document.getElementById('forma-pago').value = orden.forma_pago;
-            document.getElementById('notas').value = orden.notas;
+            document.getElementById('fecha-emision').value = wiz.state.fecha_emision;
+            document.getElementById('fecha-entrega').value = wiz.state.fecha_entrega;
+            document.getElementById('metodo-pago').value = wiz.state.metodo_pago;
+            document.getElementById('forma-pago').value = wiz.state.forma_pago;
+            document.getElementById('notas').value = wiz.state.notas;
 
             await cargarServiciosProveedor();
             renderItems();
+            wiz.refreshUI();
         } catch (e) {
             mostrarFlash("Error al cargar orden", "error");
         }

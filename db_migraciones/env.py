@@ -27,6 +27,7 @@ from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCot
 from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo, ConceptoOrdenTrabajo
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra, DetalleOrdenCompra
 from app.modulos.viaticos.viaticos_modelo import Viatico
+from app.base.logs_modelo import LogActividad
 
 target_metadata = SQLModel.metadata
 

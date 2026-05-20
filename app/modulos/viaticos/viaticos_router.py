@@ -160,6 +160,32 @@ def ot_disponibles_por_cotizacion(
     html += '</div>'
     return HTMLResponse(content=html)
 
+@router_api_extras.get("/{id}/pdf/responsiva")
+@router_api_extras.get("/{id}/pdf/responsiva/")
+def descargar_pdf_responsiva(
+    id: int,
+    db: Session = Depends(obtener_sesion_bd),
+    _usuario = Depends(para_modulo("viaticos", "ver"))
+):
+    """Genera y descarga la responsiva de viáticos en PDF."""
+    from app.modulos.viaticos.pdf_generator import generar_pdf_viatico_responsiva
+    from fastapi import Response
+    
+    pdf_bytes = generar_pdf_viatico_responsiva(id, db)
+    viatico = db.get(Viatico, id)
+    filename = f"RESPONSIVA-{viatico.folio}.pdf"
+    
+    # Auditoría: Descarga de responsiva
+    from app.base.logs_servicio import ServicioLogs
+    from app.rutas.dependencias import dp_usuario_actual
+    ServicioLogs.registrar(usuario=_usuario.usuario, accion="DESCARGAR", modulo="viaticos", detalles=f"Responsiva PDF {filename}")
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'}
+    )
+
 @router_api_extras.post("/{id}/{accion}")
 def cambiar_estado_viatico(
     id: int,
@@ -176,7 +202,8 @@ def obtener_viaticos_disponibles(
     db: Session = Depends(obtener_sesion_bd),
     _usuario: UsuarioIdentity = Depends(para_modulo("viaticos", "ver"))
 ):
-    viaticos = db.exec(select(Viatico).where(Viatico.estado != "cancelado")).all()
+    from app.modulos.viaticos.enums import EstadoViatico
+    viaticos = db.exec(select(Viatico).where(Viatico.estado != EstadoViatico.CANCELADO.value)).all()
     return [{"id": v.id, "folio": v.folio, "proyecto": v.proyecto or "Viaje Múltiple", "total": float(v.total or 0)} for v in viaticos]
 
 router = crear_modulo_crud_estandar(

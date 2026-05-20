@@ -21,7 +21,7 @@ window.TEAMSA = {
                 const btn = e.target.closest('.btn-notas-privadas-generico');
                 if (btn) {
                     e.preventDefault();
-                    console.log("TEAMSA: Abriendo notas para", btn.dataset.modulo);
+
                     this.abrir(
                         btn.dataset.modulo, 
                         btn.dataset.id, 

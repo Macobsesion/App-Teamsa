@@ -191,7 +191,7 @@ class RepositorioCRUD(Generic[TModelo]):
         if not datos_procesados.get("modificado_por"):
             datos_procesados["modificado_por"] = datos_dict.get("modificado_por") or "SISTEMA"
             
-        print(f">>> REPO_CREAR - Audit Check: {datos_procesados.get('creado_por')}", flush=True)
+        logger.debug(f"REPO_CREAR - Audit: creado_por={datos_procesados.get('creado_por')}")
 
         entidad = self.modelo(**datos_procesados)
         self._pre_guardar(entidad, es_nuevo=True)
@@ -233,13 +233,13 @@ class RepositorioCRUD(Generic[TModelo]):
         if not entidad:
             raise RecursoNoEncontradoError(f"{self.modelo.__name__} con id {entidad_id} no encontrado")
         
-        logger.info(f"Eliminando físicamente {self.modelo.__name__} ID: {entidad_id}")
+        logger.debug(f"Eliminando físicamente {self.modelo.__name__} ID: {entidad_id}")
         
         # Validar dependencias de negocio antes de tocar la BD
         self._validar_eliminacion(entidad)
         
         self._eliminar(entidad)
-        logger.info(f"Eliminación de {self.modelo.__name__} {entidad_id} completada.")
+        logger.debug(f"Eliminación de {self.modelo.__name__} {entidad_id} completada.")
         
         # Emitir Evento de Dominio Desacoplado
         BusEventos.publicar(f"{self.modelo.__name__}.eliminado", entidad)

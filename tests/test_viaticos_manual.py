@@ -39,7 +39,7 @@ def run_test():
         
         print("Creando viatico...")
         repo = RepositorioViatico(db)
-        viatico = repo.crear(**viatico_data)
+        viatico = repo.crear(viatico_data)
         
         print(f"Viatico creado_por: {viatico.creado_por}")
         assert viatico.creado_por == user_id

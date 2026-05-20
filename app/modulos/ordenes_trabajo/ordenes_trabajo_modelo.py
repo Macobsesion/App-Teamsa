@@ -14,9 +14,11 @@ if TYPE_CHECKING:
     from app.base.folios import GeneradorFolio
 from app.modulos.ordenes_trabajo.enums import EstadoOrden, EstadoConceptoOT
 from app.modulos.viaticos.viaticos_modelo import ViaticoOrdenEnlace
+from app.base.mixin_estado import MixinEstadoDocumento
+from app.base.timezone import hoy_mexico, ahora_mexico, calcular_estado_temporal
 
 
-class OrdenTrabajo(AuditMixin, OrdenTrabajoBase, table=True):
+class OrdenTrabajo(AuditMixin, MixinEstadoDocumento, OrdenTrabajoBase, table=True):
     """Orden de trabajo generada a partir de una cotización. (Regla 1.10)"""
     __tablename__ = "orden_trabajo"
     
@@ -46,13 +48,47 @@ class OrdenTrabajo(AuditMixin, OrdenTrabajoBase, table=True):
     
     @property
     def estado_visual(self) -> str:
-        """Determina si la OT está 'En curso' basándose en la fecha programada."""
-        from datetime import date
-        hoy = date.today()
-        # Importación local para evitar circulares
-        from app.modulos.ordenes_trabajo.enums import EstadoOrden
-        if self.estado == EstadoOrden.PROGRAMADA.value and self.fecha_programada == hoy:
-            return "en_curso"
+        """Calcula el estado visual dinámico basado en fechas y duración.
+        
+        Estados visuales (NO persistidos en BD):
+        - en_curso: La OT está sucediendo ahora mismo
+        - fase_final: El tiempo estimado expiró pero no se ha finalizado manualmente
+        """
+        if self.estado != EstadoOrden.PROGRAMADA.value:
+            return self.estado
+        
+        hoy = hoy_mexico()
+        
+        if self.unidad_duracion == "dias":
+            from datetime import timedelta
+            fecha_fin = self.fecha_programada + timedelta(days=self.duracion - 1)
+            return calcular_estado_temporal(
+                self.fecha_programada, 
+                fecha_fin, 
+                [EstadoOrden.PROGRAMADA.value], 
+                self.estado
+            )
+        else:
+            # Duración en horas
+            if self.fecha_programada == hoy:
+                ahora = ahora_mexico()
+                try:
+                    partes = self.hora_programada.split(":")
+                    hora_inicio_min = int(partes[0]) * 60 + int(partes[1])
+                    hora_fin_min = hora_inicio_min + (self.duracion * 60)
+                    ahora_min = ahora.hour * 60 + ahora.minute
+                    
+                    if ahora_min < hora_inicio_min:
+                        return self.estado  # Aún no empieza
+                    elif ahora_min < hora_fin_min:
+                        return "en_curso"
+                    else:
+                        return "fase_final"
+                except (ValueError, AttributeError):
+                    return "en_curso"
+            elif hoy > self.fecha_programada:
+                return "fase_final"
+        
         return self.estado
     
     # Técnico asignado (opcional) — FK + snapshot para historial fidedigno
@@ -98,8 +134,8 @@ class OrdenTrabajo(AuditMixin, OrdenTrabajoBase, table=True):
     def esta_en_viaje(self) -> bool:
         if not self.viaticos:
             return False
-        from datetime import date
-        hoy = date.today()
+        from app.base.timezone import hoy_mexico
+        hoy = hoy_mexico()
         for v in self.viaticos:
             if v.estado not in ["cancelado", "borrador"]:
                 if v.fecha_salida and v.fecha_regreso:
@@ -152,6 +188,14 @@ class OrdenTrabajo(AuditMixin, OrdenTrabajoBase, table=True):
         base_folio = cotizacion_numero.replace("COT-", "").replace("-", "")
         self.numero_ot = estrategia.generar(prefijo="OT", base=base_folio, secuencia=secuencia)
 
+    def finalizar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a finalizada con registro de auditoría."""
+        super().finalizar(usuario=usuario)
+
+    def cancelar(self, usuario: str = "sistema") -> None:
+        """Cambia el estado a cancelada con registro de auditoría."""
+        super().cancelar(usuario=usuario)
+
 
 from app.base.base_detalle import BaseDetalleTransaccional
 
@@ -168,7 +212,6 @@ class ConceptoOrdenTrabajo(BaseDetalleTransaccional, table=True):
     concepto_cotizacion_id: int = Field(
         foreign_key="conceptocotizacion.id",
         index=True,
-        unique=True,
         description="Un concepto solo puede pertenecer a una OT activa"
     )
     
@@ -181,6 +224,7 @@ class ConceptoOrdenTrabajo(BaseDetalleTransaccional, table=True):
     completado_por: str | None = Field(default=None, description="Usuario que marcó como completado")
 
     creado_por: str = Field(description="Usuario que creó este concepto en la OT")
-    fecha_creacion: datetime = Field(default_factory=datetime.utcnow, description="Cuándo se creó el snapshot")
+    fecha_creacion: datetime = Field(default_factory=ahora_mexico, description="Cuándo se creó el snapshot")
 
     orden: OrdenTrabajo = Relationship(back_populates="conceptos")
+    concepto_cotizacion: "ConceptoCotizacion" = Relationship()

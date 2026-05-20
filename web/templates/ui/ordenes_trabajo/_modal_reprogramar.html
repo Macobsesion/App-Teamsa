@@ -1,0 +1,104 @@
+<!-- Modal Reprogramar OT -->
+<div class="modal fade" id="modalReprogramar" tabindex="-1" aria-labelledby="modalReprogramarLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 1.25rem; overflow: hidden;">
+            <div class="modal-header border-0 bg-light-teamsa px-4 pt-4">
+                <h5 class="modal-title fw-bold text-teamsa-primary" id="modalReprogramarLabel">
+                    <i class="fas fa-calendar-alt me-2"></i>Reprogramar Orden
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="form-reprogramar" onsubmit="event.preventDefault(); ejecutarReprogramacion();">
+                <div class="modal-body px-4 pb-4">
+                    <div class="alert alert-premium-info mb-4 d-flex align-items-start">
+                        <i class="fas fa-info-circle mt-1 me-2"></i>
+                        <span>
+                            Al cambiar la fecha de la OT, se actualizarán automáticamente todos los viáticos vinculados para mantener la consistencia del viaje.
+                        </span>
+                    </div>
+                    
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Fecha Programada</label>
+                            <input type="date" name="fecha_programada" class="form-control form-control-premium" value="{{ ot.fecha_programada }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Hora (Aprox)</label>
+                            <input type="time" name="hora_programada" class="form-control form-control-premium" value="{{ ot.hora_programada }}" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Duración Estimada</label>
+                            <div class="input-group">
+                                <input type="number" name="duracion" class="form-control form-control-premium" value="{{ ot.duracion }}" min="1" required>
+                                <span class="input-group-text bg-white border-start-0 text-muted small"><i class="fas fa-clock"></i></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-xs fw-bold text-uppercase-letter-spacing">Unidad</label>
+                            <select name="unidad_duracion" class="form-select form-select-premium">
+                                <option value="horas" {% if ot.unidad_duracion == 'horas' %}selected{% endif %}>Horas</option>
+                                <option value="dias" {% if ot.unidad_duracion == 'dias' %}selected{% endif %}>Días</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 px-4 pb-4 pt-0">
+                    <button type="button" class="btn btn-light-teamsa fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-teamsa-primary px-4" id="btn-submit-reprogramar">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+async function ejecutarReprogramacion(fuerza = false) {
+    const form = document.getElementById('form-reprogramar');
+    const btn = document.getElementById('btn-submit-reprogramar');
+    
+    const data = {
+        fecha_programada: form.fecha_programada.value,
+        hora_programada: form.hora_programada.value,
+        duracion: parseInt(form.duracion.value),
+        unidad_duracion: form.unidad_duracion.value,
+        fuerza: fuerza
+    };
+
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Procesando...';
+
+    try {
+        const resp = await fetch(`/api/ordenes-trabajo/{{ ot.id }}/reprogramar`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+
+        const resData = await resp.json();
+
+        if (resp.ok) {
+            location.reload();
+        } else {
+            if (resData.codigo === 'EMPALME_HORARIO' && !fuerza) {
+                if (confirm(`${resData.detail}\n\n¿Deseas reprogramar de todos modos e ignorar el empalme?`)) {
+                    await ejecutarReprogramacion(true);
+                } else {
+                    btn.disabled = false;
+                    btn.innerHTML = originalHtml;
+                }
+            } else {
+                window.mostrarError(resData.detail || 'No se pudo completar la operación');
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+    } catch (e) {
+        window.mostrarError('Error de conexión con el servidor');
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+</script>

@@ -2,18 +2,26 @@
 from enum import Enum
 
 class EstadoViatico(str, Enum):
+    """
+    Estados posibles de un Viático (simplificado).
+    
+    Estados persistidos en BD: borrador, cancelado, finalizada.
+    Estados visuales (calculados dinámicamente): en_curso, fase_final.
+    """
     BORRADOR = "borrador"
-    SOLICITADO = "solicitado"
-    APROBADO = "aprobado"
+    SOLICITADO = "solicitado" # Legacy
+    APROBADO = "aprobado"     # Legacy
+    EN_CURSO = "en_curso"
+    FASE_FINAL = "fase_final"
     CANCELADO = "cancelado"
     FINALIZADO = "finalizada"
 
     @property
     def es_editable(self) -> bool:
         """Determina si el viático puede ser editado."""
-        return self in (EstadoViatico.BORRADOR, EstadoViatico.SOLICITADO, EstadoViatico.APROBADO)
+        return self == EstadoViatico.BORRADOR
 
     @property
     def es_cancelable(self) -> bool:
         """Determina si el viático puede ser cancelado."""
-        return self != EstadoViatico.CANCELADO
+        return self not in (EstadoViatico.CANCELADO, EstadoViatico.FINALIZADO)

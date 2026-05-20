@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Body, Request
 from typing import Any
 from datetime import date
 from decimal import Decimal
+from datetime import datetime
 from sqlmodel import Session
 from pydantic import BaseModel
 from app.base.descriptor_crud import DescriptorCRUD, ConfiguracionUI
@@ -26,6 +27,32 @@ from app.base.excepciones import RecursoNoEncontradoError, ReglaNegocioError
 # ---------- Router Extras (API) ----------
 router_extras = APIRouter(prefix="/api/ordenes-trabajo", tags=["Órdenes de Trabajo - Extras"])
 
+class PayloadReprogramarOT(BaseModel):
+    fecha_programada: date
+    hora_programada: str
+    duracion: int
+    unidad_duracion: str
+    fuerza: bool = False
+
+@router_extras.patch("/{id}/reprogramar", response_model=OrdenTrabajoRead)
+@router_extras.patch("/{id}/reprogramar/", response_model=OrdenTrabajoRead)
+def reprogramar_orden(
+    id: int,
+    payload: PayloadReprogramarOT,
+    servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
+    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_trabajo", "editar"))
+):
+    """Cambia la fecha de la OT y sincroniza viáticos."""
+    return servicio.reprogramar_orden(
+        orden_id=id,
+        fecha=payload.fecha_programada,
+        hora=payload.hora_programada,
+        duracion=payload.duracion,
+        unidad_duracion=payload.unidad_duracion,
+        usuario=usuario.usuario,
+        fuerza=payload.fuerza
+    )
+
 @router_extras.get("/{id}/pdf")
 def descargar_pdf_orden(
     id: int,
@@ -39,6 +66,11 @@ def descargar_pdf_orden(
     if not ot:
         raise RecursoNoEncontradoError("Orden no encontrada")
     filename = f"Orden_{ot.numero_ot}.pdf"
+    
+    # Auditoría: Descarga de OT
+    from app.base.logs_servicio import ServicioLogs
+    ServicioLogs.registrar(usuario=usuario.usuario, accion="DESCARGAR", modulo="ordenes_trabajo", detalles=f"PDF {filename}")
+
     from fastapi.responses import Response
     return Response(
         content=pdf_bytes,
@@ -46,12 +78,7 @@ def descargar_pdf_orden(
         headers={"Content-Disposition": f'inline; filename="{filename}"'}
     )
 
-
-# ---------- Router Técnicos (prioritario: debe ir ANTES de /{entidad_id}) ----------
-# Si va después, FastAPI captura 'tecnicos' como entidad_id cuando intenta parsear como int.
-router_tecnicos = APIRouter(prefix="/api/ordenes-trabajo", tags=["Órdenes de Trabajo - Extras"])
-
-@router_tecnicos.get("/tecnicos", response_model=list[dict])
+@router_extras.get("/tecnicos", response_model=list[dict])
 def listar_tecnicos(
     servicio: ServicioOrdenes = Depends(obtener_servicio_ordenes),
     usuario: UsuarioIdentity = Depends(dp_usuario_actual)
@@ -91,7 +118,6 @@ def crear_desde_cotizacion(
         tecnico_id=payload.tecnico_id,
         fuerza=payload.fuerza
     )
-
 
 
 # ---------- Completar concepto (irreversible) ----------
@@ -238,6 +264,5 @@ descriptor = DescriptorCRUD[OrdenTrabajo, OrdenTrabajoCreate, OrdenTrabajoUpdate
 router = crear_modulo_crud_estandar(
     descriptor=descriptor,
     nombre_modulo="ordenes_trabajo",
-    routers_prioritarios=[router_tecnicos, router_extras, router_ui_extras],
+    routers_prioritarios=[router_extras, router_ui_extras],
 )
-

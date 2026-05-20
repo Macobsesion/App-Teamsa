@@ -12,18 +12,33 @@ EVENTO_ORDEN_CREADA = "orden_creada"
 EVENTO_ORDEN_FINALIZADA = "orden_finalizada"
 EVENTO_ORDEN_CANCELADA = "orden_cancelada"
 
-def handler_actualizar_cotizacion_aceptada(payload: dict) -> None:
+def handler_cotizacion_a_programada(payload: dict) -> None:
     """Handler que escucha cuando se crea una orden y actualiza la cotización a 'programada'."""
+    import logging
+    logger = logging.getLogger("teamsa")
+    
     cotizacion_id = payload.get("cotizacion_id")
     db = payload.get("session_actual")
     
-    if not cotizacion_id or not db: return
+    logger.info(f"EVENTO: Procesando actualización de cotización {cotizacion_id} tras creación de OT")
+    
+    if not cotizacion_id or not db: 
+        logger.warning("EVENTO: No se recibió cotizacion_id o session_actual en el payload")
+        return
+
+    from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
+    from app.modulos.cotizaciones.enums import EstadoCotizacion
 
     cotizacion = db.get(Cotizacion, cotizacion_id)
-    if cotizacion and cotizacion.estado != EstadoCotizacion.PROGRAMADA.value:
-        cotizacion.estado = EstadoCotizacion.PROGRAMADA.value 
-        db.add(cotizacion)
-        db.flush() # Usamos flush para permitir que otros handlers vean el cambio en la misma transacción
+    if cotizacion:
+        logger.info(f"EVENTO: Estado actual de cotización {cotizacion.id}: {cotizacion.estado}")
+        if cotizacion.estado != EstadoCotizacion.PROGRAMADA.value:
+            cotizacion.estado = EstadoCotizacion.PROGRAMADA.value 
+            db.add(cotizacion)
+            db.flush()
+            logger.info(f"EVENTO: Cotización {cotizacion_id} actualizada a 'programada'")
+    else:
+        logger.error(f"EVENTO: No se encontró la cotización {cotizacion_id} en la base de datos")
 
 def handler_cotizacion_finalizada(payload: dict) -> None:
     """Handler para cuando una OT se finaliza: la cotización pasa a finalizada (si aplica)."""
@@ -70,20 +85,42 @@ def handler_cotizacion_revertir_a_emitida(payload: dict) -> None:
     if not cotizacion: return
 
     # Buscar OTs activas (no canceladas)
-    query = select(OrdenTrabajo).where(
+    query_activas = select(OrdenTrabajo).where(
         and_(
             OrdenTrabajo.cotizacion_id == cotizacion_id,
             OrdenTrabajo.estado != "cancelada"
         )
     )
-    ots_activas = db.exec(query).all()
+    ots_activas = db.exec(query_activas).all()
 
-    # Si no hay OTs activas, regresar cotización a emitida
     if not ots_activas:
+        # No queda nada activo -> Regresa al origen
         if cotizacion.estado != EstadoCotizacion.EMITIDA.value:
             cotizacion.estado = EstadoCotizacion.EMITIDA.value
             db.add(cotizacion)
-            db.flush()
+    else:
+        # Quedan OTs activas. ¿Están todas finalizadas?
+        query_pendientes = select(OrdenTrabajo).where(
+            and_(
+                OrdenTrabajo.cotizacion_id == cotizacion_id,
+                OrdenTrabajo.estado != "finalizada",
+                OrdenTrabajo.estado != "cancelada"
+            )
+        )
+        pendientes = db.exec(query_pendientes).all()
+        
+        if pendientes:
+            # Hay trabajo pendiente -> Debe estar en PROGRAMADA
+            if cotizacion.estado != EstadoCotizacion.PROGRAMADA.value:
+                cotizacion.estado = EstadoCotizacion.PROGRAMADA.value
+                db.add(cotizacion)
+        else:
+            # Todas las activas están finalizadas -> Debe estar en FINALIZADA
+            if cotizacion.estado != EstadoCotizacion.FINALIZADA.value:
+                cotizacion.estado = EstadoCotizacion.FINALIZADA.value
+                db.add(cotizacion)
+    
+    db.flush()
 
 def handler_sincronizar_viaticos_desde_ot(payload: dict) -> None:
     """
@@ -104,12 +141,11 @@ def handler_sincronizar_viaticos_desde_ot(payload: dict) -> None:
     if not orden or not orden.viaticos: return
 
     for v in orden.viaticos:
-        if evento == EVENTO_ORDEN_CREADA:
-            if v.estado == EstadoViatico.BORRADOR.value:
-                v.estado = EstadoViatico.APROBADO.value
-        elif evento == EVENTO_ORDEN_CANCELADA:
-            # Solo revertir si no tiene otras OTs activas
-            v.estado = EstadoViatico.BORRADOR.value
+        if evento == EVENTO_ORDEN_CANCELADA:
+            # Revertir a borrador para que sea editable o eliminable
+            if v.estado != EstadoViatico.CANCELADO.value and v.estado != EstadoViatico.FINALIZADO.value:
+                v.estado = EstadoViatico.BORRADOR.value
+                v.modificado_por = "sistema (cancelación OT)"
         
         db.add(v)
     db.flush()

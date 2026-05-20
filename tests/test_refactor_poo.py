@@ -17,7 +17,7 @@ from app.nucleo.base_datos import obtener_motor
 from app.modulos.clientes.clientes_modelo import Cliente
 from app.modulos.servicios.servicios_modelo import Servicio
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion, ConceptoCotizacion
-from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCreacionCotizacion
+from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
 from app.base.servicios import FabricaImpuestos, ImpuestoFronteraMX, ImpuestoTasaCero
 
 def setup_db():
@@ -49,7 +49,7 @@ def test_servicio_creacion_cotizacion():
     print("\n--- TEST SERVICIO CREACION (INTEGRACION) ---")
     engine = setup_db()
     with Session(engine) as db:
-        servicio = ServicioCreacionCotizacion(db)
+        servicio = ServicioCotizaciones(db)
         
         # 1. Buscar o crear un cliente de prueba
         cliente = db.exec(select(Cliente)).first()
@@ -93,7 +93,7 @@ def test_servicio_creacion_cotizacion():
         
         try:
             # Ejecutar el servicio
-            cotizacion = servicio.crear_documento(datos_cotizacion, datos_cotizacion['servicios'])
+            cotizacion = servicio.crear_cotizacion_completa(datos_cotizacion, datos_cotizacion['usuario_id'])
             print(f"✅ Cotización Creada: {cotizacion.numero} (ID: {cotizacion.id})")
             print(f"   Subtotal: {cotizacion.subtotal}")
             print(f"   Descuento: {cotizacion.descuento_global}")

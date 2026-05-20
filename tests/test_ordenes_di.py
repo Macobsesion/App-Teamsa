@@ -1,8 +1,8 @@
 import pytest
 from datetime import date
 from sqlmodel import Session
-from app.modulos.ordenes.dependencias import obtener_generador_folios, obtener_repo_ordenes
-from app.modulos.ordenes.ordenes_repositorio import RepositorioOrden
+from app.modulos.ordenes_trabajo.dependencias import obtener_generador_folios, obtener_repo_ordenes
+from app.modulos.ordenes_trabajo.ordenes_trabajo_repositorio import RepositorioOrden
 from app.base.folios import GeneradorFolio
 
 # Mocks

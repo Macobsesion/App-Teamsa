@@ -39,7 +39,10 @@ class Cotizacion(CotizacionBase, BaseDocumento, table=True):
     
     # Relationship (para cargar conceptos)
     cliente: "Cliente" = Relationship(back_populates="cotizaciones")
-    conceptos: list["ConceptoCotizacion"] = Relationship(back_populates="cotizacion")
+    conceptos: list["ConceptoCotizacion"] = Relationship(
+        back_populates="cotizacion",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
     ordenes: list["OrdenTrabajo"] = Relationship(back_populates="cotizacion")
 
     # ---- PROPIEDADES COMPUESTAS (Value Objects) ----
@@ -58,10 +61,10 @@ class Cotizacion(CotizacionBase, BaseDocumento, table=True):
     @property
     def estado_visual(self) -> str:
         """Determina el estado visual de la cotización basado en sus OTs activas."""
-        # Regla: Solo si tiene OTs activas y alguna está 'En curso' o 'en_curso'
-        if self.estado in [EstadoCotizacion.ACEPTADA.value, EstadoCotizacion.PROGRAMADA.value]:
+        # Regla: Solo si ya está programada, checamos si alguna OT está 'En curso' para animar el badge
+        if self.estado == EstadoCotizacion.PROGRAMADA.value:
             for ot in self.ordenes:
-                if ot.estado_visual == "en_curso" or ot.estado == "en_curso":
+                if ot.estado_visual == "en_curso":
                     return "en_curso"
         return self.estado
 
@@ -119,6 +122,73 @@ class Cotizacion(CotizacionBase, BaseDocumento, table=True):
         instancia.capturar_datos_cliente(cliente)
         instancia.actualizar_vigencia()
         return instancia
+
+    def finalizar(self, motivo: str, usuario: str) -> None:
+        """Cambia el estado a finalizada con registro de auditoría."""
+        super().finalizar(usuario=usuario)
+        self.notas = f"{self.notas or ''}\n[FINALIZADA] {motivo} (por {usuario})".strip()
+
+    def cancelar(self, motivo: str, usuario: str) -> None:
+        """Cambia el estado a cancelada con registro de auditoría."""
+        super().cancelar(usuario=usuario)
+        self.notas = f"{self.notas or ''}\n[CANCELADA] {motivo} (por {usuario})".strip()
+
+    def sincronizar_conceptos(self, items_data: list[dict]) -> set[int]:
+        """
+        Sincroniza la lista de conceptos de la cotización con los datos proporcionados.
+        Maneja actualizaciones, creaciones y devoluciones de viáticos en uso.
+        
+        Returns:
+            set[int]: Conjunto de IDs de viáticos que están siendo utilizados por los conceptos.
+        """
+        viaticos_en_uso = set()
+        conceptos_actuales = {c.id: c for c in self.conceptos if c.id is not None}
+        nuevos_conceptos_ids = set()
+        conceptos_recientes = []
+
+        for row in items_data:
+            c_id = row.get('id')
+            v_id_final = row.get('viatico_id')
+
+            if c_id and c_id in conceptos_actuales:
+                # ACTUALIZAR EXISTENTE
+                c_obj = conceptos_actuales[c_id]
+                c_obj.cantidad = Decimal(str(row.get('cantidad', c_obj.cantidad)))
+                c_obj.precio_unitario = Decimal(str(row.get('precio_unitario', c_obj.precio_unitario)))
+                c_obj.descuento_porcentaje = Decimal(str(row.get('descuento_porcentaje', c_obj.descuento_porcentaje)))
+                if row.get('descripcion') is not None:
+                    c_obj.descripcion = row['descripcion']
+                c_obj.viatico_id = v_id_final
+                
+                c_obj.calcular_importe()
+                nuevos_conceptos_ids.add(c_id)
+            else:
+                # CREAR NUEVO (se agrega a la relación de la instancia)
+                nuevo_c = ConceptoCotizacion.crear_desde_servicio(
+                    cotizacion_id=self.id,
+                    servicio_id=row.get('servicio_id'),
+                    viatico_id=v_id_final,
+                    codigo_sat=row.get('codigo_sat', ''),
+                    descripcion=row.get('descripcion', ''),
+                    unidad=row.get('unidad', 'pieza'),
+                    cantidad=Decimal(str(row.get('cantidad', 1))),
+                    precio_unitario=Decimal(str(row.get('precio_unitario', 0))),
+                    descuento_porcentaje=Decimal(str(row.get('descuento_porcentaje', 0))),
+                )
+                
+                self.conceptos.append(nuevo_c)
+                conceptos_recientes.append(nuevo_c)
+            
+            if v_id_final:
+                viaticos_en_uso.add(int(v_id_final))
+
+        # Eliminar conceptos que ya no están en el request (usando slice assignment para persistencia correcta)
+        self.conceptos[:] = [c for c in self.conceptos if c.id in nuevos_conceptos_ids or c.id is None or c in conceptos_recientes]
+        
+        # Forzar recalcular totales de la cotización
+        self.recalcular_totales()
+        
+        return viaticos_en_uso
 
 
 from app.base.base_detalle import BaseDetalleTransaccional

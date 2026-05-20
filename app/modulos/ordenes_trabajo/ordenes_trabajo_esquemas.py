@@ -63,6 +63,7 @@ class OrdenTrabajoRead(OrdenTrabajoBase):
     """Esquema completo para lectura (incluye IDs y Auditoría)."""
     id: int
     numero_ot: str
+    estado_visual: str | None = None
     cotizacion_id: int
     cliente_nombre: str
     tecnico_id: int | None = None

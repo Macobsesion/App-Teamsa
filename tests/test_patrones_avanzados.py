@@ -1,7 +1,7 @@
 import pytest
 from datetime import date
 from app.base.eventos import BusEventos
-from app.base.folios import EstrategiaFolioFechaId, EstrategiaFolioSimple
+from app.base.folios import EstrategiaFolioFechaId
 
 def test_bus_eventos_pub_sub():
     """Verifica que el bus de eventos publique y suscriba correctamente."""
@@ -27,11 +27,3 @@ def test_estrategia_folio_fecha_id():
     # Formato esperado: TEST-YYMMDD-ID => TEST-250130-123
     assert folio == "TEST-250130-123"
 
-def test_estrategia_folio_simple():
-    """Verifica la estrategia simple de folios."""
-    estrategia = EstrategiaFolioSimple(ceros=4)
-    fecha = date(2025, 1, 30)
-    folio = estrategia.generar("TEST", 5, fecha)
-    
-    # Formato esperado: TEST-0005
-    assert folio == "TEST-0005"

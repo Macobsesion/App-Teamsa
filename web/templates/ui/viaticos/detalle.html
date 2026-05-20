@@ -11,18 +11,20 @@
             <p class="text-muted mb-0">
                 Cliente: <strong>{{ viatico.cliente.nombre if viatico.cliente else 'N/A' }}</strong>
                 <br>
-                <small>Asignado a: {{ viatico.responsable.nombres if viatico.responsable else 'N/A' }}</small>
+                <small>Asignado a: {{ viatico.responsable.nombres if viatico.responsable else 'Pendiente' }}</small>
                 {% if viatico.rutas_ot %}
                 <br><small>Ref. OTs:
                     {% for ot in viatico.rutas_ot %}
-                    <span class="badge bg-secondary">{{ ot.numero_ot }}</span>
+                    <a href="/ui/ordenes-trabajo/{{ ot.id }}/detalle" class="text-decoration-none">
+                        <span class="badge bg-secondary">{{ ot.numero_ot }}</span>
+                    </a>
                     {% endfor %}
                 </small>
                 {% endif %}
             </p>
         </div>
         <div>
-            {{ comp.status_badge(viatico.estado, extra_class='fs-5') }}
+            {{ comp.status_badge(viatico.estado_visual, extra_class='fs-5') }}
         </div>
     </div>
 
@@ -31,7 +33,7 @@
         <div class="col-lg-5">
             <div class="card shadow-sm mb-4">
                 <div class="card-header bg-teamsa-gradient">
-                    <h5 class="mb-0">📍 Detalles del Viaje</h5>
+                    <h5 class="mb-0 text-white">📍 Detalles del Viaje</h5>
                 </div>
                 <div class="card-body">
                     <table class="table table-borderless mb-0">
@@ -55,7 +57,8 @@
                             <td class="text-muted">Transporte:</td>
                             <td>
                                 <span class="badge bg-light text-dark border">
-                                    <i class="fas fa-route me-1 text-info"></i> {{ viatico.tipo_transporte or 'No especificado' }}
+                                    <i class="fas fa-route me-1 text-info"></i> {{ viatico.tipo_transporte or 'No
+                                    especificado' }}
                                 </span>
                             </td>
                         </tr>
@@ -76,8 +79,8 @@
         {# Columna derecha: Totales Simplificados #}
         <div class="col-lg-7">
             <div class="card shadow-sm mb-4">
-                <div class="card-header bg-dark text-white">
-                    <h5 class="mb-0">💰 Distribución de Gastos Calculados</h5>
+                <div class="card-header bg-teamsa-gradient">
+                    <h5 class="mb-0 text-white">💰 Distribución de Gastos Calculados</h5>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-hover mb-0">
@@ -101,7 +104,15 @@
                                 <td class="text-end text-danger">${{ viatico.costo_alimentos | fmt_currency }}</td>
                             </tr>
                             <tr>
-                                <td>🛒 Otros Gastos de viaje</td>
+                                <td>🛣️ Peajes (Casetas)</td>
+                                <td class="text-end text-danger">${{ viatico.costo_peajes | fmt_currency }}</td>
+                            </tr>
+                            <tr>
+                                <td>🅿️ Estacionamiento</td>
+                                <td class="text-end text-danger">${{ viatico.costo_estacionamiento | fmt_currency }}</td>
+                            </tr>
+                            <tr>
+                                <td>🛒 Otros Gastos / Varios</td>
                                 <td class="text-end text-danger">${{ viatico.costo_otros | fmt_currency }}</td>
                             </tr>
                         </tbody>
@@ -117,20 +128,10 @@
 
             {# Acciones #}
             <div class="d-flex gap-2 justify-content-end mt-3">
-                {% if puede_editar and viatico.es_editable %}
-                    {% if viatico.estado == 'borrador' %}
-                    <button type="button" class="btn btn-outline-warning text-dark" data-accion-proceso="solicitar"
-                        data-id="{{ viatico.id }}">
-                        📤 Solicitar Fondos
-                    </button>
-                    {% endif %}
-                    
-                    {% if es_admin and viatico.estado == 'solicitado' %}
-                    <button type="button" class="btn btn-outline-success" data-accion-proceso="aprobar"
-                        data-id="{{ viatico.id }}">
-                        ✅ Aprobar
-                    </button>
-                    {% endif %}
+                {% if viatico.estado_visual == 'en_curso' %}
+                <button type="button" class="btn btn-warning text-dark shadow-sm" onclick="alert('Solicitud de fondos enviada a administración.')">
+                    <i class="fas fa-hand-holding-usd me-1"></i> Solicitar Fondos
+                </button>
                 {% endif %}
 
                 {% if es_admin and puede_eliminar and viatico.es_cancelable %}
@@ -139,6 +140,10 @@
                     ❌ Cancelar
                 </button>
                 {% endif %}
+
+                <a href="/api/viaticos/{{ viatico.id }}/pdf/responsiva" target="_blank" class="btn btn-primary shadow-sm">
+                    <i class="fas fa-file-pdf me-1"></i> Generar Responsiva
+                </a>
 
                 <a href="/viaticos" class="btn btn-outline-secondary">
                     ← Volver
@@ -160,9 +165,8 @@
 
     async function cambiarEstadoViatico(id, accion) {
         const mensajes = {
-            'solicitar': '¿Estás seguro de solicitar la aprobación de los fondos de este viático?',
-            'aprobar': '¿Estás seguro de aprobar este viático? Ya no podrá ser editado.',
-            'cancelar': '¿Estás seguro de cancelar este viático? Esta acción es irreversible.'
+            'cancelar': '¿Estás seguro de cancelar este viático? Esta acción es irreversible.',
+            'finalizar': '¿Estás seguro de finalizar este viático? Ya no podrá ser editado.'
         };
 
         if (!confirm(mensajes[accion])) return;

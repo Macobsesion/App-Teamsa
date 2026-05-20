@@ -166,10 +166,12 @@
     </div>
 </div>
 
+{% endblock %}
+
+{% block modals %}
 {# Modales Específicos #}
 {% include 'ui/cotizaciones/_modal_versionamiento.html' %}
 {% include 'ui/viaticos/_calculadora.html' %}
-
 {% endblock %}
 
 {% block customJS %}
@@ -202,7 +204,10 @@
             viaticos: '/api/viaticos/disponibles-para-cotizacion'
         },
         callbacks: {
-            onItemsChange: () => renderizarServicios()
+            onItemsChange: () => {
+                renderizarServicios();
+                wiz.refreshUI();
+            }
         }
     });
 
@@ -374,6 +379,13 @@
         
         wiz.state.servicios.forEach((s, idx) => {
             const totalFila = (s.cantidad * s.precio_unitario) * (1 - (s.descuento_porcentaje / 100));
+            const esViatico = s.viatico_id || s.viatico_temp_id !== undefined;
+            
+            // Regla: Viáticos bloquean precio y cantidad (vienen de calculadora), pero permiten editar descripción (concepto).
+            // El descuento se bloquea en viáticos por regla de negocio de TEAMSA.
+            const lockCalculadora = esViatico ? 'readonly tabindex="-1" style="background-color: #f8f9fa; border-color: transparent;"' : '';
+            const lockDescuento = esViatico ? 'readonly tabindex="-1" style="background-color: #f8f9fa; border-color: transparent;"' : '';
+
             html += `
                 <tr>
                     <td>
@@ -382,20 +394,23 @@
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-center" value="${s.cantidad}" 
+                               ${lockCalculadora}
                                oninput="wiz.actualizarItem(${idx}, 'cantidad', this.value, true)">
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-end" value="${s.precio_unitario}" 
+                               ${lockCalculadora}
                                oninput="wiz.actualizarItem(${idx}, 'precio_unitario', this.value, true)">
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
+                               ${lockDescuento}
                                oninput="wiz.actualizarItem(${idx}, 'descuento_porcentaje', this.value, true)">
                     </td>
                     <td class="text-end fw-bold">$${totalFila.toFixed(2)}</td>
                     <td class="text-center">
                         <div class="btn-group">
-                            ${((s.viatico_id || s.viatico_temp_id !== undefined) && PUEDE_EDITAR_VIATICOS) ? 
+                            ${(esViatico && PUEDE_EDITAR_VIATICOS) ? 
                                 `<button type="button" class="btn btn-link text-info p-0 me-2" title="Editar Viático"
                                          onclick="abrirCalculadoraParaEditar(${idx})">✈️</button>` : ''}
                             <button type="button" class="btn btn-link text-danger p-0" title="Eliminar"
@@ -406,6 +421,7 @@
         });
         container.innerHTML = html + '</tbody></table></div>';
     }
+
 
     function actualizarResumen() {
         const totals = wiz.calcularTotales();
@@ -436,12 +452,7 @@
                 </tr>`;
         });
         document.getElementById('resumen-servicios-tabla').innerHTML = html + '</tbody></table>';
-
-        // Totales del Resumen
-        document.getElementById('resumen-subtotal').textContent = totals.subtotal.toFixed(2);
-        document.getElementById('resumen-descuento').textContent = totals.descuentoTotal.toFixed(2);
-        document.getElementById('resumen-iva').textContent = totals.iva.toFixed(2);
-        document.getElementById('resumen-total').textContent = totals.total.toFixed(2);
+        wiz.refreshUI();
     }
 
     // 6. Persistencia y Lógica de Versiones
@@ -488,6 +499,14 @@
         await ejecutarGuardado(`/api/wizard/cotizaciones/${cotizacionId}/nueva-version/`, 'POST');
     }
 
+    async function sobreescribirCotizacion() {
+        const modalEl = document.getElementById('modalVersionamiento');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        if (modal) modal.hide();
+        
+        await ejecutarGuardado(`/api/wizard/cotizaciones/${cotizacionId}/actualizar-sin-version/`, 'PATCH');
+    }
+
     function detectarCambiosRelevantes() {
         if (serviciosOriginales.length !== wiz.state.servicios.length) return true;
         
@@ -495,6 +514,7 @@
             const o = serviciosOriginales[i];
             return (
                 o.servicio_id !== s.servicio_id || 
+                o.descripcion !== s.descripcion ||
                 o.cantidad !== s.cantidad || 
                 o.precio_unitario !== s.precio_unitario || 
                 o.descuento_porcentaje !== s.descuento_porcentaje
@@ -509,22 +529,8 @@
             
             const cot = await resp.json();
             
-            Object.assign(wiz.state, {
-                cliente_id: cot.cliente_id,
-                metodo_pago: cot.metodo_pago || 'POR_DEFINIR',
-                forma_pago: cot.forma_pago || '99',
-                notas: cot.notas || '',
-                servicios: (cot.conceptos || []).map(c => ({
-                    servicio_id: c.servicio_id,
-                    viatico_id: c.viatico_id,
-                    descripcion: c.descripcion,
-                    codigo_sat: c.codigo_sat || '',
-                    unidad: c.unidad || 'pieza',
-                    cantidad: parseFloat(c.cantidad),
-                    precio_unitario: parseFloat(c.precio_unitario),
-                    descuento_porcentaje: parseFloat(c.descuento_porcentaje || 0)
-                }))
-            });
+            // Carga nativa gracias al nuevo esquema del servidor
+            Object.assign(wiz.state, cot);
 
             // Clon para auditoría de cambios
             serviciosOriginales = JSON.parse(JSON.stringify(wiz.state.servicios));
@@ -537,6 +543,7 @@
             document.getElementById('notas').value = wiz.state.notas;
             
             renderizarServicios();
+            wiz.refreshUI();
         } catch (e) { 
             mostrarFlash("Error al cargar datos para edición: " + e.message, "error"); 
         }
@@ -550,16 +557,24 @@
         if (wiz.state.editingViaticoIdx !== null) {
             const s = wiz.state.servicios[wiz.state.editingViaticoIdx];
             
-            // Actualizar en el array temporal si es nuevo, o marcar para actualización
+            // Si el resultado de la calculadora NO trae ID, significa que es un CLON o reemplazo nuevo
+            if (!v.id) {
+                delete s.viatico_id; // Ya no está vinculado al viático viejo
+            } else {
+                s.viatico_id = v.id;
+            }
+
+            // Actualizar en el array temporal
             if (s.viatico_temp_id !== undefined) {
                 wiz.state.viaticos_nuevos[s.viatico_temp_id] = v;
             } else {
-                v.id = s.viatico_id; // Mantener ID original para actualización
                 wiz.state.viaticos_nuevos.push(v);
                 s.viatico_temp_id = wiz.state.viaticos_nuevos.length - 1;
             }
             
-            s.descripcion = `Viático: ${v.proyecto} (${v.origen} -> ${v.destino})`;
+            if (!s.descripcion || s.descripcion.startsWith('Viático')) {
+                s.descripcion = `Viáticos: ${v.proyecto} (Ref: ${v.folio_referencia || v.folio || 'Nvo'})`;
+            }
             s.precio_unitario = v.total;
             wiz.state.editingViaticoIdx = null;
         } 
@@ -569,7 +584,7 @@
             wiz.agregarItem({
                 servicio_id: null,
                 viatico_temp_id: wiz.state.viaticos_nuevos.length - 1,
-                descripcion: `Viático: ${v.proyecto} (${v.origen} -> ${v.destino})`,
+                descripcion: `Viáticos: ${v.proyecto} (Ref: ${v.folio_referencia || v.folio || 'Nvo'})`,
                 codigo_sat: '78111500',
                 unidad: 'Viaje/Servicio',
                 cantidad: 1,
@@ -603,26 +618,6 @@
         }
     }
 
-    function agregarViaticoDesdeExistente() {
-        const vid = document.getElementById('viatico-select-modal').value;
-        const v = viaticosData.find(x => x.id == vid);
-        if (!v) return;
-        
-        wiz.agregarItem({
-            servicio_id: null, 
-            viatico_id: v.id,
-            descripcion: `Viático (Ref: ${v.folio} / ${v.proyecto})`,
-            codigo_sat: '78111500', 
-            unidad: 'Viaje/Servicio', 
-            cantidad: 1, 
-            precio_unitario: v.total, 
-            descuento_porcentaje: 0
-        });
-        
-        // Cerrar modal de calculadora si estaba abierto
-        const modalEl = document.getElementById('modalCalculadoraViaticos');
-        const modal = bootstrap.Modal.getInstance(modalEl);
-        if (modal) modal.hide();
-    }
+
 </script>
 {% endblock %}

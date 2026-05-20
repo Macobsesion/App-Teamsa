@@ -50,7 +50,7 @@ class UsuarioRead(UsuarioBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @field_validator("fecha_creacion", "fecha_modificacion", mode="before")
+    @field_validator("fecha_creacion", "fecha_modificacion", mode="before", check_fields=False)
     @classmethod
     def _formatear_fechas(cls, valor: datetime | None):
         return formatear_fecha(valor)
@@ -71,7 +71,7 @@ class UsuarioUpdatePassword(BaseModel):
     contrasena: str
     confirmarContrasena: str | None = None
 
-    @field_validator("contrasena", mode="before")
+    @field_validator("contrasena", mode="before", check_fields=False)
     @classmethod
     def _v_contrasena_vacia(cls, v):
         if not v or not str(v).strip():

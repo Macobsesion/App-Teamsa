@@ -1,26 +1,19 @@
-
-import sys
-import os
+import pytest
 from datetime import date
-
-# Añadir el path del proyecto
-sys.path.append(os.getcwd())
-
-from app.nucleo.base_datos import obtener_motor
 from sqlmodel import Session, select
+from app.nucleo.base_datos import obtener_motor
 from app.modulos.ordenes_compra.ordenes_compra_repositorio import RepositorioOrdenCompra
 from app.modulos.ordenes_compra.ordenes_compra_modelo import OrdenCompra
 from app.modulos.proveedores.proveedores_modelo import Proveedor
-from app.modulos.servicios_proveedores.servicios_proveedores_modelo import ServicioProveedor
 
-def test_folio_oc():
+def test_folio_oc_formato_mensual():
+    """Valida que el folio de OC siga el formato OC-YYMMNN."""
     engine = obtener_motor()
     with Session(engine) as session:
         # 1. Obtener un proveedor para la prueba
         proveedor = session.exec(select(Proveedor)).first()
         if not proveedor:
-            print("❌ No hay proveedores en la base de datos para realizar la prueba.")
-            return
+            pytest.skip("No hay proveedores en la base de datos para realizar la prueba.")
 
         repo = RepositorioOrdenCompra(session)
         
@@ -34,24 +27,25 @@ def test_folio_oc():
             "creado_por": "ai-tester",
         }
         
-        print(f"--- Iniciando prueba de creación de OC ---")
-        nueva_oc = repo.crear(**datos_oc)
+        nueva_oc = repo.crear(datos_oc)
         
-        print(f"✅ OC Creada exitosamente.")
-        print(f"📋 Folio asignado: {nueva_oc.folio}")
-        
-        # Validar formato OC-YYMMNN
-        esperado_prefijo = "OC-"
-        fecha_str = date.today().strftime("%y%m")
-        if nueva_oc.folio.startswith(f"{esperado_prefijo}{fecha_str}"):
-            print(f"✨ El formato del folio es CORRECTO.")
-        else:
-            print(f"❌ El formato del folio es INCORRECTO. Esperado: {esperado_prefijo}{fecha_str}XX")
-
-        # 3. Limpieza (opcional, pero mejor dejarlo para no ensuciar dev si no es necesario)
-        # session.delete(nueva_oc)
-        # session.commit()
-        # print("🧹 OC de prueba eliminada.")
+        try:
+            # Validar formato OC-YYMMNN
+            esperado_prefijo = "OC-"
+            fecha_str = date.today().strftime("%y%m")
+            
+            assert nueva_oc.folio.startswith(f"{esperado_prefijo}{fecha_str}"), f"Folio {nueva_oc.folio} no sigue el formato esperado {esperado_prefijo}{fecha_str}XX"
+            assert len(nueva_oc.folio) >= 9, "El folio es demasiado corto"
+            
+        finally:
+            # Limpieza
+            session.delete(nueva_oc)
+            session.commit()
 
 if __name__ == "__main__":
-    test_folio_oc()
+    # Para ejecución directa
+    try:
+        test_folio_oc_formato_mensual()
+        print("✅ Prueba de folio OC exitosa.")
+    except Exception as e:
+        print(f"❌ Prueba de folio OC fallida: {e}")

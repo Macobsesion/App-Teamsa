@@ -9,9 +9,18 @@ if TYPE_CHECKING:
     from sqlmodel import Session
 
 class ServicioDominio:
-    """Clase base para servicios de dominio."""
+    """Clase base para servicios de dominio con inyección de sesión."""
     def __init__(self, db: "Session"):
         self.db = db
+
+    def _auditar(self, usuario: str, accion: str, modulo: str, detalles: str) -> None:
+        """Helper para auditoría estandarizada."""
+        from app.base.logs_servicio import ServicioLogs
+        ServicioLogs.registrar(usuario=usuario, accion=accion, modulo=modulo, detalles=detalles)
+
+    def _confirmar(self) -> None:
+        """Commit + manejo de sesión estandarizado."""
+        self.db.commit()
 
 
 class FabricaImpuestos:

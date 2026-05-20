@@ -7,16 +7,18 @@
 
 {% block header_subtitle %}
 Cliente: <strong>{{ ot.cliente_nombre }}</strong>
+{% if 'cotizaciones' in (usuario.permisos_ver or []) %}
 <br>
-<small class="text-secondary">Ref. Cotización: 
+<small class="text-secondary">Ref. Cotización:
     <a href="/ui/cotizaciones/{{ ot.cotizacion_id }}/detalle" class="text-decoration-none">
         <i class="fas fa-file-invoice me-1"></i>{{ ot.cotizacion.numero }} 🔗
     </a>
 </small>
+{% endif %}
 {% endblock %}
 
 {% block status_badge %}
-{{ comp.status_badge(ot.estado, extra_class='fs-5') }}
+{{ comp.status_badge(ot.estado_visual, extra_class='fs-5') }}
 {% if ot.esta_en_viaje %}
 <span class="badge bg-info text-dark shadow-sm border border-info border-opacity-50 fs-5 ms-2">
     <i class="fas fa-plane-departure me-1"></i> Viaje en Curso
@@ -40,7 +42,7 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
         </thead>
         <tbody id="conceptos-ot-{{ ot.id }}">
             {% for concepto in ot.conceptos %}
-                {% include 'ui/ordenes_trabajo/_fila_concepto.html' %}
+            {% include 'ui/ordenes_trabajo/_fila_concepto.html' %}
             {% endfor %}
         </tbody>
     </table>
@@ -59,7 +61,8 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
 
 {% block info_content %}
 {{ comp.info_row('Fecha Programada', ot.fecha_programada | fmt_date) }}
-{{ comp.info_row('Horario', ot.hora_programada + ' (' + ot.duracion|string + ('h' if not ot.unidad_duracion or ot.unidad_duracion == 'horas' else ' días') + ' estimadas)') }}
+{{ comp.info_row('Horario', ot.hora_programada + ' (' + ot.duracion|string + ('h' if not ot.unidad_duracion or
+ot.unidad_duracion == 'horas' else ' días') + ' estimadas)') }}
 {{ comp.info_row('Domicilio', ot.domicilio) }}
 {{ comp.info_row('Contacto', ot.contacto) }}
 
@@ -72,15 +75,17 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
         {% else %}
         <span class="text-muted fst-italic">Sin asignar</span>
         {% endif %}
-        
+
         {% if ot.es_editable and es_admin %}
-        <div class="mt-2 d-flex gap-1">
-            <select id="select-tecnico-{{ ot.id }}" class="form-select text-xs">
+        <div class="mt-2 d-flex gap-1 align-items-center">
+            <select id="select-tecnico-{{ ot.id }}" class="form-select text-xs" style="max-width: 150px;">
                 <option value="">-- Reasignar --</option>
             </select>
-            <button class="btn btn-outline-primary text-xs"
-                    data-accion="reasignar" data-ot-id="{{ ot.id }}">
+            <button class="btn btn-outline-primary text-xs" data-accion="reasignar" data-ot-id="{{ ot.id }}" title="Asignar Técnico">
                 OK
+            </button>
+            <button class="btn btn-outline-secondary text-xs ms-2" data-bs-toggle="modal" data-bs-target="#modalReprogramar" title="Cambiar Fecha/Hora">
+                <i class="fas fa-calendar-day me-1"></i> Reprogramar
             </button>
         </div>
         {% endif %}
@@ -99,9 +104,11 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
             <strong>{{ v.proyecto or 'Arqueo Viáticos' }}</strong><br>
             <span class="text-muted">{{ v.origen }} ➔ {{ v.destino }}</span>
         </small>
-        <a href="/ui/viaticos/{{ v.id }}/detalle" class="btn btn-xs btn-outline-info p-1 text-2xs" title="Ver Detalle">VER ✈️</a>
+        <a href="/ui/viaticos/{{ v.id }}/detalle" class="btn btn-xs btn-outline-info p-1 text-2xs"
+            title="Ver Detalle">VER ✈️</a>
     </div>
-    {% if not loop.last %}<hr class="my-1 opacity-25">{% endif %}
+    {% if not loop.last %}
+    <hr class="my-1 opacity-25">{% endif %}
     {% endfor %}
 </div>
 {% endif %}
@@ -140,14 +147,14 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
 </a>
 {% endblock %}
 
-{% block extra_scripts %}
+{% block customJS %}
 <script>
     // Cargar técnicos disponibles en el select
     document.addEventListener('DOMContentLoaded', async function () {
         const selects = document.querySelectorAll('[id^="select-tecnico-"]');
         const container = document.getElementById('ot-data-container');
         const tecnicoActualId = container ? container.getAttribute('data-tecnico-actual') : "";
-        
+
         if (!selects.length) return;
 
         try {
@@ -168,7 +175,7 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
     });
 
     // Delegación de eventos para botones de acción
-    document.addEventListener('click', async function(e) {
+    document.addEventListener('click', async function (e) {
         // Reasignar técnico
         const btnReasignar = e.target.closest('[data-accion="reasignar"]');
         if (btnReasignar) {
@@ -233,5 +240,6 @@ Cliente: <strong>{{ ot.cliente_nombre }}</strong>
         }
     }
 </script>
+{% include 'ui/ordenes_trabajo/_modal_reprogramar.html' %}
 <div id="ot-data-container" data-tecnico-actual="{{ ot.tecnico_id or '' }}" style="display:none;"></div>
 {% endblock %}

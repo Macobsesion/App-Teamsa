@@ -63,26 +63,6 @@ class ServicioCalculadoraCotizacion:
             "total": total
         }
 
-    @staticmethod
-    def extraer_numero_base(numero: str) -> str:
-        """
-        Extrae el número base sin letra de versión.
-        Soporta formato antiguo (COT-0001-B) y nuevo (COT-YYMMDD-ID-B).
-        """
-        partes = numero.split('-')
-        
-        # Si tiene menso de 3 partes, asumimos que es base (ej: COT-001, TEMP-PENDING)
-        if len(partes) < 3:
-            return numero
-            
-        # Si la última parte NO es numérica, asumimos que es letra de versión
-        # Ej: COT-0001-B -> B no es dígito -> Base: COT-0001
-        # Ej: COT-YYMMDD-ID-B -> B no es dígito -> Base: COT-YYMMDD-ID
-        if not partes[-1].isdigit():
-            return "-".join(partes[:-1])
-            
-        # Si es numérica, es parte del número (ej: COT-YYMMDD-45)
-        return numero
 
     @staticmethod
     def calcular_siguiente_letra(letras_usadas: List[str | None]) -> str:
@@ -119,3 +99,26 @@ class ServicioCalculadoraCotizacion:
                 return primera + chr(ord(segunda) + 1)
         
         return "B"  # Fallback seguro
+
+    @staticmethod
+    def extraer_numero_base(numero: str) -> str:
+        """
+        Extrae el número base de una cotización quitando el sufijo de versión.
+        Ejemplo: 'COT-001-B' -> 'COT-001'
+        """
+        if not numero:
+            return ""
+        
+        # Si termina en -[Letra(s)], lo quitamos
+        partes = numero.split("-")
+        if len(partes) > 1:
+            ultima = partes[-1]
+            # Si la última parte es una letra de versión (solo letras, mayúsculas)
+            if ultima.isalpha() and ultima.isupper() and len(partes) > 2:
+                # Caso especial para folios tipo COT-YYMMDD-NNN-B
+                return "-".join(partes[:-1])
+            elif ultima.isalpha() and ultima.isupper() and len(partes) == 2:
+                # Caso simple COT-001-B
+                return partes[0]
+                
+        return numero

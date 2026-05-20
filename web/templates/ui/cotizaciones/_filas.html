@@ -48,9 +48,9 @@
         <td class="text-nowrap" style="width: 100px;">{{ item.fecha_emision | fmt_date }}</td>
         <td class="text-end text-nowrap" style="width: 120px;"><strong>${{ item.total | fmt_currency }}</strong></td>
         <td class="text-center" style="width: 100px;">
-            {{ comp.status_badge(item.estado_visual) }}
+            {{ comp.status_badge(item.estado_visual or item.estado) }}
         </td>
-        {% set can_edit_negocio = item.estado not in ['modificada', 'programada', 'finalizada', 'cerrada', 'aceptada', 'cancelada'] %}
+        {% set can_edit_negocio = item.estado in ['borrador', 'emitida'] %}
         {% set btns_extra = [] %}
         {% if es_admin %}
             {% set _ = btns_extra.append({

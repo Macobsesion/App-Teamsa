@@ -115,7 +115,8 @@ def crear_modulo_crud(
         hooks=descriptor.build_hooks(),
         obtener_sesion=obtener_sesion,
         list_dependencies=[Depends(ver_dependency)] if ver_dependency else [Depends(actor_dependency)],
-        write_dependency=editar_dependency,
+        create_dependency=crear_dependency,
+        update_dependency=editar_dependency,
         delete_dependency=eliminar_dependency,
         ui=DescriptorUI(
             tpl_filas=tpl_filas, 
@@ -138,16 +139,24 @@ def crear_modulo_crud(
     
     ui_config = descriptor.config_ui or ConfiguracionUI()
     @router_ui.get("/", response_class=HTMLResponse)
-    def vista_principal(request: Request, _ver_perm: Any = Depends(ver_dependency) if ver_dependency else Depends(actor_dependency)):
+    def vista_principal(
+        request: Request, 
+        db: Session = Depends(obtener_sesion),
+        actor: Any = Depends(ver_dependency) if ver_dependency else Depends(actor_dependency)
+    ):
         templates = get_templates()
         # Usar nombre_modulo como tópico para estabilidad en el refresco HTMX
         topic = ui_config.topic or nombre_modulo or descriptor.base_url.strip('/').replace('/', '_')
         
+        from app.base.ui_crud import _obtener_usuario_db
+        u_db = _obtener_usuario_db(db, actor)
+
         return templates.TemplateResponse("crud_page.html", {
             "request": request, 
-            "configuracion": descriptor.frontend_config(),
+            "crud_config": descriptor.frontend_config(),
             "ui_base": ui_prefix,
-            "topic": topic
+            "topic": topic,
+            "usuario_actual": u_db
         })
     
     router_combinado = APIRouter()

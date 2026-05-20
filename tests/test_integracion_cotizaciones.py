@@ -6,7 +6,7 @@ from decimal import Decimal
 from sqlmodel import select
 
 from app.modulos.clientes.clientes_modelo import Cliente
-from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCreacionCotizacion
+from app.modulos.cotizaciones.cotizaciones_servicios import ServicioCotizaciones
 from app.modulos.cotizaciones.cotizaciones_modelo import Cotizacion
 from tests.factories import ClienteFactory, ServicioFactory
 
@@ -24,7 +24,7 @@ def test_creacion_cotizacion_completa(session):
     session.refresh(cliente)
     
     # 2. Ejecutar el servicio (SUT - System Under Test)
-    servicio = ServicioCreacionCotizacion(session)
+    servicio = ServicioCotizaciones(session)
     
     datos_entrada = {
         "cliente_id": cliente.id,
@@ -45,7 +45,7 @@ def test_creacion_cotizacion_completa(session):
         ]
     }
     
-    cotizacion = servicio.crear_documento(datos_entrada, datos_entrada['servicios'])
+    cotizacion = servicio.crear_cotizacion_completa(datos_entrada, datos_entrada['usuario_id'])
     
     # 3. Assertions
     assert cotizacion.id is not None

@@ -24,7 +24,7 @@ class EstadoCotizacion(str, Enum):
     @property
     def permite_crear_ot(self) -> bool:
         """Determina si la cotización puede generar una Orden de Trabajo."""
-        return self in (EstadoCotizacion.EMITIDA, EstadoCotizacion.PROGRAMADA)
+        return self in (EstadoCotizacion.BORRADOR, EstadoCotizacion.EMITIDA, EstadoCotizacion.PROGRAMADA)
 
     @property
     def esta_bloqueada(self) -> bool:
@@ -36,10 +36,3 @@ class EstadoCotizacion(str, Enum):
             EstadoCotizacion.CANCELADA
         )
 
-class EstadoViatico(str, Enum):
-    """Estados para el flujo de viáticos."""
-    BORRADOR = "borrador"
-    SOLICITADO = "solicitado"
-    APROBADO = "aprobado"
-    PAGADO = "pagado"
-    CANCELADO = "cancelado"

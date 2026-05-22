@@ -50,25 +50,25 @@
   --bs-focus-ring-color: rgba(65, 72, 195, 0.25);
   /* rgba de var(--teamsa-primary) */
 
-  /* Tipografía Estándar */
-  --fs-2xs: 0.625rem;
-  /* 10px */
-  --fs-xs: 0.75rem;
-  /* 12px */
-  --fs-sm: 0.8125rem;
-  /* 13px */
-  --fs-base: 0.9375rem;
-  /* 15px */
-  --fs-md: 1rem;
-  /* 16px */
-  --fs-lg: 1.125rem;
-  /* 18px */
-  --fs-xl: 1.25rem;
-  /* 20px */
-  --fs-2xl: 1.5rem;
-  /* 24px */
-  --fs-3xl: 1.875rem;
-  /* 30px */
+  /* Tipografía Estándar (+2px/pts a toda la app, manteniendo el diseño responsivo) */
+  --fs-2xs: 0.75rem;
+  /* 12px (original 10px) */
+  --fs-xs: 0.875rem;
+  /* 14px (original 12px) */
+  --fs-sm: 0.9375rem;
+  /* 15px (original 13px) */
+  --fs-base: 1.0625rem;
+  /* 17px (original 15px) */
+  --fs-md: 1.125rem;
+  /* 18px (original 16px) */
+  --fs-lg: 1.25rem;
+  /* 20px (original 18px) */
+  --fs-xl: 1.375rem;
+  /* 22px (original 20px) */
+  --fs-2xl: 1.625rem;
+  /* 26px (original 24px) */
+  --fs-3xl: 2rem;
+  /* 32px (original 30px) */
 
   /* Efectos Premium */
   --glass-bg: rgba(255, 255, 255, 0.7);

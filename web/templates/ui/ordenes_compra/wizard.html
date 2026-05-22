@@ -304,16 +304,16 @@
             return;
         }
 
-        let html = '<div class="table-responsive"><table class="table text-sm"><thead><tr class="text-muted"><th style="width:10%">SKU</th><th>Descripción</th><th class="text-center" style="width:10%">Cant</th><th class="text-end" style="width:15%">Precio</th><th class="text-center" style="width:12%">Desc %</th><th class="text-end" style="width:15%">Total</th><th style="width:50px"></th></tr></thead><tbody>';
+        let html = '<div class="table-responsive"><table class="table text-sm"><thead><tr class="text-muted"><th style="width:10%">SKU</th><th>Descripción</th><th class="text-center" style="width:15%">Cant</th><th class="text-end" style="width:15%">Precio</th><th class="text-center" style="width:12%">Desc %</th><th class="text-end" style="width:15%">Total</th><th style="width:50px"></th></tr></thead><tbody>';
         
         wiz.state.items.forEach((item, i) => {
             const fila = (item.cantidad * item.precio_unitario) * (1 - (item.descuento_porcentaje / 100));
             html += `<tr>
                 <td class="align-middle text-2xs">${item.codigo}</td>
                 <td><input type="text" class="form-control form-control-sm" value="${item.descripcion}" onchange="wiz.actualizarItem(${i}, 'descripcion', this.value)"></td>
-                <td><input type="number" class="form-control form-control-sm text-center" value="${item.cantidad}" oninput="wiz.actualizarItem(${i}, 'cantidad', this.value, true)"></td>
-                <td><input type="number" class="form-control form-control-sm text-end" value="${item.precio_unitario}" oninput="wiz.actualizarItem(${i}, 'precio_unitario', this.value, true)"></td>
-                <td><input type="number" class="form-control form-control-sm text-center" value="${item.descuento_porcentaje}" oninput="wiz.actualizarItem(${i}, 'descuento_porcentaje', this.value, true)"></td>
+                <td><input type="number" class="form-control form-control-sm text-center" value="${item.cantidad}" onchange="wiz.actualizarItem(${i}, 'cantidad', this.value, true)"></td>
+                <td><input type="number" class="form-control form-control-sm text-end" value="${item.precio_unitario}" onchange="wiz.actualizarItem(${i}, 'precio_unitario', this.value, true)"></td>
+                <td><input type="number" class="form-control form-control-sm text-center" value="${item.descuento_porcentaje}" onchange="wiz.actualizarItem(${i}, 'descuento_porcentaje', this.value, true)"></td>
                 <td class="align-middle text-end fw-bold">$${fila.toFixed(2)}</td>
                 <td class="align-middle text-center"><button class="btn btn-link text-danger p-0" onclick="wiz.eliminarItem(${i})"><i class="fas fa-trash-alt"></i></button></td>
             </tr>`;

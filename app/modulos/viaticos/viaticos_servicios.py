@@ -190,6 +190,9 @@ class ServicioViaticos(ServicioDominio):
             # Forzar sincronía con los datos maestros de la cotización
             v_data["cotizacion_id"] = cotizacion_id
             v_data["cliente_id"] = cliente_id
+            
+            if not v_data.get("responsable_id"):
+                v_data["responsable_id"] = r_id
 
             if v_id:
                 # Actualización sin commit y sin sincronizar cotización (el orquestador sincronizará todo al final)

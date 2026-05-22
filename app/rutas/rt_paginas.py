@@ -67,6 +67,19 @@ def salud():
 @router.get("/", response_class=HTMLResponse)
 def mostrar_login(request: Request):
     # Página de autenticación (no protegida)
+    # Si el usuario ya está logueado de forma válida, lo redirigimos al calendario
+    try:
+        from app.nucleo.sesion import obtener_token_cookie
+        token = obtener_token_cookie(request)
+        if token:
+            from app.nucleo.cls_identidad import obtener_gestor_identidad
+            usuario, rol = obtener_gestor_identidad().extraer_identidad(token)
+            if usuario:
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url="/ui/cronograma", status_code=302)
+    except Exception:
+        pass
+
     return templates.TemplateResponse(request, "frm_login.html")
 
 

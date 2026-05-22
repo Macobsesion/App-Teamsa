@@ -36,16 +36,8 @@ def upgrade() -> None:
     #    El nombre exacto puede variar si se creó con Alembic (nombre autogenerado).
     #    Usamos naming_convention o buscamos por tabla.
     
-    # Intentar con nombre Alembic convencional primero
-    try:
-        op.drop_constraint(
-            'concepto_orden_trabajo_orden_id_fkey',
-            'concepto_orden_trabajo',
-            type_='foreignkey'
-        )
-    except Exception:
-        # Si el nombre es diferente, intentar sin nombre (PostgreSQL lo infiere)
-        pass
+    # Eliminar constraint usando SQL nativo para evitar abortar la transacción de Postgres
+    op.execute("ALTER TABLE concepto_orden_trabajo DROP CONSTRAINT IF EXISTS concepto_orden_trabajo_orden_id_fkey")
     
     op.create_foreign_key(
         'concepto_orden_trabajo_orden_id_fkey',
@@ -59,14 +51,8 @@ def upgrade() -> None:
     #    Esta FK fue creada en la migración 537ee15fde09 con:
     #    sa.ForeignKeyConstraint(['orden_id'], ['ordentrabajo.id'])
     #    PostgreSQL auto-genera el nombre como: viatico_orden_enlace_orden_id_fkey
-    try:
-        op.drop_constraint(
-            'viatico_orden_enlace_orden_id_fkey',
-            'viatico_orden_enlace',
-            type_='foreignkey'
-        )
-    except Exception:
-        pass
+    # Eliminar constraint usando SQL nativo para evitar abortar la transacción de Postgres
+    op.execute("ALTER TABLE viatico_orden_enlace DROP CONSTRAINT IF EXISTS viatico_orden_enlace_orden_id_fkey")
     
     op.create_foreign_key(
         'viatico_orden_enlace_orden_id_fkey',
@@ -80,14 +66,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     """Revierte el rename: orden_trabajo → ordentrabajo."""
     # Revertir FKs
-    try:
-        op.drop_constraint(
-            'viatico_orden_enlace_orden_id_fkey',
-            'viatico_orden_enlace',
-            type_='foreignkey'
-        )
-    except Exception:
-        pass
+    # Eliminar constraint usando SQL nativo para evitar abortar la transacción de Postgres
+    op.execute("ALTER TABLE viatico_orden_enlace DROP CONSTRAINT IF EXISTS viatico_orden_enlace_orden_id_fkey")
     
     op.create_foreign_key(
         'viatico_orden_enlace_orden_id_fkey',
@@ -97,14 +77,8 @@ def downgrade() -> None:
         ['id']
     )
     
-    try:
-        op.drop_constraint(
-            'concepto_orden_trabajo_orden_id_fkey',
-            'concepto_orden_trabajo',
-            type_='foreignkey'
-        )
-    except Exception:
-        pass
+    # Eliminar constraint usando SQL nativo para evitar abortar la transacción de Postgres
+    op.execute("ALTER TABLE concepto_orden_trabajo DROP CONSTRAINT IF EXISTS concepto_orden_trabajo_orden_id_fkey")
     
     op.create_foreign_key(
         'concepto_orden_trabajo_orden_id_fkey',

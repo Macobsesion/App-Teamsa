@@ -5,7 +5,7 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
 #}
 <nav class="navbar navbar-expand-lg navbar-dark navbar-teamsa">
   <div class="container-fluid">
-    <a class="navbar-brand d-flex align-items-center" href="/usuarios">
+    <a class="navbar-brand d-flex align-items-center" href="{{ '/ui/cronograma' if usuario else '/' }}">
       <img src="/static/images/teamsa_logo.png?v=3" alt="TEAMSA" height="35"
         class="d-inline-block align-text-top me-2 navbar-logo">
       <span class="fw-bold">TEAMSA</span>
@@ -16,20 +16,24 @@ Barra de navegación premium con Bootstrap y estilos corporativos TEAMSA.
     <div class="collapse navbar-collapse" id="navbarNav">
       {% if usuario %}
       <ul class="navbar-nav me-auto">
-        <!-- Usuarios /  Inicio -->
-        {% if 'usuarios' in (usuario.permisos_ver or []) %}
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path == '/usuarios' else '' }}" href="/usuarios">
-            <i class="fas fa-user-shield me-1"></i> Usuarios
+        <!-- Módulo Administración -->
+        {% set v_perm = usuario.permisos_ver or [] %}
+        {% if 'usuarios' in v_perm or 'auditoria' in v_perm %}
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle {{ 'active' if request.url.path.startswith(('/usuarios', '/auditoria')) else '' }}"
+            href="#" role="button" data-bs-toggle="dropdown">
+            <i class="fas fa-cogs me-1"></i> Administración
           </a>
-        </li>
-        {% endif %}
-
-        {% if 'auditoria' in (usuario.permisos_ver or []) %}
-        <li class="nav-item">
-          <a class="nav-link {{ 'active' if request.url.path == '/auditoria' else '' }}" href="/auditoria">
-            <i class="fas fa-shield-alt me-1"></i> Auditoría
-          </a>
+          <ul class="dropdown-menu shadow-lg border-0">
+            {% if 'usuarios' in v_perm %}
+            <li><a class="dropdown-item py-2" href="/usuarios"><i class="fas fa-user-shield me-2 text-primary"></i>
+                Usuarios</a></li>
+            {% endif %}
+            {% if 'auditoria' in v_perm %}
+            <li><a class="dropdown-item py-2" href="/auditoria"><i class="fas fa-shield-alt me-2 text-primary"></i>
+                Auditoría</a></li>
+            {% endif %}
+          </ul>
         </li>
         {% endif %}
 

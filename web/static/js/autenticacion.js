@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const data = await response.json();
                     // Redirección uniforme: El sistema de permisos (checkboxes) 
                     // se encargará de mostrar o denegar acceso a los módulos.
-                    window.location.href = '/cotizaciones';
+                    window.location.href = '/ui/cronograma';
                 } else {
                     const error = await response.json();
                     alert(error.detail || 'Error al iniciar sesión');

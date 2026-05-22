@@ -16,6 +16,7 @@ class RepositorioCotizacion(MixinFolioMensual, RepositorioCRUD[Cotizacion]):
 
     modelo = Cotizacion
     prefijo_folio = PREFIJO_NUMERO_COTIZACION
+    campo_folio = "numero"
     campo_fecha = "fecha_emision"
 
     def filtro_secuencia_extra(self) -> list:

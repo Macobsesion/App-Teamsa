@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, Request
 from sqlmodel import Session, select
 
 from app.nucleo.base_datos import obtener_sesion_bd
-from app.rutas.dependencias import dp_usuario_actual
+from app.rutas.dependencias import dp_usuario_actual, dp_usuario_db
 from app.rutas.permisos import para_modulo
 from app.modulos.ordenes_trabajo.ordenes_trabajo_modelo import OrdenTrabajo
 from app.modulos.viaticos.viaticos_modelo import Viatico
-from app.modulos.usuarios.usuarios_esquemas import UsuarioIdentity
+from app.modulos.usuarios.usuarios_modelo import Usuario
 from app.web.jinja import get_templates
 
 TEMPLATES = get_templates()
@@ -21,7 +21,7 @@ router_cronograma_api = APIRouter(prefix="/api/cronograma", tags=["Cronograma"])
 @router_cronograma_ui.get("")
 def vista_cronograma(
     request: Request,
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_trabajo", "ver"))
+    usuario: Usuario = Depends(dp_usuario_db)
 ):
     """Vista principal del cronograma con calendario mensual."""
     from app.base.timezone import hoy_mexico
@@ -43,7 +43,7 @@ def obtener_eventos(
     anio: int,
     mes: int,
     db: Session = Depends(obtener_sesion_bd),
-    usuario: UsuarioIdentity = Depends(para_modulo("ordenes_trabajo", "ver"))
+    usuario: Usuario = Depends(dp_usuario_db)
 ):
     """Retorna OTs y Viáticos del mes como JSON para el calendario."""
     primer_dia = date(anio, mes, 1)

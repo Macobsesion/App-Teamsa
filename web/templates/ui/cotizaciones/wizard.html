@@ -368,7 +368,7 @@
                     <thead>
                         <tr class="text-muted">
                             <th>Descripción</th>
-                            <th class="text-center" style="width:10%">Cant</th>
+                            <th class="text-center" style="width:15%">Cant</th>
                             <th class="text-end" style="width:15%">P. Unit</th>
                             <th class="text-center" style="width:15%">Desc %</th>
                             <th class="text-end" style="width:15%">Total</th>
@@ -395,17 +395,17 @@
                     <td>
                         <input type="number" class="form-control form-control-sm text-center" value="${s.cantidad}" 
                                ${lockCalculadora}
-                               oninput="wiz.actualizarItem(${idx}, 'cantidad', this.value, true)">
+                               onchange="wiz.actualizarItem(${idx}, 'cantidad', this.value, true)">
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-end" value="${s.precio_unitario}" 
                                ${lockCalculadora}
-                               oninput="wiz.actualizarItem(${idx}, 'precio_unitario', this.value, true)">
+                               onchange="wiz.actualizarItem(${idx}, 'precio_unitario', this.value, true)">
                     </td>
                     <td>
                         <input type="number" class="form-control form-control-sm text-center" value="${s.descuento_porcentaje}" 
                                ${lockDescuento}
-                               oninput="wiz.actualizarItem(${idx}, 'descuento_porcentaje', this.value, true)">
+                               onchange="wiz.actualizarItem(${idx}, 'descuento_porcentaje', this.value, true)">
                     </td>
                     <td class="text-end fw-bold">$${totalFila.toFixed(2)}</td>
                     <td class="text-center">

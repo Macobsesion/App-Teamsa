@@ -20,15 +20,16 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Eliminar índice único
-    op.drop_index('ix_concepto_orden_trabajo_concepto_cotizacion_id', table_name='concepto_orden_trabajo')
+    # Eliminar índice único usando SQL nativo para evitar fallos de transacción
+    op.execute("DROP INDEX IF EXISTS ix_concepto_orden_trabajo_concepto_cotizacion_id")
     # Crear índice no único
     op.create_index('ix_concepto_orden_trabajo_concepto_cotizacion_id', 'concepto_orden_trabajo', ['concepto_cotizacion_id'], unique=False)
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Eliminar índice no único
-    op.drop_index('ix_concepto_orden_trabajo_concepto_cotizacion_id', table_name='concepto_orden_trabajo')
+    # Eliminar índice no único usando SQL nativo para evitar fallos de transacción
+    op.execute("DROP INDEX IF EXISTS ix_concepto_orden_trabajo_concepto_cotizacion_id")
     # Crear índice único
     op.create_index('ix_concepto_orden_trabajo_concepto_cotizacion_id', 'concepto_orden_trabajo', ['concepto_cotizacion_id'], unique=True)
+
